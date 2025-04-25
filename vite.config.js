@@ -4,5 +4,5 @@ import react from '@vitejs/plugin-react'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
-  base: '/CIA/', // Add this line - it should match your repository name
+  base: '/Invoice-test/', // Add this line - it should match your repository name
 })
