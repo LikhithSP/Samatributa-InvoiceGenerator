@@ -1,0 +1,228 @@
+/* LoginPage.css */
+
+.login-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: url(https://v3.fal.media/files/panda/sO6WFMolI-FrU0SJEi9bR.png) no-repeat center center fixed;
+  background-size: cover;
+}
+
+.login-card {
+  background-color: rgba(255, 255, 255, 0.89);
+  border-radius: 0.5rem;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  display: flex;
+  overflow: hidden;
+  width: 100%;
+  max-width: 1000px;
+  
+}
+
+.login-content {
+  width: 100%;
+  padding: 2rem;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.brand-dots {
+  display: flex;
+  gap: 4px;
+}
+
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.dot-black {
+  background-color: #000;
+}
+
+.dot-gray {
+  background-color: #d1d5db;
+}
+
+.dot-yellow {
+  background-color: #fde047;
+}
+
+.brand-name {
+  margin-left: 10px;
+  font-weight: 500;
+  font-size: 1.1rem;
+}
+
+.login-title {
+  font-size: 2rem;
+  font-weight: 700;
+  margin-bottom: 2rem;
+  color: #111827;
+}
+
+.form-group {
+  margin-bottom: 1.5rem;
+}
+
+.form-label {
+  display: block;
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+  color: #4b5563;
+}
+
+.form-input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background-color: #f3f4f6;
+  border: none;
+  border-radius: 0.375rem;
+  font-size: 1rem;
+}
+
+.form-input:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(253, 224, 71, 0.3);
+}
+
+.forgot-link {
+  display: block;
+  text-align: right;
+  font-size: 0.875rem;
+  color: #6b7280;
+  margin-bottom: 1.5rem;
+  text-decoration: none;
+}
+
+.forgot-link:hover {
+  text-decoration: underline;
+}
+
+.login-button {
+  width: 100%;
+  background-color: #fde047;
+  color: #000;
+  border: none;
+  border-radius: 9999px;
+  padding: 0.75rem 1rem;
+  font-weight: 500;
+  font-size: 1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s;
+}
+
+.login-button:hover {
+  background-color: #fcd34d;
+}
+
+.login-button svg {
+  margin-left: 0.5rem;
+}
+
+.demo-link {
+  display: block;
+  text-align: center;
+  margin-top: 1rem;
+  color: #d97706;
+  font-size: 0.875rem;
+  text-decoration: none;
+}
+
+.demo-link:hover {
+  text-decoration: underline;
+}
+
+.divider {
+  text-align: center;
+  color: #6b7280;
+  margin: 1.5rem 0;
+  font-size: 0.875rem;
+}
+
+.social-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 1.5rem;
+  margin-top: 1rem;
+}
+
+.social-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.5rem;
+  padding: 0.5rem;
+  border-radius: 9999px;
+  transition: background-color 0.2s;
+}
+
+.social-button:hover {
+  background-color: #f3f4f6;
+}
+
+.google-icon {
+  color: #4285f4;
+}
+
+.github-icon {
+  color: #333;
+}
+
+.facebook-icon {
+  color: #1877f2;
+}
+
+.signup-text {
+  margin-top: 2rem;
+  text-align: center;
+  color: #6b7280;
+  font-size: 0.875rem;
+}
+
+.signup-link {
+  color: #d97706;
+  text-decoration: none;
+}
+
+.signup-link:hover {
+  text-decoration: underline;
+}
+
+
+
+.login-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 25px;
+  display: block;
+  max-width: 100%;
+}
+
+.illustration {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* Media queries for responsive design */
+@media (min-width: 768px) {
+  .login-content {
+    width: 50%;
+    padding: 2.5rem;
+  }
+  
+  .image-container {
+    display: block;
+  }
+}

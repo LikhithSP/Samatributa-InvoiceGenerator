@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📝</text></svg>">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Invoice Generator - Sama Tributa Solutions</title>
+    
+    <!-- Add redirect script first to handle routing before app loads -->
+    <script src="/redirect.js"></script>
+    
+    <script>
+      // Global error handler to catch JS errors
+      window.addEventListener('error', function(event) {
+        console.error('Global error:', event.error);
+        const errorMsg = event.error ? event.error.message : 'Unknown error';
+        console.log('Error details:', errorMsg);
+      });
+    </script>
+  </head>
+  <body>
+    <!-- Add noscript warning -->
+    <noscript>
+      <div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: white; z-index: 10000; display: flex; align-items: center; justify-content: center; flex-direction: column; padding: 20px; text-align: center;">
+          <h2 style="color: red;">JavaScript is disabled</h2>
+          <p>This application requires JavaScript to function. Please enable JavaScript in your browser settings and reload the page.</p>
+      </div>
+    </noscript>
+    
+    <!-- Initial loading indicator -->
+    <div id="initialLoading" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: white; display: flex; justify-content: center; align-items: center; z-index: 100000; visibility: visible;">
+      <div style="text-align: center;">
+        <div style="border: 5px solid #f3f3f3; border-top: 5px solid #e07fa9; border-radius: 50%; width: 50px; height: 50px; margin: 0 auto 20px; animation: spin 2s linear infinite;"></div>
+        <p>Loading invoice generator...</p>
+      </div>
+    </div>
+    
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+    <script>
+      // Hide loading overlay after app loaded
+      window.addEventListener('load', function() {
+        setTimeout(function() {
+          const initialLoading = document.getElementById('initialLoading');
+          if (initialLoading) {
+            initialLoading.style.display = 'none';
+          }
+        }, 1000);
+      });
+    </script>
+  </body>
+</html>
