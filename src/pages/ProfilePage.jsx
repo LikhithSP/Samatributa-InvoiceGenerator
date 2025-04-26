@@ -25,7 +25,7 @@ const ProfilePage = () => {
       { 
         id: 1, 
         name: 'Acme Corporation', 
-        logo: '/images/default-logo.png',
+        logo: './images/default-logo.png',
         address: '123 Corporate Ave, Business District',
         gstin: 'GST1234567890ABC',
         bankDetails: {
@@ -38,7 +38,7 @@ const ProfilePage = () => {
       { 
         id: 2, 
         name: 'Globex Industries', 
-        logo: '/images/c-logo.png',
+        logo: './images/c-logo.png',
         address: '456 Tech Park, Innovation Valley',
         gstin: 'GST9876543210XYZ',
         bankDetails: {
@@ -124,9 +124,9 @@ const ProfilePage = () => {
     // In a real app, this would handle file uploads.
     // For this demo, we'll just alternate between some sample logos
     const logos = [
-      '/images/default-logo.png',
-      '/images/c-logo.png',
-      '/images/favicon.png',
+      './images/default-logo.png',
+      './images/c-logo.png',
+      './images/favicon.png',
       defaultLogo
     ];
     

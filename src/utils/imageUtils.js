@@ -4,8 +4,8 @@
 
 // Default images (public path)
 export const PUBLIC_IMAGES = {
-  DEFAULT_LOGO: `${import.meta.env.BASE_URL}images/default-logo.png`,
-  FAVICON: `${import.meta.env.BASE_URL}images/favicon.png`,
+  DEFAULT_LOGO: '.images/default-logo.png',
+  FAVICON: '.images/favicon.png',
 };
 
 // Application images (imported from assets)

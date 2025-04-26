@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import '../App.css';
 import InvoiceForm from '../components/InvoiceForm';
 import InvoicePreview from '../components/InvoicePreview';
-import { defaultLogo, companyName } from '../assets/logoData';
+import { defaultLogo, companyName } from '../utils/imageUtils'; // Adjust the import path as necessary
 
 const InvoicePage = ({ onLogout, darkMode, toggleDarkMode }) => {
   const { id } = useParams();

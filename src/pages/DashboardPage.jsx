@@ -3,15 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { FiSearch, FiSettings, FiLogOut, FiUser, FiPlus, FiChevronDown } from 'react-icons/fi';
 import { FiSun, FiMoon } from 'react-icons/fi';
 import '../App.css';
-import { defaultLogo } from '../assets/images/default-logo.png';
-import { cLogo } from '../assets/images/c-logo.png';
-import { favicon } from '../assets/images/favicon.png';
-import { getImageWithFallback } from '../utils/imageUtils'; // Assuming you have this utility
-import { preloadImage } from '../utils/imageUtils'; // Assuming you have this utility
-import { APP_IMAGES } from '../utils/imageUtils'; // Assuming you have this utility
-import { PUBLIC_IMAGES } from '../utils/imageUtils'; // Assuming you have this utility
-import { APP_NAME } from '../utils/constants'; // Assuming you have this utility
-
 
 const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
   const navigate = useNavigate();
@@ -133,7 +124,7 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
       {/* Sidebar with company list */}
       <aside className="dashboard-sidebar">
         <div className="company-logo-container">
-          <img src="/images/c-logo.png" alt="CIA App" className="main-company-logo" />
+          <img src="./images/c-logo.png" alt="CIA App" className="main-company-logo" />
           <h3>CIA App</h3>
         </div>
         
