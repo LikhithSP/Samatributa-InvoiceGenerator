@@ -10,11 +10,11 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
   
   // Sample companies data for demonstration
   const sampleCompanies = [
-    { id: 1, name: 'Acme Corporation', logo: '/images/favicon.png' },
-    { id: 2, name: 'Globex Industries', logo: '/images/c-logo.png' },
-    { id: 3, name: 'Initech LLC', logo: '/images/favicon.png' },
-    { id: 4, name: 'Umbrella Corp', logo: '/images/favicon.png' },
-    { id: 5, name: 'Stark Industries', logo: '/images/favicon.png'}
+    { id: 1, name: 'Acme Corporation', logo: './images/favicon.png' },
+    { id: 2, name: 'Globex Industries', logo: './images/c-logo.png' },
+    { id: 3, name: 'Initech LLC', logo: './images/favicon.png' },
+    { id: 4, name: 'Umbrella Corp', logo: './images/favicon.png' },
+    { id: 5, name: 'Stark Industries', logo: './images/favicon.png'}
   ];
   
   // State for selected company and dashboard view
