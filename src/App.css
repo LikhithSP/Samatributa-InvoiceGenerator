@@ -486,7 +486,62 @@ table th {
   color: #888;
 }
 
-/* Error Display Component */
+/* Notification Display */
+.notification-display {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 10000;
+  max-width: 80%;
+}
+
+.notification-content {
+  padding: 15px 20px;
+  border-radius: 5px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  animation: slide-in 0.3s ease-out;
+  color: white;
+}
+
+/* Different notification types */
+.notification-content.error {
+  background-color: var(--status-pending); /* Red */
+}
+
+.notification-content.success {
+  background-color: var(--status-completed); /* Green */
+}
+
+.notification-content.warning {
+  background-color: var(--status-in-progress); /* Amber */
+}
+
+.notification-content.info {
+  background-color: var(--primary-color); /* Blue */
+}
+
+.notification-message {
+  margin-right: 20px;
+}
+
+.notification-close {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 22px;
+  cursor: pointer;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Keep the old class for backward compatibility */
 .error-display {
   position: fixed;
   bottom: 20px;
@@ -496,7 +551,7 @@ table th {
 }
 
 .error-content {
-  background-color: #ef4444;
+  background-color: var(--status-pending);
   color: white;
   padding: 15px 20px;
   border-radius: 5px;

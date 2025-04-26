@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import { FaGoogle, FaGithub, FaFacebook } from 'react-icons/fa';
+import { useState, useEffect } from 'react';
 import { FiArrowRight } from 'react-icons/fi';
 import './LoginPage.css'; // Import the CSS file
 
@@ -8,6 +7,22 @@ const LoginPage = ({ onLogin }) => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  // Force light mode for login page
+  useEffect(() => {
+    // Store the original dark mode state
+    const wasDarkMode = document.body.classList.contains('dark-mode');
+    
+    // Force remove dark mode class while on login page
+    document.body.classList.remove('dark-mode');
+    
+    // Cleanup function to restore original mode when component unmounts
+    return () => {
+      if (wasDarkMode) {
+        document.body.classList.add('dark-mode');
+      }
+    };
+  }, []);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -61,89 +76,73 @@ const LoginPage = ({ onLogin }) => {
   
 
   return (
-    <div className="login-container">
-      <div className="login-card">
-        {/* Left Content */}
-        <div className="login-content">
-          <div className="brand">
-            <div className="brand-dots">
-              <div className="dot dot-black"></div>
-              <div className="dot dot-gray"></div>
-              <div className="dot dot-yellow"></div>
+    <div className="login-page-light-mode">
+      <div className="login-container">
+        <div className="login-card">
+          {/* Left Content */}
+          <div className="login-content">
+            <div className="brand">
+              <div className="brand-dots">
+                <div className="dot dot-black"></div>
+                <div className="dot dot-gray"></div>
+                <div className="dot dot-yellow"></div>
+              </div>
+              <span className="brand-name">Sama Tributa Solutions</span>
             </div>
-            <span className="brand-name">Sama Tributa Solutions</span>
+            
+            <h1 className="login-title">Invoice Generator</h1>
+            
+            <form onSubmit={handleSubmit}>
+              {error && <div className="error-message">{error}</div>}
+              
+              <div className="form-group">
+                <label className="form-label" htmlFor="email">Email</label>
+                <input
+                  type="email"
+                  id="email"
+                  placeholder="Enter your email address"
+                  className="form-input"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+              </div>
+              
+              <div className="form-group">
+                <label className="form-label" htmlFor="password">Password</label>
+                <input
+                  type="password"
+                  id="password"
+                  placeholder="Enter your password"
+                  className="form-input"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </div>
+              
+              <a href="#" className="forgot-link">Forgot Password ?</a>
+              
+              <button 
+                type="submit" 
+                className="login-button" 
+                disabled={isLoading}
+              >
+                {isLoading ? 'LOADING...' : 'LOGIN'} {!isLoading && <FiArrowRight />}
+              </button>
+              
+              <a href="#" className="demo-link" onClick={fillDemoCredentials}>
+                Fill demo credentials
+              </a>
+            </form>
           </div>
           
-          <h1 className="login-title">Invoice Generator</h1>
-          
-          <form onSubmit={handleSubmit}>
-            {error && <div className="error-message">{error}</div>}
-            
-            <div className="form-group">
-              <label className="form-label" htmlFor="email">Email</label>
-              <input
-                type="email"
-                id="email"
-                placeholder="Enter your email address"
-                className="form-input"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </div>
-            
-            <div className="form-group">
-              <label className="form-label" htmlFor="password">Password</label>
-              <input
-                type="password"
-                id="password"
-                placeholder="Enter your password"
-                className="form-input"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
-            
-            <a href="#" className="forgot-link">Forgot Password ?</a>
-            
-            <button 
-              type="submit" 
-              className="login-button" 
-              disabled={isLoading}
-            >
-              {isLoading ? 'LOADING...' : 'LOGIN'} {!isLoading && <FiArrowRight />}
-            </button>
-            
-            <a href="#" className="demo-link" onClick={fillDemoCredentials}>
-              Fill demo credentials
-            </a>
-            
-            <div className="divider">or continue with</div>
-            
-            <div className="social-buttons">
-              <button type="button" className="social-button" aria-label="Login with Google">
-                <FaGoogle className="google-icon" />
-              </button>
-              <button type="button" className="social-button" aria-label="Login with GitHub">
-                <FaGithub className="github-icon" />
-              </button>
-              <button type="button" className="social-button" aria-label="Login with Facebook">
-                <FaFacebook className="facebook-icon" />
-              </button>
-            </div>
-            
-            <div className="signup-text">
-              Don't have an account yet? <a href="#" className="signup-link">Sign up for free</a>
-            </div>
-          </form>
-        </div>
-        
-        {/* Right Image */}
-        <div className="login-image">
-          <img 
-            src="https://v3.fal.media/files/koala/mCAx4qKIsxgRSmqzm7th4.png" 
-            alt="Person using laptop" 
-            className="illustration"
-          />
+          {/* Right Image */}
+          <div className="login-image">
+            <img 
+              src="https://v3.fal.media/files/koala/mCAx4qKIsxgRSmqzm7th4.png" 
+              alt="Person using laptop" 
+              className="illustration"
+            />
+          </div>
         </div>
       </div>
     </div>

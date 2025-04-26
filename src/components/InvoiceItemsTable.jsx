@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 
 const InvoiceItemsTable = ({ items, setItems, exchangeRate, currency }) => {
   const [itemBeingEdited, setItemBeingEdited] = useState(null);
+  // Add state to track the input values as they're being entered
+  const [inputValues, setInputValues] = useState({});
 
   // Add a new empty item to the list
   const addItem = () => {
@@ -22,6 +24,12 @@ const InvoiceItemsTable = ({ items, setItems, exchangeRate, currency }) => {
     const updatedItems = [...items];
     updatedItems.splice(index, 1);
     setItems(updatedItems);
+    
+    // Clean up inputValues for the removed item
+    const newInputValues = { ...inputValues };
+    delete newInputValues[`${index}-amountUSD`];
+    delete newInputValues[`${index}-amountINR`];
+    setInputValues(newInputValues);
   };
 
   // Add a nested description row to an item
@@ -48,6 +56,39 @@ const InvoiceItemsTable = ({ items, setItems, exchangeRate, currency }) => {
     setItems(updatedItems);
   };
 
+  // Handle focus on amount input fields
+  const handleAmountFocus = (index, field) => {
+    const key = `${index}-${field}`;
+    // When focusing on the field, set the input value to the raw number (without .toFixed(2))
+    // This will allow users to freely edit the value
+    setInputValues({
+      ...inputValues,
+      [key]: items[index][field].toString()
+    });
+  };
+
+  // Handle blur on amount input fields
+  const handleAmountBlur = (index, field) => {
+    // When blurring, update the actual item with the parsed value
+    const key = `${index}-${field}`;
+    const value = inputValues[key] || '0';
+    handleItemChange(index, field, value);
+    
+    // Clean up the temporary input value
+    const newInputValues = { ...inputValues };
+    delete newInputValues[key];
+    setInputValues(newInputValues);
+  };
+
+  // Handle change in amount input fields during typing
+  const handleAmountInputChange = (index, field, value) => {
+    // Store the raw input value while typing
+    setInputValues({
+      ...inputValues,
+      [`${index}-${field}`]: value
+    });
+  };
+
   // Handle change of item fields
   const handleItemChange = (index, field, value) => {
     const updatedItems = [...items];
@@ -70,6 +111,18 @@ const InvoiceItemsTable = ({ items, setItems, exchangeRate, currency }) => {
     }
 
     setItems(updatedItems);
+  };
+
+  // Get the display value for an amount field
+  const getAmountDisplayValue = (index, field) => {
+    const key = `${index}-${field}`;
+    if (key in inputValues) {
+      // If the user is currently editing this field, show the raw input
+      return inputValues[key];
+    } else {
+      // Otherwise show the formatted value with 2 decimal places
+      return items[index][field].toFixed(2);
+    }
   };
 
   return (
@@ -114,24 +167,24 @@ const InvoiceItemsTable = ({ items, setItems, exchangeRate, currency }) => {
                 </td>
                 <td>
                   <input
-                    type="number"
+                    type="text"
                     className="item-total-usd"
-                    value={item.amountUSD.toFixed(2)}
-                    onChange={(e) => handleItemChange(index, 'amountUSD', e.target.value)}
-                    min="0"
-                    step="0.01"
+                    value={getAmountDisplayValue(index, 'amountUSD')}
+                    onChange={(e) => handleAmountInputChange(index, 'amountUSD', e.target.value)}
+                    onFocus={() => handleAmountFocus(index, 'amountUSD')}
+                    onBlur={() => handleAmountBlur(index, 'amountUSD')}
                     placeholder="Amount (USD)"
                     disabled={currency === 'INR'}
                   />
                 </td>
                 <td>
                   <input
-                    type="number"
+                    type="text"
                     className="item-total-inr"
-                    value={item.amountINR.toFixed(2)}
-                    onChange={(e) => handleItemChange(index, 'amountINR', e.target.value)}
-                    min="0"
-                    step="0.01"
+                    value={getAmountDisplayValue(index, 'amountINR')}
+                    onChange={(e) => handleAmountInputChange(index, 'amountINR', e.target.value)}
+                    onFocus={() => handleAmountFocus(index, 'amountINR')}
+                    onBlur={() => handleAmountBlur(index, 'amountINR')}
                     placeholder="Amount (INR)"
                     disabled={currency === 'USD'}
                   />

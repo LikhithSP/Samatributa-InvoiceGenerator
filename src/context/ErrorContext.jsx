@@ -1,23 +1,39 @@
 import React, { createContext, useState, useContext } from 'react';
 
-const ErrorContext = createContext({
-  error: null,
-  setError: () => {},
-  clearError: () => {}
+// Renamed to NotificationContext to better reflect its purpose
+const NotificationContext = createContext({
+  notification: null,
+  setNotification: () => {},
+  clearNotification: () => {}
 });
 
 export const ErrorProvider = ({ children }) => {
-  const [error, setError] = useState(null);
+  // Changed structure to include type and message
+  const [notification, setNotificationState] = useState(null);
   
-  const clearError = () => setError(null);
+  const setNotification = (message, type = 'error') => {
+    setNotificationState({ message, type });
+  };
+  
+  const clearNotification = () => setNotificationState(null);
   
   return (
-    <ErrorContext.Provider value={{ error, setError, clearError }}>
+    <NotificationContext.Provider value={{ 
+      notification, 
+      setNotification, 
+      clearNotification,
+      // For backward compatibility
+      error: notification?.message,
+      setError: (message) => setNotification(message, 'error'),
+      clearError: clearNotification
+    }}>
       {children}
-    </ErrorContext.Provider>
+    </NotificationContext.Provider>
   );
 };
 
-export const useError = () => useContext(ErrorContext);
+// Renamed to useNotification for clarity, but kept useError for backward compatibility
+export const useNotification = () => useContext(NotificationContext);
+export const useError = useNotification;
 
-export default ErrorContext;
+export default NotificationContext;

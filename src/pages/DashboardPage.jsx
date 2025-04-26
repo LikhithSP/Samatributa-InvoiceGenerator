@@ -3,18 +3,29 @@ import { useNavigate } from 'react-router-dom';
 import { FiSearch, FiSettings, FiLogOut, FiUser, FiPlus, FiChevronDown } from 'react-icons/fi';
 import { FiSun, FiMoon } from 'react-icons/fi';
 import '../App.css';
+import { defaultLogo } from '../assets/logoData';
 
 const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
   const navigate = useNavigate();
   
-  // Sample companies data for demonstration
+  // Get companies from localStorage or use sample data if none exist
   const sampleCompanies = [
-    { id: 1, name: 'Acme Corporation', logo: './images/favicon.png' },
-    { id: 2, name: 'Globex Industries', logo: './images/c-logo.png' },
-    { id: 3, name: 'Initech LLC', logo: './images/favicon.png' },
-    { id: 4, name: 'Umbrella Corp', logo: './images/favicon.png' },
-    { id: 5, name: 'Stark Industries', logo: './images/favicon.png'}
+    { id: 1000, name: 'Acme Corporation', logo: './images/favicon.png' },
+    { id: 1001, name: 'Globex Industries', logo: './images/c-logo.png' },
+    { id: 1002, name: 'Initech LLC', logo: './images/favicon.png' },
+    { id: 1003, name: 'Umbrella Corp', logo: './images/favicon.png' },
+    { id: 1004, name: 'Stark Industries', logo: './images/favicon.png'}
   ];
+
+  const [companies, setCompanies] = useState(() => {
+    const savedCompanies = localStorage.getItem('userCompanies');
+    if (savedCompanies) {
+      // Combine user's companies with sample ones
+      return [...JSON.parse(savedCompanies), ...sampleCompanies];
+    }
+    // Just return sample companies if none exist in localStorage
+    return sampleCompanies;
+  });
   
   // State for selected company and dashboard view
   const [selectedCompany, setSelectedCompany] = useState(() => {
@@ -25,10 +36,22 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
   const [showAllInvoices, setShowAllInvoices] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   
+  // Invoice status state
+  const [invoiceStatuses, setInvoiceStatuses] = useState(() => {
+    const savedStatuses = localStorage.getItem('invoiceStatuses');
+    return savedStatuses ? JSON.parse(savedStatuses) : {};
+  });
+  
   // Sort state
   const [sortField, setSortField] = useState('date');
   const [sortDirection, setSortDirection] = useState('desc');
   const [showSortOptions, setShowSortOptions] = useState(false);
+  
+  // State for saved invoices
+  const [savedInvoices, setSavedInvoices] = useState(() => {
+    const invoices = JSON.parse(localStorage.getItem('savedInvoices')) || [];
+    return invoices;
+  });
   
   // Update localStorage when selected company changes
   useEffect(() => {
@@ -38,6 +61,58 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
     }
   }, [selectedCompany]);
   
+  // Save invoice statuses to localStorage when they change
+  useEffect(() => {
+    localStorage.setItem('invoiceStatuses', JSON.stringify(invoiceStatuses));
+  }, [invoiceStatuses]);
+  
+  // Listen for changes in the userCompanies localStorage item
+  useEffect(() => {
+    const handleStorageChange = () => {
+      const savedCompanies = localStorage.getItem('userCompanies');
+      if (savedCompanies) {
+        setCompanies([...JSON.parse(savedCompanies), ...sampleCompanies]);
+      } else {
+        setCompanies(sampleCompanies);
+      }
+
+      // Also refresh the saved invoices
+      const invoices = JSON.parse(localStorage.getItem('savedInvoices')) || [];
+      setSavedInvoices(invoices);
+    };
+    
+    // Listen for the custom invoicesUpdated event
+    const handleInvoicesUpdated = () => {
+      const invoices = JSON.parse(localStorage.getItem('savedInvoices')) || [];
+      setSavedInvoices(invoices);
+    };
+    
+    // Set up event listeners
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('invoicesUpdated', handleInvoicesUpdated);
+    
+    // Clean up event listeners
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('invoicesUpdated', handleInvoicesUpdated);
+    };
+  }, []);
+  
+  // Need to manually refresh when returning from CompanyPage or InvoicePage
+  useEffect(() => {
+    // Check for updates to companies when the component mounts
+    const savedCompanies = localStorage.getItem('userCompanies');
+    if (savedCompanies) {
+      setCompanies([...JSON.parse(savedCompanies), ...sampleCompanies]);
+    } else {
+      setCompanies(sampleCompanies);
+    }
+
+    // Also refresh saved invoices
+    const invoices = JSON.parse(localStorage.getItem('savedInvoices')) || [];
+    setSavedInvoices(invoices);
+  }, []);
+
   const handleCompanySelect = (company) => {
     setSelectedCompany(company);
     setShowAllInvoices(false);
@@ -74,6 +149,36 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
     return `Sort by: ${labels[sortField]} (${sortDirection === 'asc' ? 'Ascending' : 'Descending'})`;
   };
   
+  const handleCreateInvoice = () => {
+    navigate('/invoice/new');
+  };
+  
+  // Function to toggle invoice status
+  const toggleInvoiceStatus = (e, invoiceId) => {
+    e.stopPropagation(); // Prevent navigating to invoice detail page
+    
+    setInvoiceStatuses(prevStatuses => {
+      const newStatuses = { ...prevStatuses };
+      const statusOptions = ['Paid', 'Pending', 'Draft', 'Cancelled'];
+      
+      if (newStatuses[invoiceId]) {
+        // Find current status in the cycle
+        const currentIndex = statusOptions.indexOf(newStatuses[invoiceId]);
+        // Move to next status (or back to first if at end)
+        const nextIndex = (currentIndex + 1) % statusOptions.length;
+        newStatuses[invoiceId] = statusOptions[nextIndex];
+      } else {
+        // If no saved status, set the next status after the default
+        const defaultStatus = parseInt(invoiceId.split('-')[1]) % 2 === 0 ? 'Paid' : 'Pending';
+        const defaultIndex = statusOptions.indexOf(defaultStatus);
+        const nextIndex = (defaultIndex + 1) % statusOptions.length;
+        newStatuses[invoiceId] = statusOptions[nextIndex];
+      }
+      
+      return newStatuses;
+    });
+  };
+  
   // Function to sort invoices
   const sortInvoices = (invoices) => {
     return [...invoices].sort((a, b) => {
@@ -83,24 +188,24 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
       let aValue, bValue;
       switch (sortField) {
         case 'date':
-          aValue = new Date(2025, 3, 1 + a);
-          bValue = new Date(2025, 3, 1 + b);
+          aValue = new Date(a.invoiceDate);
+          bValue = new Date(b.invoiceDate);
           break;
         case 'name':
-          aValue = sampleCompanies[a % sampleCompanies.length].name;
-          bValue = sampleCompanies[b % sampleCompanies.length].name;
+          aValue = a.senderName;
+          bValue = b.senderName;
           break;
         case 'amount':
-          aValue = 2500 + (a * 100);
-          bValue = 2500 + (b * 100);
+          aValue = a.totalUSD;
+          bValue = b.totalUSD;
           break;
         case 'status':
-          aValue = a % 2 === 0 ? 'Paid' : 'Pending';
-          bValue = b % 2 === 0 ? 'Paid' : 'Pending';
+          aValue = a.status || 'Pending';
+          bValue = b.status || 'Pending';
           break;
         default:
-          aValue = a;
-          bValue = b;
+          aValue = a.timestamp || 0;
+          bValue = b.timestamp || 0;
       }
       
       // Compare the values
@@ -114,17 +219,13 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
       return sortDirection === 'asc' ? comparison : -comparison;
     });
   };
-
-  const handleCreateInvoice = () => {
-    navigate('/invoice/new');
-  };
   
   return (
     <div className="dashboard-container">
       {/* Sidebar with company list */}
       <aside className="dashboard-sidebar">
         <div className="company-logo-container">
-          <img src="./images/c-logo.png" alt="CIA App" className="main-company-logo" />
+          <img src="/images/c-logo.png" alt="CIA App" className="main-company-logo" />
           <h3>CIA App</h3>
         </div>
         
@@ -141,7 +242,7 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
             YOUR COMPANIES
           </div>
           
-          {sampleCompanies.map((company) => (
+          {companies.map((company) => (
             <div 
               key={company.id}
               className={`company-item ${selectedCompany?.id === company.id && !showAllInvoices ? 'active' : ''}`}
@@ -155,7 +256,7 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
           <div 
             className="company-item"
             style={{ marginTop: '10px', color: 'var(--light-text)' }}
-            onClick={() => navigate('/profile')}
+            onClick={() => navigate('/company')}
           >
             <FiPlus className="company-icon" />
             <span className="company-name">Add New Company</span>
@@ -163,12 +264,6 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
         </div>
         
         <div className="sidebar-footer">
-          <button onClick={() => navigate('/profile')} className="btn-icon" title="Profile">
-            <FiUser />
-          </button>
-          <button onClick={() => navigate('/diagnostics')} className="btn-icon" title="Settings">
-            <FiSettings />
-          </button>
           <button onClick={onLogout} className="btn-logout" title="Logout">
             <FiLogOut style={{ marginRight: '5px' }} /> Logout
           </button>
@@ -186,10 +281,6 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
         backgroundColor: 'var(--card-bg)'
       }}>
         <div className="user-actions" style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-          <div className="auth-status">
-            <span className="status-dot"></span>
-            <span>{localStorage.getItem('userEmail') || 'Logged in'}</span>
-          </div>
           <div className="theme-switch-wrapper">
             <label className="theme-switch">
               <input type="checkbox" checked={darkMode} onChange={toggleDarkMode} />
@@ -348,88 +439,130 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
         
         {/* Invoice List */}
         <div className="invoice-list">
-          {/* Generate sample invoices and apply sorting */}
-          {sortInvoices(Array.from({ length: 10 }).map((_, i) => i))
-            .filter(index => {
-              // If a company is selected, only show invoices for that company
-              const invoiceCompany = sampleCompanies[index % sampleCompanies.length];
-              
-              if (!showAllInvoices && selectedCompany && invoiceCompany.id !== selectedCompany.id) {
-                return false;
-              }
-              
-              // Filter by search term if provided
-              const invoiceNumber = `2025-${1000 + index}`;
-              if (searchTerm && !invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) && 
-                  !invoiceCompany.name.toLowerCase().includes(searchTerm.toLowerCase())) {
-                return false;
-              }
-              
-              return true;
-            })
-            .map(index => {
-              const invoiceCompany = sampleCompanies[index % sampleCompanies.length];
-              const invoiceNumber = `2025-${1000 + index}`;
-              const invoiceDate = new Date(2025, 3, 1 + index);
-              const invoiceAmount = 2500 + (index * 100);
-              const invoiceStatus = index % 2 === 0 ? 'Paid' : 'Pending';
-              
-              return (
-                <div key={index} className="invoice-card" onClick={() => navigate(`/invoice/${1000 + index}`)}>
-                  <div className="invoice-card-header">
-                    <img 
-                      src={invoiceCompany.logo} 
-                      alt={invoiceCompany.name} 
-                      className="invoice-company-logo"
-                    />
-                    <div className="invoice-info">
-                      <span className="invoice-number">{invoiceNumber}</span>
-                      <span className="invoice-company">{invoiceCompany.name}</span>
+          {savedInvoices.length > 0 ? (
+            sortInvoices(savedInvoices)
+              .filter(invoice => {
+                // If a company is selected, only show invoices for that company
+                if (!showAllInvoices && selectedCompany && invoice.companyId !== selectedCompany.id) {
+                  return false;
+                }
+                
+                // Filter by search term if provided
+                if (searchTerm && 
+                    !invoice.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) &&
+                    !invoice.senderName.toLowerCase().includes(searchTerm.toLowerCase()) &&
+                    !invoice.recipientName.toLowerCase().includes(searchTerm.toLowerCase())) {
+                  return false;
+                }
+                
+                return true;
+              })
+              .map((invoice, index) => {
+                // Find company info for this invoice
+                const invoiceCompany = companies.find(c => c.id === invoice.companyId) || {
+                  name: invoice.senderName,
+                  logo: invoice.logoUrl || defaultLogo
+                };
+                
+                // Format the invoice date for display
+                const invoiceDate = new Date(invoice.invoiceDate);
+                
+                // Get status for this invoice
+                const invoiceStatus = invoice.status || 'Pending';
+                
+                return (
+                  <div key={index} className="invoice-card" onClick={() => navigate(`/invoice/${invoice.invoiceNumber}`)}>
+                    <div className="invoice-card-header">
+                      <img 
+                        src={invoiceCompany.logo} 
+                        alt={invoiceCompany.name} 
+                        className="invoice-company-logo"
+                      />
+                      <div className="invoice-info">
+                        <span className="invoice-number">{invoice.invoiceNumber}</span>
+                        <span className="invoice-company">{invoiceCompany.name}</span>
+                      </div>
+                    </div>
+                    <div className="invoice-card-details">
+                      <div className="invoice-amount">
+                        <span className="amount">${invoice.totalUSD.toLocaleString()}</span>
+                        <span className="currency">{invoice.currency}</span>
+                      </div>
+                      <div className="invoice-date">
+                        <span className="label">Date:</span>
+                        <span className="value">{invoiceDate.toLocaleDateString()}</span>
+                      </div>
+                      <div className="invoice-status">
+                        <span 
+                          className={`status ${invoiceStatus.toLowerCase()}`} 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            // Toggle status for this invoice
+                            const statusOptions = ['Paid', 'Pending', 'Draft', 'Cancelled'];
+                            const currentIndex = statusOptions.indexOf(invoiceStatus);
+                            const nextIndex = (currentIndex + 1) % statusOptions.length;
+                            const newStatus = statusOptions[nextIndex];
+                            
+                            // Update invoice status in local state
+                            const updatedInvoices = savedInvoices.map(inv => 
+                              inv.invoiceNumber === invoice.invoiceNumber 
+                                ? {...inv, status: newStatus} 
+                                : inv
+                            );
+                            
+                            // Save to localStorage
+                            localStorage.setItem('savedInvoices', JSON.stringify(updatedInvoices));
+                            setSavedInvoices(updatedInvoices);
+                          }}
+                          style={{ 
+                            cursor: 'pointer', 
+                            position: 'relative',
+                            backgroundColor: invoiceStatus === 'Paid' ? 'var(--success-color, #4caf50)' : 
+                                            invoiceStatus === 'Pending' ? 'var(--warning-color, #ff9800)' :
+                                            invoiceStatus === 'Draft' ? 'var(--info-color, #2196f3)' :
+                                            invoiceStatus === 'Cancelled' ? 'var(--danger-color, #f44336)' : 'gray'
+                          }}
+                          title="Click to change status"
+                        >
+                          {invoiceStatus}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                  <div className="invoice-card-details">
-                    <div className="invoice-amount">
-                      <span className="amount">${invoiceAmount.toLocaleString()}</span>
-                      <span className="currency">USD</span>
-                    </div>
-                    <div className="invoice-date">
-                      <span className="label">Date:</span>
-                      <span className="value">{invoiceDate.toLocaleDateString()}</span>
-                    </div>
-                    <div className="invoice-status">
-                      <span className={`status ${invoiceStatus.toLowerCase()}`}>
-                        {invoiceStatus}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          
-          {/* Show message if no invoices match the filter */}
-          {sortInvoices(Array.from({ length: 10 }).map((_, i) => i))
-            .filter(index => {
-              const invoiceCompany = sampleCompanies[index % sampleCompanies.length];
-              const invoiceNumber = `2025-${1000 + index}`;
-              
-              if (!showAllInvoices && selectedCompany && invoiceCompany.id !== selectedCompany.id) {
-                return false;
-              }
-              
-              if (searchTerm && !invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) && 
-                  !invoiceCompany.name.toLowerCase().includes(searchTerm.toLowerCase())) {
-                return false;
-              }
-              
-              return true;
-            }).length === 0 && (
+                );
+              })
+          ) : (
             <div className="no-invoices-message">
-              <p>No invoices found with the current filter.</p>
-              <button className="btn-clear-filter" onClick={() => setSearchTerm('')}>
-                Clear Search
+              <h3>No Invoices Yet</h3>
+              <p>You haven't created any invoices yet. Click the "Create New Invoice" button to get started.</p>
+              <button className="btn" onClick={handleCreateInvoice} style={{ marginTop: '15px' }}>
+                Create Your First Invoice
               </button>
             </div>
           )}
+          
+          {/* Show message if no invoices match the filter */}
+          {savedInvoices.length > 0 && 
+           sortInvoices(savedInvoices).filter(invoice => {
+              if (!showAllInvoices && selectedCompany && invoice.companyId !== selectedCompany.id) {
+                return false;
+              }
+              if (searchTerm && 
+                  !invoice.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) &&
+                  !invoice.senderName.toLowerCase().includes(searchTerm.toLowerCase()) &&
+                  !invoice.recipientName.toLowerCase().includes(searchTerm.toLowerCase())) {
+                return false;
+              }
+              return true;
+            }).length === 0 && (
+              <div className="no-invoices-message">
+                <p>No invoices found with the current filter.</p>
+                <button className="btn-clear-filter" onClick={() => setSearchTerm('')}>
+                  Clear Search
+                </button>
+              </div>
+            )
+          }
         </div>
       </main>
     </div>

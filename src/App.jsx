@@ -9,9 +9,10 @@ import NotFoundPage from './pages/NotFoundPage'
 import DiagnosticPage from './pages/DiagnosticPage'
 import DebugPage from './pages/DebugPage'
 import DemoPage from './pages/DemoPage'
-import ErrorDisplay from './components/ErrorDisplay'
+import CompanyPage from './pages/CompanyPage'
+import NotificationDisplay from './components/ErrorDisplay'
 import Modal from './components/Modal'
-import { useError } from './context/ErrorContext'
+import { useNotification } from './context/ErrorContext'
 
 // Session timeout in milliseconds (30 minutes)
 const SESSION_TIMEOUT = 30 * 60 * 1000;
@@ -21,7 +22,7 @@ function App() {
   const [darkMode, setDarkMode] = useState(false)
   const [sessionTimer, setSessionTimer] = useState(null)
   const [showLogoutModal, setShowLogoutModal] = useState(false)
-  const { error, setError, clearError } = useError()
+  const { notification, setNotification, clearNotification } = useNotification()
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -30,8 +31,9 @@ function App() {
     const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true'
     setIsAuthenticated(isLoggedIn)
     
-    // Check dark mode preference
-    const savedDarkMode = localStorage.getItem('darkMode') === 'true'
+    // Check dark mode preference, default to true if not set
+    const darkModeInStorage = localStorage.getItem('darkMode')
+    const savedDarkMode = darkModeInStorage === null ? true : darkModeInStorage === 'true'
     setDarkMode(savedDarkMode)
     if (savedDarkMode) {
       document.body.classList.add('dark-mode')
@@ -48,7 +50,7 @@ function App() {
   const handleGlobalError = (event) => {
     console.error('Global error:', event.error)
     const errorMessage = event.error ? event.error.message : 'Unknown error'
-    setError(`Error: ${errorMessage}`)
+    setNotification(`Error: ${errorMessage}`, 'error')
   }
 
   // Update body class when dark mode changes
@@ -76,7 +78,7 @@ function App() {
         // If it's been too long since the last activity, log the user out
         if (lastActivity && now - parseInt(lastActivity) > SESSION_TIMEOUT) {
           handleLogout()
-          setError('Your session has expired. Please log in again.')
+          setNotification('Your session has expired. Please log in again.', 'warning')
         }
       }, SESSION_TIMEOUT)
       
@@ -134,10 +136,10 @@ function App() {
 
   return (
     <div className="App">
-      {error && (
-        <ErrorDisplay 
-          error={error} 
-          onClose={() => clearError()} 
+      {notification && (
+        <NotificationDisplay 
+          notification={notification} 
+          onClose={() => clearNotification()} 
           duration={5000} 
         />
       )}
@@ -200,6 +202,15 @@ function App() {
         <Route path="/profile" element={
           isAuthenticated ? 
             <ProfilePage /> : 
+            <Navigate to="/login" replace />
+        } />
+        
+        <Route path="/company" element={
+          isAuthenticated ? 
+            <CompanyPage 
+              darkMode={darkMode} 
+              toggleDarkMode={toggleDarkMode}
+            /> : 
             <Navigate to="/login" replace />
         } />
 

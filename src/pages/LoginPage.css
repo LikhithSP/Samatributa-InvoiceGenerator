@@ -1,5 +1,66 @@
 /* LoginPage.css */
 
+/* Light mode specific wrapper class - will override dark mode variables */
+.login-page-light-mode {
+  /* Force light mode colors */
+  --text-color: #333;
+  --background-color: #fff;
+  --input-background: #f3f4f6;
+  --card-background: rgba(255, 255, 255, 0.95);
+  --heading-color: #111827;
+  --label-color: #4b5563;
+  --link-color: #6b7280;
+  
+  /* Ensure all text and backgrounds use light mode colors */
+  color: var(--text-color);
+  background-color: var(--background-color);
+  
+  /* Take up full screen */
+  width: 100%;
+  min-height: 100vh;
+}
+
+/* Override any potential dark mode styles that might be inherited */
+.login-page-light-mode .login-card {
+  background-color: var(--card-background);
+  color: var(--text-color);
+}
+
+.login-page-light-mode .login-title {
+  color: var(--heading-color);
+}
+
+.login-page-light-mode .form-label {
+  color: var(--label-color);
+}
+
+.login-page-light-mode .form-input {
+  background-color: var(--input-background);
+  color: var(--text-color);
+}
+
+.login-page-light-mode .forgot-link,
+.login-page-light-mode .demo-link {
+  color: #6b7280;
+}
+
+.login-page-light-mode .login-button {
+  background-color: #fde047;
+  color: #000;
+}
+
+/* Add highlight effect for demo credentials */
+@keyframes highlight {
+  0% { background-color: #f3f4f6; }
+  50% { background-color: rgba(253, 224, 71, 0.3); }
+  100% { background-color: #f3f4f6; }
+}
+
+.highlight-input {
+  animation: highlight 0.8s ease;
+}
+
+/* Existing styles below */
 .login-container {
   min-height: 100vh;
   display: flex;
@@ -7,17 +68,17 @@
   justify-content: center;
   background: url(https://v3.fal.media/files/panda/sO6WFMolI-FrU0SJEi9bR.png) no-repeat center center fixed;
   background-size: cover;
+  color: #333; /* Ensuring dark text color for light mode */
 }
 
 .login-card {
-  background-color: rgba(255, 255, 255, 0.89);
+  background-color: rgba(255, 255, 255, 0.95); /* Increased opacity for more solid white background */
   border-radius: 0.5rem;
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
   display: flex;
   overflow: hidden;
   width: 100%;
   max-width: 1000px;
-  
 }
 
 .login-content {
