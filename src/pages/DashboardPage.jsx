@@ -10,11 +10,11 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
   
   // Get companies from localStorage or use sample data if none exist
   const sampleCompanies = [
-    { id: 1000, name: 'Acme Corporation', logo: './images/favicon.png' },
-    { id: 1001, name: 'Globex Industries', logo: './images/c-logo.png' },
-    { id: 1002, name: 'Initech LLC', logo: './images/favicon.png' },
-    { id: 1003, name: 'Umbrella Corp', logo: './images/favicon.png' },
-    { id: 1004, name: 'Stark Industries', logo: './images/favicon.png'}
+    { id: 1000, name: 'Acme Corporation', logo: '/images/favicon.png' },
+    { id: 1001, name: 'Globex Industries', logo: '/images/c-logo.png' },
+    { id: 1002, name: 'Initech LLC', logo: '/images/favicon.png' },
+    { id: 1003, name: 'Umbrella Corp', logo: '/images/favicon.png' },
+    { id: 1004, name: 'Stark Industries', logo: '/images/favicon.png'}
   ];
 
   const [companies, setCompanies] = useState(() => {
