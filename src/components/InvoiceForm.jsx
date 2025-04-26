@@ -382,7 +382,6 @@ const InvoiceForm = ({
               accept="image/*" 
               onChange={handleLogoUpload} 
             />
-// Find the company logo display section and update:
 {invoiceData.logoUrl && (
   <div style={{ marginTop: '10px' }}>
     <img 

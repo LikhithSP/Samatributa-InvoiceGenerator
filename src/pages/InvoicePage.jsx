@@ -149,7 +149,7 @@ IFSC Code:`,
   return (
     <div className="container">
       <header className="header">
-      // In the return statement, inside the header section:
+
 <div className="logo" onClick={() => navigate('/dashboard')} style={{ cursor: 'pointer' }}>
   <img 
     src={selectedCompany?.logo || defaultLogo} 
