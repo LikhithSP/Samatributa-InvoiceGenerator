@@ -3,6 +3,21 @@
  */
 
 // Default images (public path)
+
+/**
+ * Image asset utilities
+ */
+
+// Use import.meta.env.BASE_URL for proper path resolution in production
+export const defaultLogo = `${import.meta.env.BASE_URL}images/default-logo.png`;
+export const companyName = "Your Company";
+
+// Other company images
+export const companyLogos = {
+  company1: `${import.meta.env.BASE_URL}images/c-logo.png`,
+  // Add other logos as needed
+};
+
 export const PUBLIC_IMAGES = {
   DEFAULT_LOGO: '.images/default-logo.png',
   FAVICON: '.images/favicon.png',

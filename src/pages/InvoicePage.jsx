@@ -149,14 +149,19 @@ IFSC Code:`,
   return (
     <div className="container">
       <header className="header">
-        <div className="logo" onClick={() => navigate('/dashboard')} style={{ cursor: 'pointer' }}>
-          <img 
-            src={selectedCompany?.logo || defaultLogo} 
-            alt={selectedCompany?.name || companyName}
-            style={{ maxHeight: '40px' }}
-          />
-          {selectedCompany?.name || companyName}
-        </div>
+      // In the return statement, inside the header section:
+<div className="logo" onClick={() => navigate('/dashboard')} style={{ cursor: 'pointer' }}>
+  <img 
+    src={selectedCompany?.logo || defaultLogo} 
+    alt={selectedCompany?.name || companyName}
+    style={{ maxHeight: '40px' }}
+    onError={(e) => {
+      e.target.onerror = null;
+      e.target.src = `${import.meta.env.BASE_URL}images/default-logo.png`;
+    }}
+  />
+  {selectedCompany?.name || companyName}
+</div>
         <div className="user-actions">
           <div className="auth-status">
             <span className="status-dot"></span>

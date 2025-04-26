@@ -382,15 +382,20 @@ const InvoiceForm = ({
               accept="image/*" 
               onChange={handleLogoUpload} 
             />
-            {invoiceData.logoUrl && (
-              <div style={{ marginTop: '10px' }}>
-                <img 
-                  src={invoiceData.logoUrl} 
-                  alt="Company Logo" 
-                  style={{ maxWidth: '200px', maxHeight: '100px' }} 
-                />
-              </div>
-            )}
+// Find the company logo display section and update:
+{invoiceData.logoUrl && (
+  <div style={{ marginTop: '10px' }}>
+    <img 
+      src={invoiceData.logoUrl} 
+      alt="Company Logo" 
+      style={{ maxWidth: '200px', maxHeight: '100px' }} 
+      onError={(e) => {
+        e.target.onerror = null;
+        e.target.src = `${import.meta.env.BASE_URL}images/default-logo.png`;
+      }}
+    />
+  </div>
+)}
           </div>
           
           <div className="form-group">
