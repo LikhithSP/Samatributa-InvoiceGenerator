@@ -1138,7 +1138,7 @@ body:not(.dark-mode) .btn-logout {
 }
 
 body.dark-mode .btn-logout {
-  background-color: #fff40082; /* Updated background color for logout button in dark mode */
+  background-color: #514f42c2; /* Updated background color for logout button in dark mode */
   /* ...existing code... */
 }
 
