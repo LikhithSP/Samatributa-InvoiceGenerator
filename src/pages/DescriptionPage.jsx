@@ -5,6 +5,9 @@ import { FiArrowLeft, FiSave, FiTrash2, FiPlus, FiSun, FiMoon } from 'react-icon
 import './ClientPage.css'; // Reuse ClientPage styling
 
 const DescriptionPage = ({ darkMode, toggleDarkMode }) => {
+  // Add a ref to track if we're dispatching our own events
+  const isSelfDispatch = React.useRef(false);
+
   // Get descriptions from localStorage or use sample data
   const [descriptions, setDescriptions] = useState(() => {
     const savedDescriptions = localStorage.getItem('serviceDescriptions');
@@ -102,6 +105,9 @@ const DescriptionPage = ({ darkMode, toggleDarkMode }) => {
     setDescriptions(updatedDescriptions);
     localStorage.setItem('serviceDescriptions', JSON.stringify(updatedDescriptions));
     
+    // Set the flag to indicate we're dispatching our own event
+    isSelfDispatch.current = true;
+    
     // Dispatch a custom event with updated description data
     const updatedDescription = isEditing 
       ? { ...newDescription, id: activeDescriptionId } 
@@ -110,6 +116,11 @@ const DescriptionPage = ({ darkMode, toggleDarkMode }) => {
     window.dispatchEvent(new CustomEvent('descriptionUpdated', {
       detail: { description: updatedDescription, action: isEditing ? 'edit' : 'add' }
     }));
+    
+    // Reset the flag after a short delay to ensure the event handler has time to check it
+    setTimeout(() => {
+      isSelfDispatch.current = false;
+    }, 100);
     
     setIsAddingDescription(false);
     
@@ -127,6 +138,12 @@ const DescriptionPage = ({ darkMode, toggleDarkMode }) => {
   useEffect(() => {
     // Listen for description updates from other components/tabs
     const handleDescriptionUpdated = (event) => {
+      // Make sure we're only responding to descriptionUpdated events
+      if (event.type !== 'descriptionUpdated') return;
+      
+      // Skip processing if we dispatched this event ourselves
+      if (isSelfDispatch.current) return;
+      
       if (event.detail && event.detail.description) {
         const { description, action } = event.detail;
         

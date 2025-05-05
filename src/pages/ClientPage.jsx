@@ -5,6 +5,9 @@ import { FiArrowLeft, FiSave, FiUpload, FiTrash2, FiPlus, FiSun, FiMoon } from '
 import './ClientPage.css';
 
 const ClientPage = ({ darkMode, toggleDarkMode }) => {
+  // Add a ref to track if we're dispatching our own events
+  const isSelfDispatch = React.useRef(false);
+  
   // Get clients from localStorage or use sample data
   const [clients, setClients] = useState(() => {
     const savedClients = localStorage.getItem('userClients');
@@ -113,6 +116,9 @@ const ClientPage = ({ darkMode, toggleDarkMode }) => {
     setClients(updatedClients);
     localStorage.setItem('userClients', JSON.stringify(updatedClients));
     
+    // Set the flag to indicate we're dispatching our own event
+    isSelfDispatch.current = true;
+    
     // Dispatch a custom event with updated client data
     const updatedClient = isEditing 
       ? { ...newClient, id: activeClientId } 
@@ -121,6 +127,11 @@ const ClientPage = ({ darkMode, toggleDarkMode }) => {
     window.dispatchEvent(new CustomEvent('clientUpdated', {
       detail: { client: updatedClient, action: isEditing ? 'edit' : 'add' }
     }));
+    
+    // Reset the flag after a short delay to ensure the event handler has time to check it
+    setTimeout(() => {
+      isSelfDispatch.current = false;
+    }, 100);
     
     setIsAddingClient(false);
     
@@ -138,6 +149,12 @@ const ClientPage = ({ darkMode, toggleDarkMode }) => {
   useEffect(() => {
     // Listen for client updates from other components/tabs
     const handleClientUpdated = (event) => {
+      // Make sure we're only responding to clientUpdated events
+      if (event.type !== 'clientUpdated') return;
+      
+      // Skip processing if we dispatched this event ourselves
+      if (isSelfDispatch.current) return;
+      
       if (event.detail && event.detail.client) {
         const { client, action } = event.detail;
         
