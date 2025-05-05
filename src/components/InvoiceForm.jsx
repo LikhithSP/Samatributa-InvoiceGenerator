@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import InvoiceItemsTable from './InvoiceItemsTable';
 import emailService from '../services/emailService';
 import pdfService from '../services/pdfService';
@@ -31,6 +31,7 @@ const InvoiceForm = ({
     const savedClients = localStorage.getItem('userClients');
     return savedClients ? JSON.parse(savedClients) : [];
   });
+  const isInitialMount = useRef(true); // Ref to track initial mount
   
   // Fetch exchange rate on component mount
   useEffect(() => {
@@ -56,6 +57,38 @@ const InvoiceForm = ({
     };
   }, []);
   
+  // Add useEffect to update invoice number prefix when company name changes on an existing invoice
+  useEffect(() => {
+    // Skip this effect on the initial mount or if it's a new invoice
+    if (isInitialMount.current || !id || id === 'new') {
+      isInitialMount.current = false; // Set to false after first run
+      return;
+    }
+
+    // Check if senderName exists and is different from the prefix part of invoiceNumber
+    if (invoiceData.senderName && invoiceData.invoiceNumber) {
+      const currentPrefix = invoiceData.invoiceNumber.split('-')[0];
+      const newPrefix = invoiceData.senderName.trim().substring(0, 4).toUpperCase();
+
+      if (currentPrefix !== newPrefix) {
+        const updatedInvoiceNumber = invoiceLogic.updateInvoiceNumberPrefix(
+          invoiceData.invoiceNumber,
+          invoiceData.senderName
+        );
+
+        // Update the invoice data only if the number actually changed
+        if (updatedInvoiceNumber !== invoiceData.invoiceNumber) {
+          setInvoiceData(prevData => ({
+            ...prevData,
+            invoiceNumber: updatedInvoiceNumber
+          }));
+        }
+      }
+    }
+  // Add invoiceData.senderName and invoiceData.invoiceNumber to dependency array
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [invoiceData.senderName, id, setInvoiceData]); // Removed invoiceData.invoiceNumber from deps to avoid loop
+
   // Handle client selection
   const handleClientSelect = (e) => {
     const clientId = parseInt(e.target.value);
@@ -495,10 +528,12 @@ const InvoiceForm = ({
 
   // Handle company name selection
   const handleCompanyNameChange = (e) => {
+    const newCompanyName = e.target.value;
     // Update company name
     setInvoiceData(prevData => ({
       ...prevData,
-      senderName: e.target.value
+      senderName: newCompanyName
+      // The useEffect above will handle updating the invoice number
     }));
   };
 

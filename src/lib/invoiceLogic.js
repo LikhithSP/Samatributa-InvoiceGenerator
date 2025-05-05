@@ -75,7 +75,38 @@ const invoiceLogic = {
     
     return `${companyPrefix}-${dateStr}-${serialFormatted}`;
   },
-  
+
+  /**
+   * Update the prefix of an existing invoice number based on a new company name.
+   * Preserves the date and serial number parts.
+   * @param {string} currentInvoiceNumber - The existing invoice number (e.g., "SUPR-20250505-0001")
+   * @param {string} newCompanyName - The new company name (e.g., "Samatributa Solutions LLP")
+   * @returns {string} The updated invoice number (e.g., "SAMA-20250505-0001") or the original if format is invalid.
+   */
+  updateInvoiceNumberPrefix: (currentInvoiceNumber, newCompanyName) => {
+    if (!currentInvoiceNumber || !newCompanyName) {
+      return currentInvoiceNumber; // Return original if inputs are invalid
+    }
+
+    const parts = currentInvoiceNumber.split('-');
+    // Expecting format: PREFIX-YYYYMMDD-SERIAL
+    if (parts.length !== 3) {
+      console.warn('Cannot update invoice number prefix: Invalid format', currentInvoiceNumber);
+      return currentInvoiceNumber; // Return original if format doesn't match
+    }
+
+    const datePart = parts[1];
+    const serialPart = parts[2];
+
+    // Generate new prefix
+    const newCompanyPrefix = newCompanyName.trim().substring(0, 4).toUpperCase();
+
+    // Combine new prefix with existing date and serial
+    const updatedInvoiceNumber = `${newCompanyPrefix}-${datePart}-${serialPart}`;
+    console.log(`Updated invoice number prefix: ${currentInvoiceNumber} -> ${updatedInvoiceNumber}`);
+    return updatedInvoiceNumber;
+  },
+
   /**
    * Generate a new invoice number in the legacy format
    * @returns {string} Formatted legacy invoice number
