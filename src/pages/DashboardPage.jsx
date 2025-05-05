@@ -1462,7 +1462,7 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
                           title={isAdmin ? "Assign to user" : "Only administrators can assign invoices"}
                         >
                           <option value="">Unassigned</option>
-                          {users.map(user => (
+                          {users.filter(user => user.role !== 'admin').map(user => (
                             <option key={user.id} value={user.id}>
                               {user.name} {user.id === currentUserId ? '(You)' : ''}
                             </option>
