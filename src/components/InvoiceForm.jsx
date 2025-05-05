@@ -994,7 +994,7 @@ const InvoiceForm = ({
       </div>
       
       {/* Form Actions */}
-      <div className="form-actions" style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
+      <div className="form-actions" style={{ display: 'flex', flexDirection: 'row', flexWrap: 'nowrap', gap: '16px', justifyContent: 'flex-start', alignItems: 'center', marginTop: '24px' }}>
         <button onClick={onPreview} className="btn">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" style={{ marginRight: '5px' }}>
             <path d="M10.5 8a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0z"/>
