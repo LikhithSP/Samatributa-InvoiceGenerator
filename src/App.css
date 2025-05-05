@@ -1116,9 +1116,9 @@ body.dark-mode .dashboard-container {
 .btn-logout {
   width: 100%;
   padding: 10px;
-  background-color: transparent;
+  background-color: #e53e3e; /* Red background to match UI theme */
   border: 1px solid var(--border-color);
-  color: var(--sidebar-text);
+  color: #fff; /* White text for contrast */
   border-radius: 8px;
   cursor: pointer;
   display: flex;
@@ -1129,7 +1129,17 @@ body.dark-mode .dashboard-container {
 }
 
 .btn-logout:hover {
-  background-color: rgba(255, 255, 255, 0.1);
+  background-color: #c53030; /* Darker red on hover */
+}
+
+body:not(.dark-mode) .btn-logout {
+  background-color: #ffe86e; /* Updated background color for logout button in light mode */
+  /* ...existing code... */
+}
+
+body.dark-mode .btn-logout {
+  background-color: #fff40082; /* Updated background color for logout button in dark mode */
+  /* ...existing code... */
 }
 
 .dashboard-header {
@@ -1742,5 +1752,27 @@ body:not(.dark-mode) .dashboard-sidebar * {
 
 /* But allow .company-item.active to stay white text on blue */
 body:not(.dark-mode) .dashboard-sidebar .company-item.active {
+  color: #fff !important;
+}
+
+/* Force white text for Show All Invoices sidebar item in light mode */
+body:not(.dark-mode) .dashboard-sidebar .company-item.active .company-name {
+  color: #fff !important;
+}
+
+/* Force white color for the sidebar icon (including FiUser or similar) in Show All Invoices when active in light mode */
+body:not(.dark-mode) .dashboard-sidebar .company-item.active .sidebar-icon,
+body:not(.dark-mode) .dashboard-sidebar .company-item.active svg {
+  color: #fff !important;
+  fill: #fff !important;
+}
+
+/* Force white text for Create Your First Invoice button in light mode */
+body:not(.dark-mode) .no-invoices-message .btn {
+  color: #fff !important;
+}
+
+/* Force white text for Create Your First Invoice text in light mode */
+body:not(.dark-mode) .no-invoices-message .btn {
   color: #fff !important;
 }
