@@ -17,6 +17,9 @@
   --status-completed: #10b981; /* Teal green */
   --status-in-progress: #f59e0b; /* Amber yellow */
   --status-pending: #ef4444; /* Red kept the same */
+  --bg-color: #f9fafb; /* Light background color */
+  --preview-bg: #ffffff; /* Invoice preview background */
+  --preview-text: #111827; /* Invoice preview text color */
 
   /* Added new UI enhancement variables */
   --card-shadow: 0 4px 6px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0, 0, 0, 0.1);
@@ -32,6 +35,9 @@ body.dark-mode {
   --border-color: #4b5563;
   --sidebar-bg: #111827;
   --sidebar-text: #f9fafb;
+  --bg-color: #111827;
+  --preview-bg: #1e2130;
+  --preview-text: #f9fafb;
   --card-shadow: 0 4px 6px rgba(0, 0, 0, 0.2), 0 1px 3px rgba(0, 0, 0, 0.15);
 }
 
@@ -201,21 +207,86 @@ input:focus, textarea:focus, select:focus {
   box-shadow: 0 0 0 2px rgba(224, 127, 169, 0.1);
 }
 
+/* General table styles */
 table {
   width: 100%;
   border-collapse: collapse;
   margin-bottom: 15px;
 }
 
-table th, table td {
+table th {
+  background-color: var(--secondary-color);
+  color: var(--text-color);
+  font-weight: bold;
   padding: 12px;
   text-align: left;
   border-bottom: 1px solid var(--border-color);
 }
 
-table th {
-  background-color: var(--light-gray);
-  font-weight: bold;
+table td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--border-color);
+}
+
+/* Invoice items table specific styles */
+.service-items-table .main-service-row {
+  background-color: #f5f5f5;
+}
+
+.service-items-table .sub-service-row {
+  background-color: white;
+}
+
+.service-items-table .add-sub-service-row {
+  background-color: #f9f9f9;
+}
+
+.service-items-table .main-service-name {
+  background-color: transparent;
+}
+
+/* Dark mode overrides for table rows */
+body.dark-mode .service-items-table .main-service-row {
+  background-color: var(--secondary-color);
+  color: var(--text-color);
+}
+
+body.dark-mode .service-items-table .sub-service-row {
+  background-color: var(--card-bg);
+  color: var(--text-color);
+}
+
+body.dark-mode .service-items-table .add-sub-service-row {
+  background-color: var(--secondary-color);
+  color: var(--text-color);
+}
+
+body.dark-mode .service-items-table .main-service-name {
+  background-color: transparent;
+  color: var(--text-color);
+}
+
+body.dark-mode .service-items-table input,
+body.dark-mode .service-items-table textarea {
+  background-color: var(--card-bg);
+  color: var(--text-color);
+  border-color: var(--border-color);
+}
+
+body.dark-mode tr.main-service-row td {
+  background-color: var(--secondary-color) !important;
+  color: var(--text-color);
+}
+
+body.dark-mode tr.sub-service-row td {
+  background-color: var(--card-bg) !important;
+  color: var(--text-color);
+}
+
+body.dark-mode .add-sub-service-row td {
+  background-color: var(--secondary-color) !important;
+  color: var(--text-color);
 }
 
 .item-row td {
@@ -226,7 +297,7 @@ table th {
 .nested-row td {
   padding-left: 20px;
   font-size: 0.9em;
-  color: #666;
+  color: var(--text-color);
   border-bottom: 1px dashed var(--border-color);
 }
 
@@ -259,7 +330,7 @@ table th {
 
 /* Invoice Preview Styles */
 .invoice-preview {
-  background: white;
+  background: var(--preview-bg);
   position: fixed;
   top: 0;
   left: 0;
@@ -268,13 +339,16 @@ table th {
   z-index: 1000;
   overflow: auto;
   padding: 40px;
-  color: #333;
+  color: var(--preview-text);
 }
 
 .preview-container {
   max-width: 800px;
   margin: 0 auto;
-  background: white;
+  background: var(--preview-bg);
+  padding: 40px;
+  border-radius: 10px;
+  box-shadow: var(--card-shadow);
 }
 
 .preview-header {
@@ -282,11 +356,14 @@ table th {
   justify-content: space-between;
   align-items: flex-start;
   margin-bottom: 30px;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 20px;
 }
 
 .preview-logo {
   max-width: 180px;
   max-height: 90px;
+  object-fit: contain;
 }
 
 .preview-title {
@@ -314,105 +391,319 @@ table th {
 .preview-details p {
   margin-bottom: 8px;
   line-height: 1.5;
+  color: var(--preview-text);
 }
 
 .preview-items {
-  margin-bottom: 30px;
+  margin: 30px 0;
 }
 
 .preview-items h3 {
   color: var(--primary-color);
-  margin-bottom: 12px;
+  margin-bottom: 15px;
+  font-size: 18px;
   font-weight: bold;
 }
 
-.preview-totals {
-  margin-left: auto;
-  width: 300px;
-  margin-bottom: 30px;
-}
-
-.preview-notes {
-  margin-top: 30px;
-  padding-top: 20px;
-  border-top: 1px solid var(--border-color);
-  font-size: 14px;
-}
-
-.preview-notes h3 {
-  color: var(--primary-color);
-  margin-bottom: 12px;
-  font-weight: bold;
-}
-
-/* Login Page Styles */
-.login-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 100vh;
-  background-color: var(--bg-color);
-  padding: 20px;
-}
-
-.login-card {
+.preview-items table {
   width: 100%;
-  max-width: 400px;
-  padding: 30px;
+  border-collapse: collapse;
+  margin-bottom: 15px;
+}
+
+.preview-items table th {
   background-color: var(--card-bg);
-  border-radius: 10px;
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
-}
-
-.login-logo {
-  text-align: center;
-  margin-bottom: 30px;
-  color: var(--primary-color);
+  color: var(--preview-text);
   font-weight: bold;
-  font-size: 24px;
+  padding: 12px;
+  text-align: left;
+  border-bottom: 2px solid var(--border-color);
 }
 
-.error-message {
-  background-color: #ffebee;
-  color: #c62828;
-  padding: 10px;
-  border-radius: 5px;
-  margin-bottom: 20px;
-  display: none;
+.preview-items table tr td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--border-color);
+  color: var(--preview-text);
+  background-color: var(--preview-bg);
 }
 
-.loading-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(0, 0, 0, 0.7);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 9999;
-  color: white;
-  font-size: 1.2rem;
-  opacity: 1;
-  visibility: visible;
-  transition: opacity 0.3s, visibility 0.3s;
+.preview-items table tr.nested-row td {
+  padding-left: 20px;
+  font-size: 1em;
+  color: var(--preview-text);
+  border-bottom: 1px solid var(--border-color);
+  background-color: var(--preview-bg);
 }
 
-.spinner {
-  border: 5px solid rgba(255, 255, 255, 0.3);
-  border-top: 5px solid var(--primary-color);
-  border-radius: 50%;
-  width: 50px;
-  height: 50px;
-  animation: spin 1.5s linear infinite;
-  margin-right: 15px;
+/* Dark mode specific styles for service table */
+body.dark-mode .service-table th {
+  background-color: var(--dark-card);
+  color: var(--dark-text);
+  border-bottom-color: var(--border-color);
 }
 
+body.dark-mode .service-table td {
+  background-color: var(--dark-card);
+  color: var(--dark-text);
+  border-bottom-color: var(--border-color);
+}
+
+/* Add background color for nested rows in service table */
+.service-table tr.indented td {
+  background-color: var(--card-bg); 
+  padding-left: 20px;
+}
+
+body.dark-mode .service-table tr.indented td {
+  background-color: var(--dark-card);
+  color: var(--dark-text);
+  border-bottom-color: var(--border-color);
+}
+
+/* Dark mode styles for main-service-row and sub-service-row */
+body.dark-mode .main-service-row td {
+  background-color: var(--dark-card) !important;
+  color: var(--dark-text);
+}
+
+body.dark-mode .main-service-row input {
+  background-color: var(--secondary-color) !important;
+  color: var(--dark-text);
+}
+
+body.dark-mode tr.sub-service-row td {
+  background-color: var(--dark-card) !important;
+  color: var(--dark-text);
+}
+
+body.dark-mode .add-sub-service-row td {
+  background-color: var(--secondary-color) !important;
+  color: var(--dark-text);
+}
+
+/* Dark mode specific styles for preview items tables */
+body.dark-mode .preview-items table tr td {
+  background-color: var(--dark-card);
+  color: var(--dark-text);
+}
+
+body.dark-mode .preview-items table tr.nested-row td {
+  background-color: var(--dark-card);
+  color: var(--dark-text);
+}
+
+/* Dark mode specific styles for invoice preview */
+body.dark-mode .invoice-preview {
+  background: var(--dark-bg);
+}
+
+body.dark-mode .preview-container {
+  background: var(--dark-card);
+  color: var(--dark-text);
+}
+
+body.dark-mode .preview-header {
+  border-bottom-color: var(--border-color);
+}
+
+body.dark-mode .preview-items h3,
+body.dark-mode .preview-details h3 {
+  color: var(--light-text);
+}
+
+body.dark-mode .preview-totals td {
+  color: var(--light-text);
+}
+
+body.dark-mode .preview-notes h3 {
+  color: var(--light-text);
+}
+
+body.dark-mode .preview-notes p {
+  color: var(--dark-text);
+}
+
+/* Spinner Animation for PDF Generation */
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
+}
+
+/* Media print styles to ensure PDF looks correct */
+@media print {
+  .a4-preview-container {
+    width: 100%;
+    height: 100%;
+    box-shadow: none;
+    padding: 0;
+  }
+
+  .actions {
+    display: none;
+  }
+}
+
+/* A4 Invoice Layout Styles */
+.a4-preview-container {
+  width: 210mm; /* A4 width */
+  min-height: 297mm; /* A4 height */
+  padding: 20mm; /* Standard margin */
+  background-color: #fff;
+  margin: 0 auto;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  position: relative;
+  font-family: 'Arial', sans-serif;
+  box-sizing: border-box;
+  color: #333;
+}
+
+/* 1. Top Header with Logo and Invoice Title */
+.preview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 30px;
+}
+
+.company-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.preview-logo {
+  max-width: 120px;
+  height: auto;
+  object-fit: contain;
+}
+
+.company-name-header h1 {
+  font-size: 24px;
+  color: var(--primary-color);
+  margin-top: 10px;
+}
+
+.invoice-title h2 {
+  font-size: 28px;
+  color: var(--primary-color);
+  border: 2px solid var(--primary-color);
+  padding: 10px 20px;
+  border-radius: 5px;
+}
+
+/* 2. Company and Invoice Details Section */
+.details-section {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 30px;
+}
+
+.bill-to-section {
+  margin-bottom: 20px;
+}
+
+.bill-to-section h3 {
+  color: var(--primary-color);
+  margin-bottom: 10px;
+  font-size: 16px;
+}
+
+.customer-info {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.info-row {
+  margin-bottom: 5px;
+}
+
+.full-width {
+  width: 100%;
+}
+
+.half-width {
+  width: 50%;
+}
+
+.invoice-summary {
+  margin-bottom: 20px;
+}
+
+.rate-info {
+  display: flex;
+  gap: 30px;
+}
+
+.service-table {
+  margin-bottom: 20px;
+}
+
+.service-table table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.service-table th {
+  background-color: var(--secondary-color);
+  padding: 10px;
+  text-align: left;
+  font-weight: bold;
+}
+
+.service-table td {
+  padding: 10px;
+  border-bottom: 1px solid var(--border-color);
+  background-color: var(--card-bg); /* Add background color that respects theme */
+}
+
+.service-table .indented {
+  padding-left: 20px;
+}
+
+.totals-section {
+  margin-top: 20px;
+  margin-left: auto;
+  width: 50%;
+}
+
+.totals-section table {
+  width: 100%;
+}
+
+.totals-section td {
+  padding: 8px 0;
+}
+
+.grand-total {
+  font-weight: bold;
+  color: var(--primary-color);
+  border-top: 2px solid var(--border-color);
+  font-size: 16px;
+}
+
+.bank-details {
+  margin-top: 30px;
+  margin-bottom: 20px;
+  border-top: 1px solid var(--border-color);
+  padding-top: 20px;
+}
+
+.bank-details h3 {
+  color: var(--primary-color);
+  margin-bottom: 10px;
+  font-size: 16px;
+}
+
+.account-info {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.invoice-footer {
+  margin-top: 40px;
+  text-align: center;
+  font-style: italic;
+  color: var(--light-text);
 }
 
 /* Animation for form errors */
@@ -724,6 +1015,7 @@ pre {
   grid-template-rows: auto 1fr;
   height: 100vh;
   overflow: hidden;
+  background-color: var(--bg-color);
 }
 
 body.dark-mode .dashboard-container {
@@ -738,15 +1030,25 @@ body.dark-mode .dashboard-container {
   flex-direction: column;
   height: 100%;
   overflow-y: auto;
-  box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--card-shadow);
 }
 
 .dashboard-main {
   grid-area: main;
   padding: 20px;
   overflow-y: auto;
-  background-color: var(--light-gray);
+  background-color: var(--bg-color);
   transition: background-color var(--transition-speed);
+}
+
+.dashboard-topbar {
+  grid-area: topbar;
+  background-color: var(--card-bg);
+  border-bottom: 1px solid var(--border-color);
+  padding: 15px 25px;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
 }
 
 .company-logo-container {
@@ -754,7 +1056,7 @@ body.dark-mode .dashboard-container {
   display: flex;
   align-items: center;
   gap: 10px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid var(--border-color);
 }
 
 .main-company-logo {
@@ -773,31 +1075,34 @@ body.dark-mode .dashboard-container {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px;
-  margin-bottom: 5px;
-  border-radius: 4px;
+  padding: 12px;
+  border-radius: 8px;
   cursor: pointer;
   transition: all var(--transition-speed);
+  color: var(--sidebar-text);
+  opacity: 0.8;
 }
 
 .company-item:hover {
   background-color: rgba(255, 255, 255, 0.1);
+  opacity: 1;
 }
 
 .company-item.active {
   background-color: var(--primary-color);
-  color: white;
+  opacity: 1;
 }
 
 .company-icon {
   width: 24px;
   height: 24px;
-  border-radius: 3px;
+  border-radius: 4px;
   object-fit: contain;
 }
 
 .company-name {
-  flex: 1;
+  font-size: 14px;
+  font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -805,27 +1110,26 @@ body.dark-mode .dashboard-container {
 
 .sidebar-footer {
   padding: 15px;
-  display: flex;
-  justify-content: space-around;
-  align-items: center;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-top: 1px solid var(--border-color);
 }
 
 .btn-logout {
+  width: 100%;
+  padding: 10px;
+  background-color: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--sidebar-text);
+  border-radius: 8px;
+  cursor: pointer;
   display: flex;
   align-items: center;
-  background-color: rgba(255, 255, 255, 0.1);
-  color: var(--sidebar-text);
-  border: none;
-  padding: 8px 12px;
-  border-radius: 4px;
-  cursor: pointer;
+  justify-content: center;
+  gap: 8px;
   transition: all var(--transition-speed);
-  font-size: 14px;
 }
 
 .btn-logout:hover {
-  background-color: rgba(255, 255, 255, 0.2);
+  background-color: rgba(255, 255, 255, 0.1);
 }
 
 .dashboard-header {
@@ -843,27 +1147,28 @@ body.dark-mode .dashboard-container {
 
 .search-container {
   position: relative;
-  width: 300px;
+  display: flex;
+  align-items: center;
 }
 
 .search-icon {
   position: absolute;
-  left: 10px;
-  top: 50%;
-  transform: translateY(-50%);
+  left: 12px;
   color: var(--light-text);
+  pointer-events: none;
 }
 
 .search-container input {
   padding: 10px 10px 10px 35px;
-  border-radius: 20px;
   border: 1px solid var(--border-color);
-  width: 100%;
+  border-radius: 8px;
+  background-color: var(--card-bg);
+  color: var(--text-color);
+  width: 250px;
   transition: all var(--transition-speed);
 }
 
 .search-container input:focus {
-  outline: none;
   border-color: var(--primary-color);
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
 }
@@ -873,7 +1178,7 @@ body.dark-mode .dashboard-container {
   color: white;
   border: none;
   padding: 10px 20px;
-  border-radius: 20px;
+  border-radius: 8px;
   cursor: pointer;
   transition: all var(--transition-speed);
   display: flex;
@@ -981,16 +1286,23 @@ body.dark-mode .dashboard-container {
   font-size: 0.8em;
   font-weight: bold;
   text-transform: uppercase;
+  color: white;
 }
 
 .status.paid {
   background-color: var(--status-completed);
-  color: white;
 }
 
 .status.pending {
   background-color: var(--status-pending);
-  color: white;
+}
+
+.status.draft {
+  background-color: var(--status-in-progress);
+}
+
+.status.cancelled {
+  background-color: var(--status-pending);
 }
 
 .no-invoices-message {
@@ -1000,6 +1312,7 @@ body.dark-mode .dashboard-container {
   background-color: var(--card-bg);
   border-radius: 10px;
   box-shadow: var(--card-shadow);
+  color: var(--text-color);
 }
 
 .auth-status {
@@ -1133,4 +1446,256 @@ input:checked + .slider .moon-icon {
 /* Animation for dark mode transition */
 body, .card, .dashboard-sidebar, .dashboard-topbar, input, select, textarea, button {
   transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* Bin Page Styles */
+.bin-container {
+  padding: 20px 0;
+}
+
+.bin-header {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 20px;
+}
+
+.bin-header h1 {
+  color: var(--primary-color);
+  margin-bottom: 10px;
+}
+
+.bin-header p {
+  color: var(--light-text);
+  margin-bottom: 20px;
+}
+
+.empty-bin {
+  background-color: var(--card-bg);
+  border-radius: 10px;
+  padding: 40px 20px;
+  text-align: center;
+  box-shadow: var(--card-shadow);
+}
+
+.empty-bin-icon {
+  font-size: 48px;
+  margin-bottom: 20px;
+}
+
+.empty-bin h2 {
+  font-size: 24px;
+  color: var(--primary-color);
+  margin-bottom: 15px;
+}
+
+.empty-bin p {
+  color: var(--light-text);
+  margin-bottom: 25px;
+}
+
+.bin-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 20px;
+  background-color: var(--card-bg);
+  border-radius: 10px;
+  box-shadow: var(--card-shadow);
+  overflow: hidden;
+}
+
+.bin-table th {
+  background-color: var(--secondary-color);
+  color: var(--text-color);
+  text-align: left;
+  padding: 15px;
+  font-weight: bold;
+}
+
+.bin-table td {
+  padding: 15px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.bin-table tr:last-child td {
+  border-bottom: none;
+}
+
+.bin-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.bin-action-btn {
+  padding: 8px 10px;
+  font-size: 13px;
+}
+
+.btn-danger {
+  background-color: #e53e3e;
+  color: white;
+}
+
+.btn-danger:hover {
+  background-color: #c53030;
+}
+
+.loading-state {
+  text-align: center;
+  padding: 40px;
+  color: var(--light-text);
+}
+
+/* For the bin badge in sidebar/dashboard */
+.bin-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--primary-color);
+  color: white;
+  border-radius: 50%;
+  height: 20px;
+  width: 20px;
+  font-size: 12px;
+  margin-left: 8px;
+}
+
+/* Animation for bin icon */
+@keyframes shake {
+  0%, 100% { transform: rotate(0); }
+  10%, 30%, 50%, 70%, 90% { transform: rotate(-5deg); }
+  20%, 40%, 60%, 80% { transform: rotate(5deg); }
+}
+
+.bin-icon {
+  margin-right: 6px;
+  font-size: 16px;
+  animation: shake 1s ease both;
+  animation-play-state: paused;
+}
+
+.bin-link:hover .bin-icon {
+  animation-play-state: running;
+}
+
+/* Force the invoice preview to always look like light mode */
+.a4-preview-container {
+  width: 210mm; /* A4 width */
+  min-height: 297mm; /* A4 height */
+  padding: 20mm; /* Standard margin */
+  background-color: #fff !important; /* Force white background */
+  margin: 0 auto;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  position: relative;
+  font-family: 'Arial', sans-serif;
+  box-sizing: border-box;
+  color: #333 !important; /* Force black text */
+}
+
+/* Force black text in invoice preview regardless of dark mode */
+.a4-preview-container * {
+  color: #333 !important;
+}
+
+/* Fix for invoice number text */
+.a4-preview-container .invoice-number p,
+.a4-preview-container .invoice-details p,
+.a4-preview-container .company-details p,
+.a4-preview-container .bill-to-section p,
+.a4-preview-container .invoice-footer p {
+  color: #333 !important;
+}
+
+/* Fix for service table in dark mode */
+.a4-preview-container table th {
+  background-color: #f3f4f6 !important; /* Light gray for headers */
+  color: #333 !important;
+  border-bottom: 1px solid #e5e7eb !important;
+}
+
+.a4-preview-container table td {
+  background-color: #ffffff !important; /* White for cells */
+  color: #333 !important;
+  border-bottom: 1px solid #e5e7eb !important;
+}
+
+/* Additional specific fixes for main service rows and sub-service rows */
+.a4-preview-container .main-service-row td,
+.a4-preview-container tr.main-service-row td {
+  background-color: #f5f5f5 !important; /* Light gray background */
+  color: #333 !important;
+  border-bottom: 1px solid #e5e7eb !important;
+}
+
+.a4-preview-container .sub-service-row td,
+.a4-preview-container tr.sub-service-row td {
+  background-color: #ffffff !important; /* White background */
+  color: #333 !important;
+  border-bottom: 1px solid #e5e7eb !important;
+}
+
+/* Ensure all service descriptions display properly */
+.a4-preview-container .service-description {
+  color: #333 !important;
+}
+
+/* Make sure service amount rows display properly */
+.a4-preview-container .amount-row td {
+  background-color: #ffffff !important;
+  color: #333 !important;
+}
+
+/* Fix any potential color inheritance issues with nested elements */
+.a4-preview-container table tr td * {
+  color: #333 !important;
+}
+
+/* Force light appearance for invoice preview in dark mode */
+body.dark-mode .a4-preview-container {
+  background-color: white !important;
+  color: #333 !important;
+}
+
+/* Fix service table rows in invoice preview */
+body.dark-mode .a4-preview-container .main-service-row,
+body.dark-mode .a4-preview-container .main-service-row td,
+body.dark-mode .a4-preview-container tr.main-service-row td {
+  background-color: #f5f5f5 !important;
+  color: #333 !important;
+  border-color: #e5e7eb !important;
+}
+
+body.dark-mode .a4-preview-container .sub-service-row,
+body.dark-mode .a4-preview-container .sub-service-row td,
+body.dark-mode .a4-preview-container tr.sub-service-row td {
+  background-color: white !important;
+  color: #333 !important;
+  border-color: #e5e7eb !important;
+}
+
+/* Ensure all text elements in the invoice are black in dark mode */
+body.dark-mode .a4-preview-container p,
+body.dark-mode .a4-preview-container h1,
+body.dark-mode .a4-preview-container h2,
+body.dark-mode .a4-preview-container h3,
+body.dark-mode .a4-preview-container td,
+body.dark-mode .a4-preview-container th,
+body.dark-mode .a4-preview-container strong,
+body.dark-mode .a4-preview-container .invoice-footer {
+  color: #333 !important;
+}
+
+/* Fix table headers in dark mode */
+body.dark-mode .a4-preview-container th {
+  background-color: #f3f4f6 !important;
+  color: #333 !important;
+}
+
+/* Make description text black */
+body.dark-mode .a4-preview-container td p {
+  color: #333 !important;
+}
+
+/* Make "Thanks for your business" visible in dark mode */
+body.dark-mode .a4-preview-container .invoice-footer {
+  color: #333 !important;
 }

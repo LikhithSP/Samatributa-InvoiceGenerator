@@ -3,7 +3,8 @@ import InvoiceItemsTable from './InvoiceItemsTable';
 import emailService from '../services/emailService';
 import pdfService from '../services/pdfService';
 import exchangeRateService from '../services/exchangeRateService';
-import { useNotification } from '../context/ErrorContext';
+import invoiceLogic from '../lib/invoiceLogic';
+import { useNotification } from '../context/NotificationContext';
 import Modal from './Modal';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
@@ -17,19 +18,98 @@ const InvoiceForm = ({
   onSave,
   onDelete,
   isLoading,
-  setIsLoading
+  setIsLoading,
+  id,
+  isAuthorized = true // Default to true for backward compatibility
 }) => {
   // Initialize state and hooks
   const [exchangeRate, setExchangeRate] = useState(82);
   const [showSendModal, setShowSendModal] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);
   const { setNotification } = useNotification();
+  const [clients, setClients] = useState(() => {
+    const savedClients = localStorage.getItem('userClients');
+    return savedClients ? JSON.parse(savedClients) : [];
+  });
   
   // Fetch exchange rate on component mount
   useEffect(() => {
     fetchExchangeRate();
   }, []);
   
+  // Add a useEffect to listen for client updates
+  useEffect(() => {
+    // Listen for the clientsUpdated event
+    const handleClientsUpdated = () => {
+      const savedClients = localStorage.getItem('userClients');
+      if (savedClients) {
+        setClients(JSON.parse(savedClients));
+      }
+    };
+    
+    // Add event listener
+    window.addEventListener('clientsUpdated', handleClientsUpdated);
+    
+    // Clean up
+    return () => {
+      window.removeEventListener('clientsUpdated', handleClientsUpdated);
+    };
+  }, []);
+  
+  // Handle client selection
+  const handleClientSelect = (e) => {
+    const clientId = parseInt(e.target.value);
+    
+    if (!clientId) {
+      // If "Select Client" option is chosen, do nothing
+      return;
+    }
+    
+    // Find selected client
+    const selectedClient = clients.find(client => client.id === clientId);
+    
+    if (selectedClient) {
+      // Auto-fill all client details
+      setInvoiceData(prevData => ({
+        ...prevData,
+        recipientName: selectedClient.name,
+        recipientAddress: selectedClient.address || '',
+        recipientPhone: selectedClient.phone || '',
+        recipientEmail: selectedClient.email || '',
+        recipientWebsite: selectedClient.website || '',
+        recipientGSTIN: selectedClient.gstin || '',
+        recipientPAN: selectedClient.pan || ''
+      }));
+    }
+  };
+
+  // Generate invoice number with format COMP-YYYYMMDD-XXXX
+  const generateInvoiceNumber = () => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    const date = `${year}${month}${day}`;
+    
+    // Get company prefix (first 4 letters)
+    const companyName = invoiceData.senderName || 'COMP';
+    const companyPrefix = companyName.trim().substring(0, 4).toUpperCase();
+    
+    // Get last serial from localStorage
+    const lastSerialKey = `invoiceSerial_${date}`;
+    let lastSerial = parseInt(localStorage.getItem(lastSerialKey) || '0');
+    lastSerial += 1;
+    
+    // Save new serial to localStorage
+    localStorage.setItem(lastSerialKey, lastSerial.toString());
+    
+    // Format serial with leading zeros
+    const serialFormatted = String(lastSerial).padStart(4, '0');
+    const invoiceNumber = `${companyPrefix}-${date}-${serialFormatted}`;
+    
+    return invoiceNumber;
+  };
+
   // Fetch current exchange rate using the exchangeRateService
   const fetchExchangeRate = async () => {
     try {
@@ -46,18 +126,46 @@ const InvoiceForm = ({
   };
   
   const updateCalculationsWithRate = (items, rate) => {
+    // Skip for existing invoices to preserve their values
+    if (id && id !== 'new' && invoiceData.id) {
+      console.log('Updating exchange rate for existing invoice without recalculating totals');
+      
+      // Just update the exchange rate without recalculating totals
+      setInvoiceData(prevData => ({
+        ...prevData,
+        exchangeRate: rate
+      }));
+      return;
+    }
+    
     // Calculate subtotals with the provided exchange rate
     let subtotalUSD = 0;
     let subtotalINR = 0;
     
-    items.forEach(item => {
-      subtotalUSD += parseFloat(item.amountUSD) || 0;
-      // Recalculate INR amounts based on new exchange rate
-      if (item.amountUSD) {
-        const newAmountINR = parseFloat(item.amountUSD) * rate;
-        item.amountINR = newAmountINR.toFixed(2);
+    // Create a deep copy of items to avoid reference issues
+    const updatedItems = JSON.parse(JSON.stringify(items));
+    
+    updatedItems.forEach(item => {
+      // For backward compatibility - if it's an old format item with direct amounts
+      if (item.amountUSD !== undefined) {
+        subtotalUSD += parseFloat(item.amountUSD) || 0;
+        // Recalculate INR amounts based on new exchange rate
+        if (item.amountUSD) {
+          item.amountINR = parseFloat(item.amountUSD) * rate;
+        }
+        subtotalINR += parseFloat(item.amountINR) || 0;
       }
-      subtotalINR += parseFloat(item.amountINR) || 0;
+      
+      // Add sub-services amounts (standardize on subServices property)
+      if (item.subServices && item.subServices.length > 0) {
+        item.subServices.forEach(subService => {
+          subtotalUSD += parseFloat(subService.amountUSD) || 0;
+          if (subService.amountUSD) {
+            subService.amountINR = parseFloat(subService.amountUSD) * rate;
+          }
+          subtotalINR += parseFloat(subService.amountINR) || 0;
+        });
+      }
     });
     
     // Calculate tax amounts
@@ -72,29 +180,63 @@ const InvoiceForm = ({
     // Update invoice data
     setInvoiceData(prevData => ({
       ...prevData,
-      items: [...items],
+      items: updatedItems,
       subtotalUSD,
       subtotalINR,
       taxAmountUSD,
       taxAmountINR,
       totalUSD,
-      totalINR
+      totalINR,
+      exchangeRate: rate
     }));
   };
   
   // Calculate totals whenever items or tax rate changes
   useEffect(() => {
-    updateCalculations();
-  }, [invoiceData.items, invoiceData.taxRate]);
+    // Skip automatic recalculation when loading an existing invoice
+    if (id && id !== 'new' && invoiceData.id) {
+      console.log('Skipping automatic recalculation for existing invoice:', invoiceData.invoiceNumber);
+      return;
+    }
+    
+    // For existing invoices, only update calculations when tax rate changes manually
+    if (id && id !== 'new') {
+      // Only recalculate if tax rate is changed by user
+      if (invoiceData.items.length > 0) {
+        updateCalculations(invoiceData.items);
+      }
+      return;
+    }
+
+    // For new invoices, always recalculate
+    updateCalculations(invoiceData.items);
+  // We're removing items from dependency array to prevent constant recalculation
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [invoiceData.taxRate, id, invoiceData.id]);
   
-  const updateCalculations = () => {
+  const updateCalculations = (newItems) => {
+    // Don't skip calculation for existing invoices during editing
+    // We need to recalculate when items change
+    console.log('Calculating totals for invoice items:', newItems);
+
     // Calculate subtotals
     let subtotalUSD = 0;
     let subtotalINR = 0;
     
-    invoiceData.items.forEach(item => {
-      subtotalUSD += parseFloat(item.amountUSD) || 0;
-      subtotalINR += parseFloat(item.amountINR) || 0;
+    newItems.forEach(item => {
+      // For backward compatibility - if it's an old format item with direct amounts
+      if (item.amountUSD !== undefined) {
+        subtotalUSD += parseFloat(item.amountUSD) || 0;
+        subtotalINR += parseFloat(item.amountINR) || 0;
+      }
+      
+      // Add sub-services amounts (standardize on subServices property)
+      if (item.subServices && item.subServices.length > 0) {
+        item.subServices.forEach(subService => {
+          subtotalUSD += parseFloat(subService.amountUSD) || 0;
+          subtotalINR += parseFloat(subService.amountINR) || 0;
+        });
+      }
     });
     
     // Calculate tax amounts
@@ -105,6 +247,10 @@ const InvoiceForm = ({
     // Calculate totals
     const totalUSD = subtotalUSD + taxAmountUSD;
     const totalINR = subtotalINR + taxAmountINR;
+    
+    console.log('Calculated new totals:', {
+      subtotalUSD, subtotalINR, totalUSD, totalINR
+    });
     
     // Update invoice data
     setInvoiceData(prevData => ({
@@ -153,6 +299,29 @@ const InvoiceForm = ({
     }));
   };
   
+  // Handle exchange rate input change
+  const handleExchangeRateChange = (e) => {
+    const newRate = parseFloat(e.target.value) || 82;
+    setExchangeRate(newRate);
+    updateCalculationsWithRate(invoiceData.items, newRate);
+  };
+  
+  // Update website field
+  const handleWebsiteChange = (e) => {
+    setInvoiceData(prevData => ({
+      ...prevData,
+      recipientWebsite: e.target.value
+    }));
+  };
+  
+  // Update bank details fields
+  const updateBankDetails = (field, value) => {
+    setInvoiceData(prevData => ({
+      ...prevData,
+      [field]: value
+    }));
+  };
+  
   // Add comprehensive form validation
   const validateForm = () => {
     // Required fields
@@ -188,7 +357,7 @@ const InvoiceForm = ({
     
     // Check if any item has a description but no amount
     const invalidItems = invoiceData.items.filter(
-      item => item.description.trim() !== '' && 
+      item => item.description && item.description.trim() !== '' && 
       ((!item.amountUSD || parseFloat(item.amountUSD) === 0) && 
        (!item.amountINR || parseFloat(item.amountINR) === 0))
     );
@@ -199,6 +368,30 @@ const InvoiceForm = ({
     }
     
     return true;
+  };
+  
+  const waitForElementToRender = async (elementId, maxAttempts = 10, interval = 300) => {
+    return new Promise((resolve, reject) => {
+      let attempts = 0;
+      
+      const checkElement = () => {
+        attempts++;
+        const element = document.getElementById(elementId);
+        
+        if (element) {
+          // Element found, wait a bit more for it to fully render
+          setTimeout(() => resolve(element), 500);
+        } else if (attempts < maxAttempts) {
+          // Element not found yet, try again
+          setTimeout(checkElement, interval);
+        } else {
+          // Max attempts reached, element not found
+          reject(new Error(`Element with ID ${elementId} not found after ${maxAttempts} attempts`));
+        }
+      };
+      
+      checkElement();
+    });
   };
   
   const sendInvoice = async () => {
@@ -217,43 +410,43 @@ const InvoiceForm = ({
     setIsLoading(true);
     
     try {
-      // First generate PDF content
-      const previewElement = document.getElementById('invoicePreview');
+      // First ensure we're in preview mode
+      onPreview();
       
-      if (!previewElement) {
-        // If preview element doesn't exist, show preview first
-        onPreview();
-        // Then set up a modal to confirm email sending once preview is ready
-        setShowSendModal(true);
+      try {
+        // Wait for the preview element to be ready
+        const previewElement = await waitForElementToRender('invoicePreviewContent');
+        
+        const canvas = await html2canvas(previewElement, {
+          scale: 2,
+          useCORS: true,
+          scrollY: 0,
+        });
+        
+        // Convert to base64 for email attachment
+        const imgData = canvas.toDataURL('image/png');
+        
+        const emailParams = {
+          to_email: invoiceData.recipientEmail,
+          subject: `Invoice - ${invoiceData.invoiceNumber}`,
+          message: `Please find attached the invoice ${invoiceData.invoiceNumber} from ${invoiceData.senderName || 'Your Company'}.`,
+          attachment: imgData
+        };
+        
+        // Use emailService instead of direct emailjs calls
+        await emailService.sendInvoice(emailParams);
+        
         setIsLoading(false);
-        return;
+        setNotification('Invoice sent successfully!', 'success');
+      } catch (error) {
+        console.error('Error sending email:', error);
+        setIsLoading(false);
+        setNotification('Failed to send the invoice: ' + error.message, 'error');
       }
-      
-      const canvas = await html2canvas(previewElement, {
-        scale: 1,
-        useCORS: true,
-        scrollY: 0,
-      });
-      
-      // Convert to base64 for email attachment
-      const imgData = canvas.toDataURL('image/png');
-      
-      const emailParams = {
-        to_email: invoiceData.recipientEmail,
-        subject: `Invoice - ${invoiceData.invoiceNumber}`,
-        message: `Please find attached the invoice ${invoiceData.invoiceNumber} from ${invoiceData.senderName || 'Your Company'}.`,
-        attachment: imgData
-      };
-      
-      // Use emailService instead of direct emailjs calls
-      await emailService.sendInvoice(emailParams);
-      
-      setIsLoading(false);
-      setNotification('Invoice sent successfully!', 'success');
     } catch (error) {
-      console.error('Error sending email:', error);
+      console.error('Error preparing preview for email:', error);
       setIsLoading(false);
-      setNotification('Failed to send the invoice: ' + error.message, 'error');
+      setNotification('Failed to prepare the invoice for sending: ' + error.message, 'error');
     }
   };
   
@@ -270,20 +463,51 @@ const InvoiceForm = ({
       // First ensure we're in preview mode
       onPreview();
       
-      // Wait for the preview element to be ready
       try {
-        const previewElement = await pdfService.waitForElement('invoicePreview');
+        // Wait for the preview element to be ready
+        const previewElement = await waitForElementToRender('invoicePreviewContent');
         
-        // Use our centralized PDF service to generate the PDF
-        await pdfService.generatePDF(
-          previewElement, 
-          `Invoice_${invoiceData.invoiceNumber}.pdf`
-        );
+        // Use html2canvas to capture the invoice as an image
+        const canvas = await html2canvas(previewElement, {
+          scale: 2,
+          useCORS: true,
+          scrollY: 0,
+          windowWidth: 794, // A4 width in px (about)
+          windowHeight: 1123, // A4 height in px (about)
+          logging: true, // Enable logging for debugging
+          allowTaint: true,
+          backgroundColor: '#ffffff'
+        });
+        
+        // Convert canvas to image data
+        const imgData = canvas.toDataURL('image/jpeg', 1.0);
+        
+        // Create new PDF document
+        const pdf = new jsPDF({
+          orientation: 'portrait',
+          unit: 'mm',
+          format: 'a4'
+        });
+        
+        // Get PDF dimensions
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = pdf.internal.pageSize.getHeight();
+        const ratio = canvas.width / canvas.height;
+        const imgWidth = pdfWidth;
+        const imgHeight = imgWidth / ratio;
+        
+        // Add the image to the PDF
+        pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, imgHeight);
+        
+        // Save the PDF with the invoice number in the filename
+        pdf.save(`Invoice_${invoiceData.invoiceNumber}.pdf`);
         
         setIsLoading(false);
         setNotification('PDF downloaded successfully!', 'success');
       } catch (error) {
-        throw new Error(`Failed to generate preview: ${error.message}`);
+        console.error('Failed to generate PDF:', error);
+        setIsLoading(false);
+        setNotification('Failed to generate PDF: ' + error.message, 'error');
       }
     } catch (error) {
       console.error('Error generating PDF:', error);
@@ -291,91 +515,53 @@ const InvoiceForm = ({
       setNotification('Failed to generate PDF: ' + error.message, 'error');
     }
   };
-  
+
+  // Handle company name selection
+  const handleCompanyNameChange = (e) => {
+    // Update company name
+    setInvoiceData(prevData => ({
+      ...prevData,
+      senderName: e.target.value
+    }));
+  };
+
+  // Handle company address selection
+  const handleCompanyAddressChange = (e) => {
+    // Update company address
+    setInvoiceData(prevData => ({
+      ...prevData,
+      senderAddress: e.target.value
+    }));
+  };
+
   return (
-    <div className="grid">
-      {/* Left Column */}
-      <div>
-        {/* Invoice Details */}
-        <div className="card">
-          <h2 className="card-title">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-              <path d="M1.92.506a.5.5 0 0 1 .434.14L3 1.293l.646-.647a.5.5 0 0 1 .708 0L5 1.293l.646-.647a.5.5 0 0 1 .708 0L7 1.293l.646-.647a.5.5 0 0 1 .708 0L9 1.293l.646-.647a.5.5 0 0 1 .708 0l.646.647.646-.647a.5.5 0 0 1 .708.13l.5 1A.5.5 0 0 1 15 2v12a.5.5 0 0 1-.053.224l-.5 1a.5.5 0 0 1-.8.13L13 14.707l-.646.647a.5.5 0 0 1-.708 0L11 14.707l-.646.647a.5.5 0 0 1-.708 0L9 14.707l-.646.647a.5.5 0 0 1-.708 0L7 14.707l-.646.647a.5.5 0 0 1-.708 0L5 14.707l-.646.647a.5.5 0 0 1-.708 0L3 14.707l-.646.647a.5.5 0 0 1-.801-.13l-.5-1A.5.5 0 0 1 1 14V2a.5.5 0 0 1 .053-.224l.5-1a.5.5 0 0 1 .367-.27zm.217 1.338L2 2.118v11.764l.137.274.51-.51a.5.5 0 0 1 .707 0l.646.647.646-.647a.5.5 0 0 1 .708 0l.646.647.646-.647a.5.5 0 0 1 .708 0l.509.509.137-.274V2.118l-.137-.274-.51.51a.5.5 0 0 1-.707 0L12 1.707l-.646.647a.5.5 0 0 1-.708 0L10 1.707l-.646.647a.5.5 0 0 1-.708 0L8 1.707l-.646.647a.5.5 0 0 1-.708 0L6 1.707l-.646.647a.5.5 0 0 1-.708 0L4 1.707l-.646.647a.5.5 0 0 1-.708 0l-.509-.51z"/>
-              <path d="M3 4.5a.5.5 0 0 1 .5-.5h6a.5.5 0 1 1 0 1h-6a.5.5 0 0 1-.5-.5zm0 2a.5.5 0 0 1 .5-.5h6a.5.5 0 1 1 0 1h-6a.5.5 0 0 1-.5-.5zm0 2a.5.5 0 0 1 .5-.5h6a.5.5 0 1 1 0 1h-6a.5.5 0 0 1-.5-.5zm0 2a.5.5 0 0 1 .5-.5h6a.5.5 0 1 1 0 1h-6a.5.5 0 0 1-.5-.5zm8-6a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 0 1h-1a.5.5 0 0 1-.5-.5zm0 2a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 0 1h-1a.5.5 0 0 1-.5-.5zm0 2a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 0 1h-1a.5.5 0 0 1-.5-.5zm0 2a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 0 1h-1a.5.5 0 0 1-.5-.5z"/>
-            </svg>
-            Invoice Details
-          </h2>
-          
-          <div className="form-group">
-            <label htmlFor="invoiceNumber">Invoice Number</label>
-            <input 
-              type="text" 
-              id="invoiceNumber" 
-              name="invoiceNumber" 
-              value={invoiceData.invoiceNumber} 
-              onChange={handleInputChange} 
-            />
-          </div>
-          
-          <div className="form-group">
-            <label htmlFor="invoiceDate">Invoice Date</label>
-            <input 
-              type="date" 
-              id="invoiceDate" 
-              name="invoiceDate" 
-              value={invoiceData.invoiceDate} 
-              onChange={handleInputChange} 
-            />
-          </div>
-          
-          <div className="form-group">
-            <label htmlFor="taxRate">Tax Rate (%)</label>
-            <input 
-              type="number" 
-              id="taxRate" 
-              name="taxRate" 
-              value={invoiceData.taxRate} 
-              onChange={handleInputChange} 
-              min="0" 
-              max="100" 
-              step="0.01" 
-            />
-          </div>
-          
-          <div className="form-group">
-            <label>Primary Currency</label>
-            <div style={{ display: 'flex', gap: '10px' }}>
-              <label>
-                <input 
-                  type="radio" 
-                  name="currency" 
-                  value="USD" 
-                  checked={invoiceData.currency === 'USD'} 
-                  onChange={handleCurrencyToggle} 
-                /> USD
-              </label>
-              <label>
-                <input 
-                  type="radio" 
-                  name="currency" 
-                  value="INR" 
-                  checked={invoiceData.currency === 'INR'} 
-                  onChange={handleCurrencyToggle} 
-                /> INR
-              </label>
-            </div>
-          </div>
+    <div className="invoice-form">
+      {!isAuthorized && (
+        <div className="authorization-warning" style={{
+          backgroundColor: '#ffecec',
+          color: '#d8000c',
+          padding: '10px 15px',
+          marginBottom: '20px',
+          borderRadius: '4px',
+          border: '1px solid #d8000c',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
+        }}>
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" style={{ marginRight: '8px' }}>
+            <path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/>
+          </svg>
+          <span>You don't have permission to edit this invoice. Only the assigned client can make changes.</span>
         </div>
+      )}
+      
+      {/* Top Header - Company Information */}
+      <div className="form-section">
+        <h2 className="section-title">
+          Company Information
+        </h2>
         
-        {/* Sender Information */}
-        <div className="card">
-          <h2 className="card-title">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-              <path d="M6 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm-5 6s-1 0-1-1 1-4 6-4 6 3 6 4-1 1-1 1H1zM11 3.5a.5.5 0 0 1 .5-.5h4a.5.5 0 0 1 0 1h-4a.5.5 0 0 1-.5-.5zm.5 2.5a.5.5 0 0 0 0 1h4a.5.5 0 0 0 0-1h-4zm2 3a.5.5 0 0 0 0 1h2a.5.5 0 0 0 0-1h-2zm0 3a.5.5 0 0 0 0 1h2a.5.5 0 0 0 0-1h-2z"/>
-            </svg>
-            Your Company Information
-          </h2>
-          
+        <div className="form-row">
           <div className="form-group">
             <label htmlFor="companyLogo">Company Logo</label>
             <input 
@@ -383,6 +569,7 @@ const InvoiceForm = ({
               id="companyLogo" 
               accept="image/*" 
               onChange={handleLogoUpload} 
+              disabled={!isAuthorized}
             />
             {invoiceData.logoUrl && (
               <div style={{ marginTop: '10px' }}>
@@ -396,57 +583,113 @@ const InvoiceForm = ({
           </div>
           
           <div className="form-group">
-            <label htmlFor="senderName">Company Name</label>
-            <input 
-              type="text" 
+            <label htmlFor="senderName">Company Name *</label>
+            <select 
               id="senderName" 
               name="senderName" 
               value={invoiceData.senderName} 
-              onChange={handleInputChange} 
-              placeholder="Your Company Name" 
-            />
+              onChange={handleCompanyNameChange} 
+              required
+              disabled={!isAuthorized}
+              style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
+            >
+              <option value="">Select Company</option>
+              <option value="Suprayoga Solutions LLP">Suprayoga Solutions LLP</option>
+              <option value="Samatributa Solutions LLP">Samatributa Solutions LLP</option>
+            </select>
           </div>
-          
-          <div className="form-group">
+        </div>
+        
+        <div className="form-row">
+          <div className="form-group full-width">
             <label htmlFor="senderAddress">Company Address</label>
-            <textarea 
-              id="senderAddress" 
-              name="senderAddress" 
-              value={invoiceData.senderAddress} 
-              onChange={handleInputChange} 
-              placeholder="Company Address" 
-            ></textarea>
+            <select
+              id="senderAddress"
+              name="senderAddress"
+              value={invoiceData.senderAddress}
+              onChange={handleCompanyAddressChange}
+              disabled={!isAuthorized}
+              style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
+            >
+              <option value="">Select Address</option>
+              <option value="K No 1117.88 SY No 022/1 Belathur Village Kadugodi Bangalore, Karnataka, India - 560067">K No 1117.88 SY No 022/1 Belathur Village Kadugodi Bangalore, Karnataka, India - 560067</option>
+              <option value="3702 Sandy Vista Ln, Castle Rock, CO 80104">3702 Sandy Vista Ln, Castle Rock, CO 80104</option>
+            </select>
           </div>
-          
+        </div>
+        
+        <div className="form-row">
           <div className="form-group">
             <label htmlFor="senderGSTIN">Company GSTIN</label>
             <input 
               type="text" 
               id="senderGSTIN" 
               name="senderGSTIN" 
-              value={invoiceData.senderGSTIN} 
+              value="29AEFFS0261N1ZN"
+              onChange={(e) => {
+                // Keep the value fixed even if user tries to change it
+                e.target.value = "29AEFFS0261N1ZN";
+              }}
+            />
+          </div>
+          
+          <div className="form-group">
+            <label htmlFor="invoiceNumber">Invoice Number *</label>
+            <input 
+              type="text" 
+              id="invoiceNumber" 
+              name="invoiceNumber" 
+              value={invoiceData.invoiceNumber} 
               onChange={handleInputChange} 
-              placeholder="GSTIN (if applicable)" 
+              required
+              disabled={!isAuthorized}
+            />
+          </div>
+          
+          <div className="form-group">
+            <label htmlFor="invoiceDate">Invoice Date *</label>
+            <input 
+              type="date" 
+              id="invoiceDate" 
+              name="invoiceDate" 
+              value={invoiceData.invoiceDate} 
+              onChange={handleInputChange} 
+              required
+              disabled={!isAuthorized}
             />
           </div>
         </div>
       </div>
       
-      {/* Right Column */}
-      <div>
-        {/* Client Information */}
-        <div className="card">
-          <h2 className="card-title">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-              <path d="M7 14s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1H7zm4-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/>
-              <path fillRule="evenodd" d="M5.216 14A2.238 2.238 0 0 1 5 13c0-1.355.68-2.75 1.936-3.72A6.325 6.325 0 0 0 5 9c-4 0-5 3-5 4s1 1 1 1h4.216z"/>
-              <path d="M4.5 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"/>
-            </svg>
-            Client Information
-          </h2>
-          
-          <div className="form-group">
-            <label htmlFor="recipientName">Client Name</label>
+      {/* Customer (Bill To) Information Section */}
+      <div className="form-section">
+        <h2 className="section-title">
+          Bill To:
+        </h2>
+        
+        {/* Add client selection dropdown */}
+        <div className="form-row">
+          <div className="form-group full-width">
+            <label htmlFor="clientSelect">Select Saved Client</label>
+            <select
+              id="clientSelect"
+              onChange={handleClientSelect}
+              disabled={!isAuthorized}
+              style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc', marginBottom: '15px' }}
+            >
+              <option value="">Select a client to auto-fill details</option>
+              {clients.map((client) => (
+                <option key={client.id} value={client.id}>
+                  {client.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className="form-row">
+          <div className="form-group full-width">
+            <label htmlFor="recipientName">Customer Name *</label>
             <input 
               type="text" 
               id="recipientName" 
@@ -454,180 +697,339 @@ const InvoiceForm = ({
               value={invoiceData.recipientName} 
               onChange={handleInputChange} 
               placeholder="Client Name" 
+              required
+              disabled={!isAuthorized}
             />
           </div>
-          
-          <div className="form-group">
-            <label htmlFor="recipientEmail">Client Email</label>
-            <input 
-              type="email" 
-              id="recipientEmail" 
-              name="recipientEmail" 
-              value={invoiceData.recipientEmail} 
-              onChange={handleInputChange} 
-              placeholder="client@example.com" 
-            />
-          </div>
-          
-          <div className="form-group">
-            <label htmlFor="recipientAddress">Client Address</label>
+        </div>
+        
+        <div className="form-row">
+          <div className="form-group full-width">
+            <label htmlFor="recipientAddress">Customer Address</label>
             <textarea 
               id="recipientAddress" 
               name="recipientAddress" 
               value={invoiceData.recipientAddress} 
               onChange={handleInputChange} 
-              placeholder="Client Address" 
+              placeholder="Client Address"
+              disabled={!isAuthorized}
             ></textarea>
           </div>
-          
+        </div>
+        
+        <div className="form-row">
           <div className="form-group">
-            <label htmlFor="recipientPhone">Client Phone</label>
+            <label htmlFor="recipientPhone">Phone Number</label>
             <input 
               type="text" 
               id="recipientPhone" 
               name="recipientPhone" 
               value={invoiceData.recipientPhone} 
               onChange={handleInputChange} 
-              placeholder="Client Phone Number" 
+              placeholder="Phone Number"
+              disabled={!isAuthorized}
             />
           </div>
           
           <div className="form-group">
-            <label htmlFor="recipientGSTIN">Client GSTIN</label>
+            <label htmlFor="recipientEmail">Email</label>
+            <input 
+              type="email" 
+              id="recipientEmail" 
+              name="recipientEmail" 
+              value={invoiceData.recipientEmail} 
+              onChange={handleInputChange} 
+              placeholder="client@example.com"
+              disabled={!isAuthorized}
+            />
+          </div>
+        </div>
+        
+        <div className="form-row">
+          <div className="form-group full-width">
+            <label htmlFor="recipientWebsite">Website</label>
+            <input 
+              type="text" 
+              id="recipientWebsite" 
+              name="recipientWebsite" 
+              value={invoiceData.recipientWebsite || ''} 
+              onChange={handleWebsiteChange} 
+              placeholder="www.client-website.com"
+              disabled={!isAuthorized}
+            />
+          </div>
+        </div>
+        
+        <div className="form-row">
+          <div className="form-group">
+            <label htmlFor="recipientGSTIN">GSTIN</label>
             <input 
               type="text" 
               id="recipientGSTIN" 
               name="recipientGSTIN" 
               value={invoiceData.recipientGSTIN} 
               onChange={handleInputChange} 
-              placeholder="GSTIN (if applicable)" 
+              placeholder="GSTIN (if applicable)"
+              disabled={!isAuthorized}
             />
           </div>
           
           <div className="form-group">
-            <label htmlFor="recipientPAN">Client PAN</label>
+            <label htmlFor="recipientPAN">PAN</label>
             <input 
               type="text" 
               id="recipientPAN" 
               name="recipientPAN" 
               value={invoiceData.recipientPAN} 
               onChange={handleInputChange} 
-              placeholder="PAN (if applicable)" 
+              placeholder="PAN (if applicable)"
+              disabled={!isAuthorized}
+            />
+          </div>
+        </div>
+      </div>
+      
+      {/* Invoice Summary Section */}
+      <div className="form-section">
+        <h2 className="section-title">
+          Invoice Summary - {invoiceData.recipientName || 'Client'}
+        </h2>
+        
+        <div className="form-row rates-section">
+          <div className="form-group">
+            <label htmlFor="exchangeRate">USD to INR Rate</label>
+            <input 
+              type="number" 
+              id="exchangeRate" 
+              value={exchangeRate} 
+              onChange={handleExchangeRateChange}
+              step="0.01" 
+              min="0"
+              disabled={!isAuthorized}
+            />
+          </div>
+          
+          <div className="form-group">
+            <label htmlFor="taxRate">GST Rate (%)</label>
+            <input 
+              type="number" 
+              id="taxRate" 
+              name="taxRate" 
+              value={invoiceData.taxRate} 
+              onChange={handleInputChange} 
+              min="0" 
+              max="100" 
+              step="0.01"
+              disabled={!isAuthorized}
+            />
+          </div>
+          
+          <div className="form-group">
+            <label>Primary Currency</label>
+            <div className="radio-group">
+              <label>
+                <input 
+                  type="radio" 
+                  name="currency" 
+                  value="USD" 
+                  checked={invoiceData.currency === 'USD'} 
+                  onChange={handleCurrencyToggle}
+                  disabled={!isAuthorized}
+                /> USD
+              </label>
+              <label>
+                <input 
+                  type="radio" 
+                  name="currency" 
+                  value="INR" 
+                  checked={invoiceData.currency === 'INR'} 
+                  onChange={handleCurrencyToggle}
+                  disabled={!isAuthorized}
+                /> INR
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      {/* Service Items Table */}
+      <div className="form-section">
+        <h2 className="section-title">
+          Service Items
+        </h2>
+        
+        <InvoiceItemsTable 
+          items={invoiceData.items}
+          setItems={(newItems) => {
+            if (!isAuthorized) return; // Prevent updates if not authorized
+            
+            // Update the invoice data with new items
+            setInvoiceData({...invoiceData, items: newItems});
+            // Calculate totals when items change
+            updateCalculations(newItems);
+          }}
+          exchangeRate={exchangeRate}
+          currency={invoiceData.currency}
+          disabled={!isAuthorized}
+        />
+        
+        <div className="totals">
+          <table>
+            <tbody>
+              <tr>
+                <td>Subtotal:</td>
+                <td>
+                  ${invoiceData.subtotalUSD.toFixed(2)} / 
+                  ₹{invoiceData.subtotalINR.toFixed(2)}
+                </td>
+              </tr>
+              <tr>
+                <td>GST ({invoiceData.taxRate}%):</td>
+                <td>
+                  ${invoiceData.taxAmountUSD.toFixed(2)} / 
+                  ₹{invoiceData.taxAmountINR.toFixed(2)}
+                </td>
+              </tr>
+              <tr className="grand-total">
+                <td>Grand Total:</td>
+                <td>
+                  ${invoiceData.totalUSD.toFixed(2)} / 
+                  ₹{invoiceData.totalINR.toFixed(2)}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      
+      {/* Beneficiary Bank Details */}
+      <div className="form-section">
+        <h2 className="section-title">
+          Beneficiary Account Details
+        </h2>
+        
+        <div className="form-row">
+          <div className="form-group full-width">
+            <label htmlFor="accountName">Account Name</label>
+            <input 
+              type="text" 
+              id="accountName" 
+              name="accountName" 
+              value={invoiceData.accountName || ''} 
+              onChange={(e) => updateBankDetails('accountName', e.target.value)} 
+              placeholder="Account Name"
+              disabled={!isAuthorized}
             />
           </div>
         </div>
         
-        {/* Notes */}
-        <div className="card">
-          <h2 className="card-title">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-              <path d="M14.5 3a.5.5 0 0 1 .5.5v9a.5.5 0 0 1-.5.5h-13a.5.5 0 0 1-.5-.5v-9a.5.5 0 0 1 .5-.5h13zm-13-1A1.5 1.5 0 0 0 0 3.5v9A1.5 1.5 0 0 0 1.5 14h13a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 14.5 2h-13z"/>
-              <path d="M7 5.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1-.5-.5zm-1.496-.854a.5.5 0 0 1 0 .708l-1.5 1.5a.5.5 0 0 1-.708 0l-.5-.5a.5.5 0 1 1 .708-.708l.146.147 1.146-1.147a.5.5 0 0 1 .708 0zM7 9.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1-.5-.5zm-1.496-.854a.5.5 0 0 1 0 .708l-1.5 1.5a.5.5 0 0 1-.708 0l-.5-.5a.5.5 0 0 1 .708-.708l.146.147 1.146-1.147a.5.5 0 0 1 .708 0z"/>
-            </svg>
-            Notes or Terms
-          </h2>
+        <div className="form-row">
+          <div className="form-group full-width">
+            <label htmlFor="bankName">Bank Name</label>
+            <input 
+              type="text" 
+              id="bankName" 
+              name="bankName" 
+              value={invoiceData.bankName || ''} 
+              onChange={(e) => updateBankDetails('bankName', e.target.value)} 
+              placeholder="Bank Name"
+              disabled={!isAuthorized}
+            />
+          </div>
+        </div>
+        
+        <div className="form-row">
+          <div className="form-group">
+            <label htmlFor="accountNumber">Account Number</label>
+            <input 
+              type="text" 
+              id="accountNumber" 
+              name="accountNumber" 
+              value={invoiceData.accountNumber || ''} 
+              onChange={(e) => updateBankDetails('accountNumber', e.target.value)} 
+              placeholder="Account Number"
+              disabled={!isAuthorized}
+            />
+          </div>
           
           <div className="form-group">
-            <label htmlFor="notes">Payment Details & Notes</label>
+            <label htmlFor="ifscCode">IFSC Code</label>
+            <input 
+              type="text" 
+              id="ifscCode" 
+              name="ifscCode" 
+              value={invoiceData.ifscCode || ''} 
+              onChange={(e) => updateBankDetails('ifscCode', e.target.value)} 
+              placeholder="IFSC Code"
+              disabled={!isAuthorized}
+            />
+          </div>
+        </div>
+        
+        <div className="form-row">
+          <div className="form-group full-width">
+            <label htmlFor="notes">Additional Notes</label>
             <textarea 
               id="notes" 
               name="notes" 
               value={invoiceData.notes} 
               onChange={handleInputChange} 
-              placeholder="Enter payment details and any additional notes here" 
+              placeholder="Additional notes for the invoice"
+              disabled={!isAuthorized}
             ></textarea>
           </div>
         </div>
       </div>
       
-      {/* Invoice Items - Full Width */}
-      <div style={{ gridColumn: '1 / -1' }}>
-        <div className="card">
-          <h2 className="card-title">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-              <path d="M5 11.5a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1-.5-.5zm0-4a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1-.5-.5zm0-4a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1-.5-.5zm-3 1a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm0 4a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm0 4a1 1 0 1 0 0-2 1 1 0 0 0 0 2z"/>
-            </svg>
-            Invoice Items
-          </h2>
-          
-          <InvoiceItemsTable 
-            items={invoiceData.items}
-            setItems={(newItems) => setInvoiceData({...invoiceData, items: newItems})}
-            exchangeRate={exchangeRate}
-            currency={invoiceData.currency}
-          />
-          
-          <div style={{ marginTop: '20px', textAlign: 'right' }}>
-            <table style={{ width: '300px', marginLeft: 'auto' }}>
-              <tbody>
-                <tr>
-                  <td>Subtotal:</td>
-                  <td>
-                    ${invoiceData.subtotalUSD.toFixed(2)} / 
-                    ₹{invoiceData.subtotalINR.toFixed(2)}
-                  </td>
-                </tr>
-                <tr>
-                  <td>Tax ({invoiceData.taxRate}%):</td>
-                  <td>
-                    ${invoiceData.taxAmountUSD.toFixed(2)} / 
-                    ₹{invoiceData.taxAmountINR.toFixed(2)}
-                  </td>
-                </tr>
-                <tr style={{ fontWeight: 'bold' }}>
-                  <td>Total:</td>
-                  <td>
-                    ${invoiceData.totalUSD.toFixed(2)} / 
-                    ₹{invoiceData.totalINR.toFixed(2)}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-      
-      {/* Actions - Full Width */}
-      <div style={{ gridColumn: '1 / -1' }}>
-        <div className="actions">
-          <button onClick={onPreview} className="btn">
+      {/* Form Actions */}
+      <div className="form-actions" style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
+        <button onClick={onPreview} className="btn">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" style={{ marginRight: '5px' }}>
+            <path d="M10.5 8a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0z"/>
+            <path d="M0 8s3-5.5 8-5.5S16 8 16 8s-3 5.5-8 5.5S0 8 0 8zm8 3.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"/>
+          </svg>
+          Preview Invoice
+        </button>
+        
+        <button onClick={downloadPDF} className="btn">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" style={{ marginRight: '5px' }}>
+            <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
+            <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
+          </svg>
+          Download PDF
+        </button>
+        
+        <button onClick={() => setShowSendModal(true)} className="btn" disabled={!isAuthorized}>
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" style={{ marginRight: '5px' }}>
+            <path d="M15.854.146a.5.5 0 0 1 .11.54l-5.819 14.547a.75.75 0 0 1-1.329.124l-3.178-4.995L.643 7.184a.75.75 0 0 1 .124-1.33L15.314.037a.5.5 0 0 1 .54.11ZM6.636 10.07l2.761 4.338L14.13 2.576 6.636 10.07Zm6.787-8.201L1.591 6.602l4.339 2.76 7.494-7.493Z"/>
+          </svg>
+          Send Invoice
+        </button>
+        
+        <button onClick={() => setShowResetModal(true)} className="btn btn-secondary" disabled={!isAuthorized}>
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" style={{ marginRight: '5px' }}>
+            <path d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
+            <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
+          </svg>
+          Reset Form
+        </button>
+        
+        <button onClick={onSave} className="btn" disabled={!isAuthorized}>
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" style={{ marginRight: '5px' }}>
+            <path d="M2 1a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H9.5a1 1 0 0 0-1 1v7.293l2.646-2.647a.5.5 0 0 1 .708.708l-3.5 3.5a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L7.5 9.293V2a2 2 0 0 1 2-2H14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h2.5a2 2 0 0 1 2 2v7.293l3.05-3.05a.5.5 0 1 1 .707.707l-3.5 3.5a.5.5 0 0 1-.707 0l-3.5-3.5a.5.5 0 1 1 .707-.707L7.5 9.293V2a1 1 0 0 0-1-1H2z"/>
+          </svg>
+          Save Invoice
+        </button>
+        
+        {invoiceData.invoiceNumber && id && id !== 'new' && (
+          <button onClick={onDelete} className="btn btn-danger" disabled={!isAuthorized}>
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" style={{ marginRight: '5px' }}>
-              <path d="M10.5 8a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0z"/>
-              <path d="M0 8s3-5.5 8-5.5S16 8 16 8s-3 5.5-8 5.5S0 8 0 8zm8 3.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"/>
-            </svg>
-            Preview Invoice
-          </button>
-          
-          <button onClick={downloadPDF} className="btn">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" style={{ marginRight: '5px' }}>
-              <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
-              <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
-            </svg>
-            Download PDF
-          </button>
-          
-          <button onClick={() => setShowSendModal(true)} className="btn">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" style={{ marginRight: '5px' }}>
-              <path d="M15.854.146a.5.5 0 0 1 .11.54l-5.819 14.547a.75.75 0 0 1-1.329.124l-3.178-4.995L.643 7.184a.75.75 0 0 1 .124-1.33L15.314.037a.5.5 0 0 1 .54.11ZM6.636 10.07l2.761 4.338L14.13 2.576 6.636 10.07Zm6.787-8.201L1.591 6.602l4.339 2.76 7.494-7.493Z"/>
-            </svg>
-            Send Invoice
-          </button>
-          
-          <button onClick={onSave} className="btn">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" style={{ marginRight: '5px' }}>
-              <path d="M2 1a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H9.5a1 1 0 0 0-1 1v7.293l2.646-2.647a.5.5 0 0 1 .708.708l-3.5 3.5a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L7.5 9.293V2a2 2 0 0 1 2-2H14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h2.5a2 2 0 0 1 2 2v7.293l3.05-3.05a.5.5 0 1 1 .707.707l-3.5 3.5a.5.5 0 0 1-.707 0l-3.5-3.5a.5.5 0 1 1 .707-.707l2.646 2.647V2a1 1 0 0 0-1-1H2z"/>
-            </svg>
-            Save Invoice
-          </button>
-          
-          <button onClick={onDelete} className="btn btn-danger">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" style={{ marginRight: '5px' }}>
-              <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+              <path fillRule="evenodd" d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
               <path fillRule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
             </svg>
             Delete Invoice
           </button>
-        </div>
+        )}
       </div>
       
       {/* Custom Modals */}
@@ -646,13 +1048,20 @@ const InvoiceForm = ({
                 setShowSendModal(false);
                 sendInvoice();
               }}
+              disabled={!isAuthorized}
             >
               Send
             </button>
           </>
         }
       >
-        <p>Send invoice to {invoiceData.recipientEmail}?</p>
+        <p>Send invoice to {invoiceData.recipientEmail || 'recipient'}?</p>
+        {!invoiceData.recipientEmail && (
+          <p style={{ color: 'red' }}>Please enter a recipient email address first.</p>
+        )}
+        {!isAuthorized && (
+          <p style={{ color: 'red' }}>You don't have permission to send this invoice.</p>
+        )}
       </Modal>
       
       <Modal
@@ -670,6 +1079,7 @@ const InvoiceForm = ({
                 setShowResetModal(false);
                 onReset();
               }}
+              disabled={!isAuthorized}
             >
               Create New
             </button>
@@ -677,6 +1087,9 @@ const InvoiceForm = ({
         }
       >
         <p>Are you sure you want to create a new invoice? All current data will be lost.</p>
+        {!isAuthorized && (
+          <p style={{ color: 'red' }}>You don't have permission to create a new invoice.</p>
+        )}
       </Modal>
     </div>
   );

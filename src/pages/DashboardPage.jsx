@@ -1,30 +1,28 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FiSearch, FiSettings, FiLogOut, FiUser, FiPlus, FiChevronDown } from 'react-icons/fi';
-import { FiSun, FiMoon } from 'react-icons/fi';
+import { FiSearch, FiSettings, FiLogOut, FiUser, FiPlus, FiChevronDown, FiUsers, FiTrash2, FiDownload } from 'react-icons/fi';
+import { FiSun, FiMoon, FiArchive, FiList } from 'react-icons/fi';
 import '../App.css';
 import { defaultLogo } from '../assets/logoData';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
+import NotificationBell from '../components/NotificationBell';
+import { useUserRole } from '../context/UserRoleContext';
+import { useUserNotifications } from '../context/UserNotificationsContext';
 
 const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
   const navigate = useNavigate();
+  const { isAdmin, hasPermission } = useUserRole();
+  const { addNotification } = useUserNotifications();
   
-  // Get companies from localStorage or use sample data if none exist
-  const sampleCompanies = [
-    { id: 1000, name: 'Acme Corporation', logo: '/images/favicon.png' },
-    { id: 1001, name: 'Globex Industries', logo: '/images/c-logo.png' },
-    { id: 1002, name: 'Initech LLC', logo: '/images/favicon.png' },
-    { id: 1003, name: 'Umbrella Corp', logo: '/images/favicon.png' },
-    { id: 1004, name: 'Stark Industries', logo: '/images/favicon.png'}
-  ];
-
+  // Add state for bulk download progress
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState({ current: 0, total: 0 });
+  const [downloadStatus, setDownloadStatus] = useState('');
+  
   const [companies, setCompanies] = useState(() => {
     const savedCompanies = localStorage.getItem('userCompanies');
-    if (savedCompanies) {
-      // Combine user's companies with sample ones
-      return [...JSON.parse(savedCompanies), ...sampleCompanies];
-    }
-    // Just return sample companies if none exist in localStorage
-    return sampleCompanies;
+    return savedCompanies ? JSON.parse(savedCompanies) : [];
   });
   
   // State for selected company and dashboard view
@@ -32,8 +30,35 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
     const savedCompany = localStorage.getItem('selectedCompany');
     return savedCompany ? JSON.parse(savedCompany) : null;
   });
+
+  // State for clients and selected client
+  const [clients, setClients] = useState(() => {
+    const savedClients = localStorage.getItem('userClients');
+    return savedClients ? JSON.parse(savedClients) : [];
+  });
+  
+  const [selectedClient, setSelectedClient] = useState(null);
+  
+  // State for users
+  const [users, setUsers] = useState(() => {
+    const savedUsers = JSON.parse(localStorage.getItem('users')) || [];
+    // If no users exist yet, create a demo user
+    if (savedUsers.length === 0) {
+      const demoUser = {
+        id: 'demo_user',
+        name: 'Demo User',
+        email: 'user@example.com',
+        role: 'admin',
+        position: 'CEO'
+      };
+      localStorage.setItem('users', JSON.stringify([demoUser]));
+      return [demoUser];
+    }
+    return savedUsers;
+  });
   
   const [showAllInvoices, setShowAllInvoices] = useState(true);
+  const [selectedAssignee, setSelectedAssignee] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   
   // Invoice status state
@@ -53,11 +78,18 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
     return invoices;
   });
   
+  // Current user ID
+  const currentUserId = localStorage.getItem('userId') || 'demo_user';
+  
+  // State for current user's avatar
+  const [userAvatar, setUserAvatar] = useState(localStorage.getItem('userAvatar') || '');
+  
   // Update localStorage when selected company changes
   useEffect(() => {
     if (selectedCompany) {
       localStorage.setItem('selectedCompany', JSON.stringify(selectedCompany));
       setShowAllInvoices(false);
+      setSelectedAssignee(null);
     }
   }, [selectedCompany]);
   
@@ -71,14 +103,18 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
     const handleStorageChange = () => {
       const savedCompanies = localStorage.getItem('userCompanies');
       if (savedCompanies) {
-        setCompanies([...JSON.parse(savedCompanies), ...sampleCompanies]);
+        setCompanies([...JSON.parse(savedCompanies)]);
       } else {
-        setCompanies(sampleCompanies);
+        setCompanies([]);
       }
 
       // Also refresh the saved invoices
       const invoices = JSON.parse(localStorage.getItem('savedInvoices')) || [];
       setSavedInvoices(invoices);
+      
+      // Refresh users list
+      const updatedUsers = JSON.parse(localStorage.getItem('users')) || [];
+      setUsers(updatedUsers);
     };
     
     // Listen for the custom invoicesUpdated event
@@ -87,14 +123,26 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
       setSavedInvoices(invoices);
     };
     
+    // Listen for client updates
+    const handleClientsUpdated = () => {
+      const savedClients = localStorage.getItem('userClients');
+      if (savedClients) {
+        setClients(JSON.parse(savedClients));
+      } else {
+        setClients([]);
+      }
+    };
+    
     // Set up event listeners
     window.addEventListener('storage', handleStorageChange);
     window.addEventListener('invoicesUpdated', handleInvoicesUpdated);
+    window.addEventListener('clientsUpdated', handleClientsUpdated);
     
     // Clean up event listeners
     return () => {
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('invoicesUpdated', handleInvoicesUpdated);
+      window.removeEventListener('clientsUpdated', handleClientsUpdated);
     };
   }, []);
   
@@ -103,23 +151,65 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
     // Check for updates to companies when the component mounts
     const savedCompanies = localStorage.getItem('userCompanies');
     if (savedCompanies) {
-      setCompanies([...JSON.parse(savedCompanies), ...sampleCompanies]);
+      setCompanies([...JSON.parse(savedCompanies)]);
     } else {
-      setCompanies(sampleCompanies);
+      setCompanies([]);
     }
 
     // Also refresh saved invoices
     const invoices = JSON.parse(localStorage.getItem('savedInvoices')) || [];
     setSavedInvoices(invoices);
+    
+    // Refresh users list
+    const updatedUsers = JSON.parse(localStorage.getItem('users')) || [];
+    setUsers(updatedUsers);
+    
+    // Add a focus event listener to refresh data when returning to this tab/window
+    const handleFocus = () => {
+      const refreshedInvoices = JSON.parse(localStorage.getItem('savedInvoices')) || [];
+      setSavedInvoices(refreshedInvoices);
+      
+      const refreshedCompanies = JSON.parse(localStorage.getItem('userCompanies')) || [];
+      setCompanies(refreshedCompanies);
+      
+      const refreshedUsers = JSON.parse(localStorage.getItem('users')) || [];
+      setUsers(refreshedUsers);
+    };
+    
+    window.addEventListener('focus', handleFocus);
+    
+    // Clean up event listener
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+    };
   }, []);
 
   const handleCompanySelect = (company) => {
     setSelectedCompany(company);
     setShowAllInvoices(false);
+    setSelectedAssignee(null);
+    setSelectedClient(null);
   };
   
   const handleShowAllInvoices = () => {
     setShowAllInvoices(true);
+    setSelectedAssignee(null);
+    setSelectedCompany(null);
+    setSelectedClient(null);
+  };
+  
+  const handleClientSelect = (client) => {
+    setSelectedClient(client);
+    setShowAllInvoices(false);
+    setSelectedAssignee(null);
+    setSelectedCompany(null);
+  };
+  
+  const handleAssigneeSelect = (userId) => {
+    setSelectedAssignee(userId);
+    setShowAllInvoices(false);
+    setSelectedCompany(null);
+    setSelectedClient(null);
   };
   
   // Sort handlers
@@ -153,6 +243,449 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
     navigate('/invoice/new');
   };
   
+  // Format date for display (DD/MM/YYYY)
+  const formatDateForDisplay = (dateString) => {
+    const d = new Date(dateString);
+    const month = `${d.getMonth() + 1}`.padStart(2, '0');
+    const day = `${d.getDate()}`.padStart(2, '0');
+    return `${day}/${month}/${d.getFullYear()}`;
+  };
+
+  // Function to download all visible invoices as PDFs
+  const downloadAllInvoices = async () => {
+    // Get the filtered invoices
+    const filteredInvoices = sortInvoices(savedInvoices).filter(invoice => {
+      // If a company is selected, only show invoices for that company
+      if (!showAllInvoices && selectedCompany && !selectedAssignee) {
+        // Check if the companyId is missing or doesn't match
+        if (!invoice.companyId || invoice.companyId !== selectedCompany.id) {
+          // As a fallback, also check if the company name matches
+          if (invoice.senderName !== selectedCompany.name) {
+            return false;
+          }
+        }
+      }
+      
+      // If an assignee is selected, only show invoices assigned to them
+      if (selectedAssignee) {
+        if (invoice.assigneeId !== selectedAssignee) {
+          return false;
+        }
+      }
+      
+      // Filter by search term if provided
+      if (searchTerm && 
+          !invoice.invoiceNumber?.toLowerCase().includes(searchTerm.toLowerCase()) &&
+          !invoice.senderName?.toLowerCase().includes(searchTerm.toLowerCase()) &&
+          !invoice.recipientName?.toLowerCase().includes(searchTerm.toLowerCase())) {
+        return false;
+      }
+      
+      return true;
+    });
+    
+    if (filteredInvoices.length === 0) {
+      alert('No invoices to download.');
+      return;
+    }
+    
+    // Ask for confirmation if there are many invoices
+    if (filteredInvoices.length > 5) {
+      if (!window.confirm(`You are about to download ${filteredInvoices.length} invoices as separate PDF files. This might take a while. Continue?`)) {
+        return;
+      }
+    }
+    
+    setIsDownloading(true);
+    setDownloadProgress({ current: 0, total: filteredInvoices.length });
+    setDownloadStatus('Preparing to download invoices...');
+    
+    try {
+      // Create an offscreen container to render invoices
+      const container = document.createElement('div');
+      container.style.position = 'absolute';
+      container.style.left = '-9999px';
+      container.style.top = '-9999px';
+      document.body.appendChild(container);
+      
+      // Inject required styles
+      const style = document.createElement('style');
+      style.innerHTML = `
+        .a4-preview-container {
+          width: 210mm;
+          min-height: 297mm;
+          padding: 5mm;
+          background-color: #fff;
+          font-family: 'Arial', sans-serif;
+          box-sizing: border-box;
+          color: #333;
+          position: relative;
+        }
+        .preview-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          margin-bottom: 30px;
+        }
+        .preview-logo {
+          max-width: 120px;
+          height: auto;
+        }
+        .company-name-header h1 {
+          font-size: 24px;
+          color: #3b82f6;
+          margin-top: 10px;
+        }
+        .invoice-title h2 {
+          font-size: 28px;
+          color: #3b82f6;
+          border: 2px solid #3b82f6;
+          padding: 10px 20px;
+          border-radius: 5px;
+        }
+        .details-section {
+          display: flex;
+          justify-content: space-between;
+          margin-bottom: 30px;
+        }
+        .bill-to-section h3 {
+          color: #3b82f6;
+          margin-bottom: 10px;
+          font-size: 16px;
+        }
+        .customer-info {
+          display: flex;
+          flex-wrap: wrap;
+        }
+        .service-table table {
+          width: 100%;
+          border-collapse: collapse;
+        }
+        .service-table th {
+          background-color: #f3f4f6;
+          padding: 10px;
+          text-align: left;
+          font-weight: bold;
+        }
+        .service-table td {
+          padding: 10px;
+          border-bottom: 1px solid #e5e7eb;
+        }
+        .totals-section {
+          margin-top: 20px;
+          margin-left: auto;
+          width: 50%;
+        }
+        .totals-section table {
+          width: 100%;
+        }
+        .totals-section td {
+          padding: 8px 0;
+        }
+        .grand-total {
+          font-weight: bold;
+          color: #3b82f6;
+          border-top: 2px solid #e5e7eb;
+          font-size: 16px;
+        }
+        .text-right {
+          text-align: right;
+        }
+      `;
+      document.head.appendChild(style);
+      
+      // Process each invoice one by one
+      for (let i = 0; i < filteredInvoices.length; i++) {
+        const invoice = filteredInvoices[i];
+        setDownloadProgress({ current: i + 1, total: filteredInvoices.length });
+        setDownloadStatus(`Generating PDF ${i + 1}/${filteredInvoices.length}: ${invoice.invoiceNumber}`);
+        
+        // Create invoice HTML
+        const invoiceHtml = renderInvoiceHtml(invoice);
+        container.innerHTML = invoiceHtml;
+        
+        // Wait a bit for rendering to complete
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        // Generate PDF
+        const element = container.querySelector('.a4-preview-container');
+        if (!element) {
+          console.error('Could not find invoice element to render');
+          continue;
+        }
+        
+        try {
+          // Convert to canvas
+          const canvas = await html2canvas(element, {
+            scale: 2,
+            useCORS: true,
+            logging: false,
+            backgroundColor: '#ffffff'
+          });
+          
+          // Create PDF
+          const pdf = new jsPDF({
+            orientation: 'portrait',
+            unit: 'mm',
+            format: 'a4'
+          });
+          
+          const imgData = canvas.toDataURL('image/jpeg', 1.0);
+          const pdfWidth = pdf.internal.pageSize.getWidth();
+          const pdfHeight = pdf.internal.pageSize.getHeight();
+          
+          // Add image to PDF
+          pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+          
+          // Save PDF
+          pdf.save(`Invoice_${invoice.invoiceNumber}.pdf`);
+          
+          // Give the browser some time to process the download
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+        } catch (error) {
+          console.error(`Error generating PDF for invoice ${invoice.invoiceNumber}:`, error);
+          setDownloadStatus(`Error generating PDF for invoice ${invoice.invoiceNumber}: ${error.message}`);
+        }
+      }
+      
+      // Cleanup
+      document.body.removeChild(container);
+      document.head.removeChild(style);
+      
+      setDownloadStatus(`Successfully downloaded ${filteredInvoices.length} invoices!`);
+      
+      // Reset after a delay
+      setTimeout(() => {
+        setIsDownloading(false);
+        setDownloadStatus('');
+      }, 3000);
+      
+    } catch (error) {
+      console.error('Error in bulk download process:', error);
+      setDownloadStatus(`Error: ${error.message}`);
+      setTimeout(() => {
+        setIsDownloading(false);
+        setDownloadStatus('');
+      }, 3000);
+    }
+  };
+  
+  // Helper function to render invoice HTML
+  const renderInvoiceHtml = (invoiceData) => {
+    const exchangeRate = invoiceData.exchangeRate || 82;
+    
+    // Process invoice items to ensure consistent structure
+    const normalizedItems = invoiceData.items.map(item => {
+      if (!item.type) {
+        return {
+          ...item,
+          type: 'main',
+          subServices: item.subServices || item.nestedRows || []
+        };
+      }
+      return {
+        ...item,
+        subServices: item.subServices || []
+      };
+    });
+    
+    // Helper function to render service items
+    const renderServiceItems = () => {
+      let html = '';
+      
+      normalizedItems.forEach((item, index) => {
+        if (item.type === 'main') {
+          // Main service row
+          html += `
+            <tr class="main-service-row" style="background-color: #f5f5f5">
+              <td colspan="3">
+                <strong style="font-size: 1.1rem">${item.name || 'Service'}</strong>
+              </td>
+            </tr>
+          `;
+          
+          // Sub-services
+          if (item.subServices && item.subServices.length > 0) {
+            item.subServices.forEach(subService => {
+              html += `
+                <tr class="sub-service-row">
+                  <td style="padding-left: 20px">
+                    <strong>${subService.name || 'Sub-service'}</strong>
+                    ${subService.description ? `<p>${subService.description}</p>` : ''}
+                  </td>
+                  <td class="text-right">$${parseFloat(subService.amountUSD || 0).toFixed(2)}</td>
+                  <td class="text-right">₹${parseFloat(subService.amountINR || 0).toFixed(2)}</td>
+                </tr>
+              `;
+            });
+          } else {
+            html += `
+              <tr>
+                <td colspan="3" style="padding-left: 20px; color: #666">
+                  No sub-services available
+                </td>
+              </tr>
+            `;
+          }
+        } else {
+          // Regular service item
+          html += `
+            <tr>
+              <td>
+                <strong>${item.name || 'Service'}</strong>
+                <p>${item.description || ''}</p>
+              </td>
+              <td class="text-right">$${parseFloat(item.amountUSD || 0).toFixed(2)}</td>
+              <td class="text-right">₹${parseFloat(item.amountINR || 0).toFixed(2)}</td>
+            </tr>
+          `;
+        }
+      });
+      
+      return html;
+    };
+    
+    return `
+      <div class="a4-preview-container" id="invoicePreviewContent">
+        <!-- 1. Top Header Section with Company Logo and Invoice Title -->
+        <div class="preview-header">
+          <div class="company-info">
+            <img 
+              class="preview-logo" 
+              src="${invoiceData.logoUrl || defaultLogo}" 
+              alt="Company Logo" 
+            />
+            <div class="company-name-header">
+              <h1>${invoiceData.senderName || 'Your Company'}</h1>
+            </div>
+          </div>
+          <div class="invoice-title">
+            <h2>INVOICE</h2>
+          </div>
+        </div>
+        
+        <!-- 2. Company and Invoice Details Section -->
+        <div class="details-section">
+          <div class="company-details">
+            <p>${invoiceData.senderAddress || 'Company Address'}</p>
+            <p>GSTIN: ${invoiceData.senderGSTIN || 'N/A'}</p>
+          </div>
+          <div class="invoice-details">
+            <div class="invoice-number">
+              <p><strong>Invoice #:</strong> ${invoiceData.invoiceNumber}</p>
+            </div>
+            <div class="invoice-date">
+              <p><strong>Date:</strong> ${formatDateForDisplay(invoiceData.invoiceDate)}</p>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 3. Client Information Section -->
+        <div class="bill-to-section">
+          <h3>Bill To:</h3>
+          <div class="customer-info">
+            <div class="info-row full-width">
+              <p><strong>${invoiceData.recipientName || 'Client Name'}</strong></p>
+            </div>
+            <div class="info-row full-width">
+              <p>${invoiceData.recipientAddress || 'Client Address'}</p>
+            </div>
+            <div class="info-row half-width">
+              <p><strong>Phone:</strong> ${invoiceData.recipientPhone || 'N/A'}</p>
+            </div>
+            <div class="info-row half-width">
+              <p><strong>Email:</strong> ${invoiceData.recipientEmail || 'N/A'}</p>
+            </div>
+            <div class="info-row half-width">
+              <p><strong>GSTIN:</strong> ${invoiceData.recipientGSTIN || 'N/A'}</p>
+            </div>
+            <div class="info-row half-width">
+              <p><strong>PAN:</strong> ${invoiceData.recipientPAN || 'N/A'}</p>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 4. Invoice Rate Information -->
+        <div class="invoice-summary">
+          <div class="rate-info">
+            <p><strong>USD to INR Rate:</strong> ${exchangeRate}</p>
+            <p><strong>GST Rate:</strong> ${invoiceData.taxRate || 5}%</p>
+          </div>
+        </div>
+        
+        <!-- 5. Service Items Table -->
+        <div class="service-table">
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 70%">Description</th>
+                <th style="width: 15%">Amount (USD)</th>
+                <th style="width: 15%">Amount (INR)</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${renderServiceItems()}
+            </tbody>
+          </table>
+        </div>
+        
+        <!-- 6. Totals Section -->
+        <div class="totals-section">
+          <table>
+            <tbody>
+              <tr>
+                <td>Subtotal:</td>
+                <td class="text-right">
+                  $${invoiceData.subtotalUSD.toFixed(2)} / 
+                  ₹${invoiceData.subtotalINR.toFixed(2)}
+                </td>
+              </tr>
+              <tr>
+                <td>GST (${invoiceData.taxRate}%):</td>
+                <td class="text-right">
+                  $${invoiceData.taxAmountUSD.toFixed(2)} / 
+                  ₹${invoiceData.taxAmountINR.toFixed(2)}
+                </td>
+              </tr>
+              <tr class="grand-total">
+                <td>Grand Total:</td>
+                <td class="text-right">
+                  $${invoiceData.totalUSD.toFixed(2)} / 
+                  ₹${invoiceData.totalINR.toFixed(2)}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        
+        <!-- 7. Bank Details -->
+        <div class="bank-details">
+          <h3>Beneficiary Account Details</h3>
+          <div class="account-info">
+            <div class="info-row full-width">
+              <p><strong>Account Name:</strong> ${invoiceData.accountName || 'N/A'}</p>
+            </div>
+            <div class="info-row full-width">
+              <p><strong>Bank Name:</strong> ${invoiceData.bankName || 'N/A'}</p>
+            </div>
+            <div class="info-row half-width">
+              <p><strong>Account Number:</strong> ${invoiceData.accountNumber || 'N/A'}</p>
+            </div>
+            <div class="info-row half-width">
+              <p><strong>IFSC Code:</strong> ${invoiceData.ifscCode || 'N/A'}</p>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 8. Footer Section -->
+        <div class="invoice-footer">
+          <p>Thank you for your business!</p>
+        </div>
+      </div>
+    `;
+  };
+  
   // Function to toggle invoice status
   const toggleInvoiceStatus = (e, invoiceId) => {
     e.stopPropagation(); // Prevent navigating to invoice detail page
@@ -177,6 +710,83 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
       
       return newStatuses;
     });
+  };
+  
+  // Function to assign an invoice to a user
+  const assignInvoice = (e, invoiceId, assigneeId) => {
+    e.stopPropagation(); // Prevent navigating to invoice detail page
+    
+    // Check if user has permission to assign invoices
+    if (!hasPermission('assign-invoice')) {
+      alert('Only administrators can assign invoices to users.');
+      return;
+    }
+    
+    // Get the previous assignee to check if this is a new assignment
+    const invoice = savedInvoices.find(inv => inv.id === invoiceId);
+    const previousAssigneeId = invoice?.assigneeId;
+    
+    // Update the invoice with the new assignee
+    const updatedInvoices = savedInvoices.map(invoice => {
+      if (invoice.id === invoiceId) {
+        return {
+          ...invoice,
+          assigneeId,
+          assigneeName: users.find(user => user.id === assigneeId)?.name || 'Unassigned'
+        };
+      }
+      return invoice;
+    });
+    
+    // Save updated invoices to localStorage
+    localStorage.setItem('savedInvoices', JSON.stringify(updatedInvoices));
+    setSavedInvoices(updatedInvoices);
+    
+    // Send notification to the assignee if this is a new assignment
+    if (assigneeId && assigneeId !== previousAssigneeId) {
+      // Get the invoice and user details
+      const updatedInvoice = updatedInvoices.find(inv => inv.id === invoiceId);
+      const assignee = users.find(user => user.id === assigneeId);
+      
+      if (assignee) {
+        // Store notification in assignee's notifications
+        const assigneeNotifications = JSON.parse(localStorage.getItem(`notifications_${assigneeId}`)) || [];
+        const newNotification = {
+          id: `notification_${Date.now()}`,
+          timestamp: new Date().toISOString(),
+          message: `You have been assigned a new invoice: ${updatedInvoice.invoiceNumber}`,
+          type: 'info',
+          read: false,
+          data: {
+            invoiceId,
+            invoiceNumber: updatedInvoice.invoiceNumber
+          }
+        };
+        
+        localStorage.setItem(`notifications_${assigneeId}`, JSON.stringify([
+          newNotification,
+          ...assigneeNotifications
+        ]));
+        
+        // If the assignee is the current user, update their notifications
+        if (assigneeId === currentUserId) {
+          addNotification(`You have been assigned a new invoice: ${updatedInvoice.invoiceNumber}`, 'info', {
+            invoiceId,
+            invoiceNumber: updatedInvoice.invoiceNumber
+          });
+        }
+      }
+    }
+    
+    // Dispatch event to notify other components about the change
+    window.dispatchEvent(new Event('invoicesUpdated'));
+  };
+  
+  // Function to get assignee name from ID
+  const getAssigneeName = (assigneeId) => {
+    if (!assigneeId) return 'Unassigned';
+    const assignee = users.find(user => user.id === assigneeId);
+    return assignee ? assignee.name : 'Unknown User';
   };
   
   // Function to sort invoices
@@ -220,13 +830,48 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
     });
   };
   
+  // Effect to sync user avatar from users array
+  useEffect(() => {
+    // Find current user in users array to get the latest avatar
+    const loggedInUserId = localStorage.getItem('userId');
+    if (loggedInUserId) {
+      const currentUser = users.find(user => user.id === loggedInUserId);
+      if (currentUser && currentUser.avatar) {
+        // Update local state and localStorage if needed
+        setUserAvatar(currentUser.avatar);
+        if (currentUser.avatar !== localStorage.getItem('userAvatar')) {
+          localStorage.setItem('userAvatar', currentUser.avatar);
+        }
+      }
+    }
+    
+    // Listen for profile updates
+    const handleUserUpdated = () => {
+      const updatedUsers = JSON.parse(localStorage.getItem('users')) || [];
+      const loggedInUserId = localStorage.getItem('userId');
+      const updatedUser = updatedUsers.find(user => user.id === loggedInUserId);
+      if (updatedUser && updatedUser.avatar) {
+        setUserAvatar(updatedUser.avatar);
+      }
+    };
+    
+    window.addEventListener('userUpdated', handleUserUpdated);
+    
+    return () => {
+      window.removeEventListener('userUpdated', handleUserUpdated);
+    };
+  }, [users]);
+  
   return (
     <div className="dashboard-container">
       {/* Sidebar with company list */}
       <aside className="dashboard-sidebar">
         <div className="company-logo-container">
-          <img src="/images/c-logo.png" alt="CIA App" className="main-company-logo" />
-          <h3>CIA App</h3>
+          <img src="/images/c-logo.png" alt="Samatributa Invoice" className="main-company-logo" />
+          <div className="sidebar-title">
+            <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '2px', color: 'var(--sidebar-text)' }}>Samatributa</h3>
+            <p style={{ fontSize: '12px', fontWeight: '400', margin: 0, color: 'var(--light-text)', opacity: 0.8 }}>Invoice Automation</p>
+          </div>
         </div>
         
         <div className="company-list">
@@ -235,32 +880,135 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
             onClick={handleShowAllInvoices}
           >
             <FiUser className="company-icon" />
-            <span className="company-name">Show All Invoices</span>
+            <span className="company-name" style={{ fontSize: '18px', color: 'white' }}>Show All Invoices</span>
           </div>
           
-          <div className="section-title" style={{ padding: '10px', fontSize: '12px', color: 'var(--light-text)', fontWeight: 'bold' }}>
-            YOUR COMPANIES
-          </div>
-          
+          {/* Companies list without section header */}
           {companies.map((company) => (
             <div 
               key={company.id}
-              className={`company-item ${selectedCompany?.id === company.id && !showAllInvoices ? 'active' : ''}`}
+              className={`company-item ${selectedCompany?.id === company.id && !showAllInvoices && !selectedAssignee ? 'active' : ''}`}
               onClick={() => handleCompanySelect(company)}
             >
               <img src={company.logo} alt={company.name} className="company-icon" />
-              <span className="company-name">{company.name}</span>
+              <span className="company-name" style={{ fontSize: '18px', color: 'white' }}>{company.name}</span>
             </div>
           ))}
           
+          {/* Client list section with renamed header */}
+          <div className="section-title" style={{ 
+            padding: '10px', 
+            fontSize: '12px', 
+            color: 'var(--light-text)', 
+            fontWeight: 'bold',
+            marginTop: '15px' 
+          }}>
+            CLIENTS
+          </div>
+          
+          {/* Display list of clients */}
+          {clients.map((client) => (
+            <div 
+              key={client.id}
+              className={`company-item ${selectedClient?.id === client.id ? 'active' : ''}`}
+              onClick={() => handleClientSelect(client)}
+            >
+              <FiUser className="company-icon" />
+              <span className="company-name" style={{ fontSize: '18px', color: 'white' }}>{client.name}</span>
+            </div>
+          ))}
+          
+          {/* Show message if no clients */}
+          {clients.length === 0 && (
+            <div style={{ padding: '5px 15px', fontSize: '14px', color: 'var(--light-text)', opacity: 0.7 }}>
+              No clients added yet
+            </div>
+          )}
+          
+          {/* Add New Client button moved after clients section */}
           <div 
             className="company-item"
             style={{ marginTop: '10px', color: 'var(--light-text)' }}
-            onClick={() => navigate('/company')}
+            onClick={() => navigate('/client')}
           >
             <FiPlus className="company-icon" />
-            <span className="company-name">Add New Company</span>
+            <span className="company-name" style={{ fontSize: '18px', color: 'white' }}>Add New Client</span>
           </div>
+          
+          {/* Add Descriptions button */}
+          <div 
+            className="company-item"
+            style={{ marginTop: '10px', color: 'var(--light-text)' }}
+            onClick={() => navigate('/description')}
+          >
+            <FiList className="company-icon" />
+            <span className="company-name" style={{ fontSize: '18px', color: 'white' }}>Add Descriptions</span>
+          </div>
+          
+          {/* Deleted Invoices Bin */}
+          <div 
+            className="company-item"
+            style={{ marginTop: '20px', color: 'var(--light-text)' }}
+            onClick={() => navigate('/bin')}
+          >
+            <FiArchive className="company-icon" />
+            <span className="company-name" style={{ fontSize: '18px', color: 'white' }}>Recently Deleted</span>
+          </div>
+          
+          {/* Changed "CLIENTS" to "INVOICING ASSOCIATES" */}
+          <div className="section-title" style={{ 
+            padding: '10px', 
+            fontSize: '12px', 
+            color: 'var(--light-text)', 
+            fontWeight: 'bold',
+            marginTop: '20px' 
+          }}>
+            INVOICING ASSOCIATES
+          </div>
+          
+          {/* Filter out admin accounts and only display non-admin users */}
+          {users
+            .filter(user => user.role !== 'admin')
+            .map((user) => (
+            <div 
+              key={user.id}
+              className={`company-item ${selectedAssignee === user.id ? 'active' : ''}`}
+              onClick={() => handleAssigneeSelect(user.id)}
+            >
+              {user.avatar ? (
+                <img 
+                  src={user.avatar} 
+                  alt={user.name} 
+                  style={{ 
+                    width: '24px',
+                    height: '24px',
+                    borderRadius: '50%',
+                    objectFit: 'cover',
+                    marginRight: '10px'
+                  }}
+                />
+              ) : (
+                <div className="avatar-small" style={{ 
+                  width: '24px',
+                  height: '24px',
+                  borderRadius: '50%',
+                  backgroundColor: user.id === currentUserId ? 'var(--primary-color)' : 'var(--secondary-color)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'white',
+                  fontWeight: 'bold',
+                  fontSize: '12px',
+                  marginRight: '10px'
+                }}>
+                  {user.name[0].toUpperCase()}
+                </div>
+              )}
+              <span className="company-name" style={{ fontSize: '18px', color: 'white' }}>
+                {user.name} {user.id === currentUserId && '(You)'}
+              </span>
+            </div>
+          ))}
         </div>
         
         <div className="sidebar-footer">
@@ -273,7 +1021,7 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
       {/* Top navigation bar */}
       <div className="dashboard-topbar" style={{
         gridArea: 'topbar',
-        padding: '15px 25px',
+        padding: '24.5px 25px',
         display: 'flex',
         justifyContent: 'flex-end',
         alignItems: 'center',
@@ -281,6 +1029,7 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
         backgroundColor: 'var(--card-bg)'
       }}>
         <div className="user-actions" style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+          <NotificationBell />
           <div className="theme-switch-wrapper">
             <label className="theme-switch">
               <input type="checkbox" checked={darkMode} onChange={toggleDarkMode} />
@@ -296,20 +1045,42 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
             gap: '10px',
             cursor: 'pointer'
           }} onClick={() => navigate('/profile')}>
-            <div className="avatar" style={{
-              width: '32px',
-              height: '32px',
-              borderRadius: '50%',
-              backgroundColor: 'var(--primary-color)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'var(--dark-text)',
-              fontWeight: 'bold'
-            }}>
-              {(localStorage.getItem('userEmail') || 'U')[0].toUpperCase()}
-            </div>
+            {userAvatar ? (
+              <img 
+                src={userAvatar} 
+                alt="Profile" 
+                className="header-avatar"
+                style={{
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '50%',
+                  objectFit: 'cover'
+                }}
+              />
+            ) : (
+              <div className="avatar" style={{
+                width: '32px',
+                height: '32px',
+                borderRadius: '50%',
+                backgroundColor: 'var(--primary-color)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'var(--dark-text)',
+                fontWeight: 'bold'
+              }}>
+                {(localStorage.getItem('userName') || 'U')[0].toUpperCase()}
+              </div>
+            )}
             <span>My Profile</span>
+            {isAdmin && <span className="admin-badge" style={{
+              fontSize: '10px',
+              padding: '2px 5px',
+              backgroundColor: 'var(--primary-color)',
+              color: 'white',
+              borderRadius: '10px',
+              marginLeft: '5px'
+            }}>Admin</span>}
           </div>
         </div>
       </div>
@@ -318,11 +1089,15 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
       <main className="dashboard-main">
         <header className="dashboard-header">
           <h2>
-            {showAllInvoices 
-              ? 'All Invoices' 
-              : selectedCompany 
-                ? `${selectedCompany.name} Invoices` 
-                : 'Invoices'}
+            {selectedAssignee
+              ? `Invoices Assigned to ${getAssigneeName(selectedAssignee)}`
+              : (showAllInvoices 
+                ? 'All Invoices' 
+                : selectedCompany 
+                  ? `${selectedCompany.name} Invoices` 
+                  : selectedClient 
+                    ? `${selectedClient.name} Invoices`
+                    : 'Invoices')}
           </h2>
           <div className="dashboard-controls">
             <div className="search-container">
@@ -349,7 +1124,8 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
                   borderRadius: '4px',
                   padding: '8px 12px',
                   fontSize: '14px',
-                  cursor: 'pointer'
+                  cursor: 'pointer',
+                  color: 'var(--text-color)'
                 }}
               >
                 {getSortLabel()} <FiChevronDown />
@@ -385,7 +1161,8 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
                           borderRadius: '4px',
                           margin: '2px 0',
                           display: 'flex',
-                          justifyContent: 'space-between'
+                          justifyContent: 'space-between',
+                          color: 'var(--text-color)'
                         }}
                       >
                         <span>{field === 'date' ? 'Date' : 
@@ -408,7 +1185,8 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
                         cursor: 'pointer',
                         backgroundColor: sortDirection === 'asc' ? 'var(--primary-color-light)' : 'transparent',
                         borderRadius: '4px',
-                        margin: '2px 0'
+                        margin: '2px 0',
+                        color: 'var(--text-color)'
                       }}
                     >
                       Ascending (A-Z, 0-9)
@@ -421,7 +1199,8 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
                         cursor: 'pointer',
                         backgroundColor: sortDirection === 'desc' ? 'var(--primary-color-light)' : 'transparent',
                         borderRadius: '4px',
-                        margin: '2px 0'
+                        margin: '2px 0',
+                        color: 'var(--text-color)'
                       }}
                     >
                       Descending (Z-A, 9-0)
@@ -434,24 +1213,103 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
             <button className="btn-create" onClick={handleCreateInvoice}>
               Create New Invoice
             </button>
+            <button 
+              className="btn-download-all" 
+              onClick={downloadAllInvoices}
+              disabled={isDownloading}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                background: 'var(--primary-color)',
+                border: 'none',
+                borderRadius: '4px',
+                padding: '8px 12px',
+                fontSize: '14px',
+                cursor: 'pointer',
+                color: 'white'
+              }}
+            >
+              <FiDownload />
+              {isDownloading ? `Downloading (${downloadProgress.current}/${downloadProgress.total})` : 'Download All'}
+            </button>
           </div>
         </header>
         
         {/* Invoice List */}
+        {/* Download progress indicator */}
+        {isDownloading && (
+          <div className="download-progress-container" style={{
+            marginBottom: '20px',
+            padding: '15px',
+            backgroundColor: 'var(--card-bg)',
+            borderRadius: '8px',
+            boxShadow: 'var(--card-shadow)',
+          }}>
+            <h3 style={{ marginTop: '0', marginBottom: '10px' }}>Downloading Invoices...</h3>
+            <div style={{ 
+              display: 'flex', 
+              alignItems: 'center',
+              marginBottom: '10px' 
+            }}>
+              <div style={{ 
+                width: '100%', 
+                height: '10px', 
+                backgroundColor: 'var(--border-color)', 
+                borderRadius: '5px',
+                overflow: 'hidden'
+              }}>
+                <div style={{ 
+                  width: `${(downloadProgress.current / downloadProgress.total) * 100}%`, 
+                  height: '100%', 
+                  backgroundColor: 'var(--primary-color)',
+                  borderRadius: '5px',
+                  transition: 'width 0.3s ease'
+                }} />
+              </div>
+              <span style={{ marginLeft: '10px', whiteSpace: 'nowrap' }}>
+                {downloadProgress.current}/{downloadProgress.total}
+              </span>
+            </div>
+            <p style={{ margin: '0', fontSize: '14px' }}>{downloadStatus}</p>
+          </div>
+        )}
+        
         <div className="invoice-list">
           {savedInvoices.length > 0 ? (
             sortInvoices(savedInvoices)
               .filter(invoice => {
                 // If a company is selected, only show invoices for that company
-                if (!showAllInvoices && selectedCompany && invoice.companyId !== selectedCompany.id) {
-                  return false;
+                if (!showAllInvoices && selectedCompany && !selectedAssignee && !selectedClient) {
+                  // Check if the companyId is missing or doesn't match
+                  if (!invoice.companyId || invoice.companyId !== selectedCompany.id) {
+                    // As a fallback, also check if the company name matches
+                    if (invoice.senderName !== selectedCompany.name) {
+                      return false;
+                    }
+                  }
+                }
+                
+                // If a client is selected, only show invoices for that client
+                if (!showAllInvoices && selectedClient && !selectedAssignee && !selectedCompany) {
+                  // Filter by client name
+                  if (invoice.recipientName !== selectedClient.name) {
+                    return false;
+                  }
+                }
+                
+                // If an assignee is selected, only show invoices assigned to them
+                if (selectedAssignee) {
+                  if (invoice.assigneeId !== selectedAssignee) {
+                    return false;
+                  }
                 }
                 
                 // Filter by search term if provided
                 if (searchTerm && 
-                    !invoice.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) &&
-                    !invoice.senderName.toLowerCase().includes(searchTerm.toLowerCase()) &&
-                    !invoice.recipientName.toLowerCase().includes(searchTerm.toLowerCase())) {
+                    !invoice.invoiceNumber?.toLowerCase().includes(searchTerm.toLowerCase()) &&
+                    !invoice.senderName?.toLowerCase().includes(searchTerm.toLowerCase()) &&
+                    !invoice.recipientName?.toLowerCase().includes(searchTerm.toLowerCase())) {
                   return false;
                 }
                 
@@ -470,8 +1328,22 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
                 // Get status for this invoice
                 const invoiceStatus = invoice.status || 'Pending';
                 
+                // Check if current user can access this invoice (admin or assigned user)
+                const canAccessInvoice = isAdmin || invoice.assigneeId === currentUserId;
+                
                 return (
-                  <div key={index} className="invoice-card" onClick={() => navigate(`/invoice/${invoice.invoiceNumber}`)}>
+                  <div 
+                    key={index} 
+                    className={`invoice-card ${!canAccessInvoice ? 'disabled-invoice' : ''}`} 
+                    onClick={() => {
+                      if (canAccessInvoice) {
+                        navigate(`/invoice/${invoice.id}`);
+                      } else {
+                        alert("You don't have permission to view this invoice. Only the assigned client can access it.");
+                      }
+                    }}
+                    style={!canAccessInvoice ? { opacity: '0.7', cursor: 'not-allowed' } : {}}
+                  >
                     <div className="invoice-card-header">
                       <img 
                         src={invoiceCompany.logo} 
@@ -480,7 +1352,18 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
                       />
                       <div className="invoice-info">
                         <span className="invoice-number">{invoice.invoiceNumber}</span>
-                        <span className="invoice-company">{invoiceCompany.name}</span>
+                        <span className="invoice-company">{invoice.recipientName || 'No Customer'}</span>
+                        {!canAccessInvoice && (
+                          <span className="access-restricted" style={{
+                            fontSize: '11px',
+                            color: 'var(--danger-color, #f44336)',
+                            fontWeight: 'bold',
+                            display: 'block',
+                            marginTop: '3px'
+                          }}>
+                            Access Restricted
+                          </span>
+                        )}
                       </div>
                     </div>
                     <div className="invoice-card-details">
@@ -494,38 +1377,80 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
                       </div>
                       <div className="invoice-status">
                         <span 
-                          className={`status ${invoiceStatus.toLowerCase()}`} 
+                          className={`status ${!invoice.assigneeId ? 'draft' : invoiceStatus.toLowerCase()}`} 
                           onClick={(e) => {
                             e.stopPropagation();
-                            // Toggle status for this invoice
-                            const statusOptions = ['Paid', 'Pending', 'Draft', 'Cancelled'];
-                            const currentIndex = statusOptions.indexOf(invoiceStatus);
-                            const nextIndex = (currentIndex + 1) % statusOptions.length;
-                            const newStatus = statusOptions[nextIndex];
                             
-                            // Update invoice status in local state
-                            const updatedInvoices = savedInvoices.map(inv => 
-                              inv.invoiceNumber === invoice.invoiceNumber 
-                                ? {...inv, status: newStatus} 
-                                : inv
-                            );
+                            // If invoice is not assigned, it should stay as draft and cannot be changed
+                            if (!invoice.assigneeId) {
+                              alert("This invoice needs to be assigned to a client before the status can be changed.");
+                              return;
+                            }
                             
-                            // Save to localStorage
-                            localStorage.setItem('savedInvoices', JSON.stringify(updatedInvoices));
-                            setSavedInvoices(updatedInvoices);
+                            // If assigned, only the assigned client can change status
+                            if (invoice.assigneeId === currentUserId) {
+                              // Toggle status for this invoice
+                              const statusOptions = ['Paid', 'Pending', 'Draft', 'Cancelled'];
+                              const currentIndex = statusOptions.indexOf(invoiceStatus);
+                              const nextIndex = (currentIndex + 1) % statusOptions.length;
+                              const newStatus = statusOptions[nextIndex];
+                              
+                              // Update invoice status in local state
+                              const updatedInvoices = savedInvoices.map(inv => 
+                                inv.id === invoice.id 
+                                  ? {...inv, status: newStatus} 
+                                  : inv
+                              );
+                              
+                              // Save to localStorage
+                              localStorage.setItem('savedInvoices', JSON.stringify(updatedInvoices));
+                              setSavedInvoices(updatedInvoices);
+                            } else {
+                              // Show error message if user is not the assignee
+                              alert(`Only ${getAssigneeName(invoice.assigneeId)} can change the status of this invoice.`);
+                            }
                           }}
                           style={{ 
-                            cursor: 'pointer', 
+                            cursor: invoice.assigneeId === currentUserId ? 'pointer' : 'not-allowed', 
                             position: 'relative',
-                            backgroundColor: invoiceStatus === 'Paid' ? 'var(--success-color, #4caf50)' : 
+                            backgroundColor: !invoice.assigneeId ? 'var(--info-color, #2196f3)' :
+                                            invoiceStatus === 'Paid' ? 'var(--success-color, #4caf50)' : 
                                             invoiceStatus === 'Pending' ? 'var(--warning-color, #ff9800)' :
                                             invoiceStatus === 'Draft' ? 'var(--info-color, #2196f3)' :
                                             invoiceStatus === 'Cancelled' ? 'var(--danger-color, #f44336)' : 'gray'
                           }}
-                          title="Click to change status"
+                          title={!invoice.assigneeId ? 
+                                 "Invoice must be assigned before status can be changed" : 
+                                 invoice.assigneeId === currentUserId ? 
+                                 "Click to change status" : 
+                                 `Only ${getAssigneeName(invoice.assigneeId)} can change the status`}
                         >
-                          {invoiceStatus}
+                          {!invoice.assigneeId ? 'Draft' : invoiceStatus}
                         </span>
+                      </div>
+                    </div>
+                    <div className="invoice-assignee-row">
+                      <div className="assignee-label">Assigned to:</div>
+                      <div className="assignee-select-container">
+                        <select 
+                          className="assignee-select"
+                          value={invoice.assigneeId || ''}
+                          onChange={(e) => assignInvoice(e, invoice.id, e.target.value)}
+                          onClick={(e) => e.stopPropagation()}
+                          disabled={!isAdmin}
+                          style={{
+                            cursor: isAdmin ? 'pointer' : 'not-allowed',
+                            opacity: isAdmin ? 1 : 0.7
+                          }}
+                          title={isAdmin ? "Assign to user" : "Only administrators can assign invoices"}
+                        >
+                          <option value="">Unassigned</option>
+                          {users.map(user => (
+                            <option key={user.id} value={user.id}>
+                              {user.name} {user.id === currentUserId ? '(You)' : ''}
+                            </option>
+                          ))}
+                        </select>
                       </div>
                     </div>
                   </div>
@@ -544,8 +1469,18 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
           {/* Show message if no invoices match the filter */}
           {savedInvoices.length > 0 && 
            sortInvoices(savedInvoices).filter(invoice => {
-              if (!showAllInvoices && selectedCompany && invoice.companyId !== selectedCompany.id) {
-                return false;
+              if (selectedAssignee) {
+                if (invoice.assigneeId !== selectedAssignee) {
+                  return false;
+                }
+              } else if (!showAllInvoices && selectedCompany) {
+                // Check if the companyId is missing or doesn't match
+                if (!invoice.companyId || invoice.companyId !== selectedCompany.id) {
+                  // As a fallback, also check if the company name matches
+                  if (invoice.senderName !== selectedCompany.name) {
+                    return false;
+                  }
+                }
               }
               if (searchTerm && 
                   !invoice.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) &&
@@ -557,8 +1492,14 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
             }).length === 0 && (
               <div className="no-invoices-message">
                 <p>No invoices found with the current filter.</p>
-                <button className="btn-clear-filter" onClick={() => setSearchTerm('')}>
-                  Clear Search
+                <button className="btn-clear-filter" onClick={() => {
+                  setSearchTerm('');
+                  if (selectedAssignee) {
+                    setSelectedAssignee(null);
+                    setShowAllInvoices(true);
+                  }
+                }}>
+                  Clear Filters
                 </button>
               </div>
             )

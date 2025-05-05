@@ -42,7 +42,7 @@ const CompanyPage = ({ darkMode, toggleDarkMode }) => {
       }
     ];
   });
-  
+
   const [activeCompanyId, setActiveCompanyId] = useState(null);
   const [newCompany, setNewCompany] = useState({
     name: '',
@@ -87,10 +87,19 @@ const CompanyPage = ({ darkMode, toggleDarkMode }) => {
   };
   
   const handleDeleteCompany = (id) => {
-    if (window.confirm('Are you sure you want to delete this company?')) {
+    if (window.confirm('Are you sure you want to delete this company? All invoices associated with this company will also be deleted.')) {
+      // Update the companies list
       const updatedCompanies = companies.filter(company => company.id !== id);
       setCompanies(updatedCompanies);
       localStorage.setItem('userCompanies', JSON.stringify(updatedCompanies));
+      
+      // Delete all invoices associated with this company
+      const savedInvoices = JSON.parse(localStorage.getItem('savedInvoices')) || [];
+      const filteredInvoices = savedInvoices.filter(invoice => invoice.companyId !== id);
+      localStorage.setItem('savedInvoices', JSON.stringify(filteredInvoices));
+      
+      // Dispatch event to notify other components about the invoice changes
+      window.dispatchEvent(new Event('invoicesUpdated'));
       
       // If the deleted company was selected in localStorage, clear it
       const selectedCompany = localStorage.getItem('selectedCompany');
@@ -103,25 +112,21 @@ const CompanyPage = ({ darkMode, toggleDarkMode }) => {
     }
   };
   
-  const handleLogoChange = (e) => {
-    // In a real app, this would handle file uploads.
-    // For this demo, we'll just alternate between some sample logos
-    const logos = [
-      './images/default-logo.png',
-      './images/c-logo.png',
-      './images/favicon.png',
-      defaultLogo
-    ];
-    
-    const currentIndex = logos.indexOf(newCompany.logo);
-    const nextIndex = (currentIndex + 1) % logos.length;
-    
-    setNewCompany({
-      ...newCompany,
-      logo: logos[nextIndex]
-    });
+  // New function to handle file uploads
+  const handleFileUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setNewCompany({
+          ...newCompany,
+          logo: event.target.result
+        });
+      };
+      reader.readAsDataURL(file);
+    }
   };
-  
+
   const handleAddCompany = () => {
     setIsAddingCompany(true);
     setActiveCompanyId(null);
@@ -146,8 +151,9 @@ const CompanyPage = ({ darkMode, toggleDarkMode }) => {
     }
     
     let updatedCompanies;
+    const isEditing = activeCompanyId !== null;
     
-    if (activeCompanyId !== null) {
+    if (isEditing) {
       // Edit existing company
       updatedCompanies = companies.map(company => 
         company.id === activeCompanyId ? { ...newCompany, id: activeCompanyId } : company
@@ -160,6 +166,25 @@ const CompanyPage = ({ darkMode, toggleDarkMode }) => {
     
     setCompanies(updatedCompanies);
     localStorage.setItem('userCompanies', JSON.stringify(updatedCompanies));
+    
+    // Dispatch a custom event with updated company data
+    const updatedCompany = isEditing 
+      ? { ...newCompany, id: activeCompanyId } 
+      : { ...newCompany, id: Math.max(0, ...companies.map(c => c.id)) + 1 };
+    
+    window.dispatchEvent(new CustomEvent('companyUpdated', {
+      detail: { company: updatedCompany, action: isEditing ? 'edit' : 'add' }
+    }));
+    
+    // Update selected company if needed
+    const selectedCompany = localStorage.getItem('selectedCompany');
+    if (selectedCompany) {
+      const parsedCompany = JSON.parse(selectedCompany);
+      if (parsedCompany.id === updatedCompany.id) {
+        localStorage.setItem('selectedCompany', JSON.stringify(updatedCompany));
+      }
+    }
+    
     setIsAddingCompany(false);
     
     // Show success message
@@ -243,10 +268,21 @@ const CompanyPage = ({ darkMode, toggleDarkMode }) => {
           
           <div className="logo-upload-section">
             <img src={newCompany.logo} alt="Company Logo" className="company-logo-preview" />
-            <button type="button" className="btn-upload" onClick={handleLogoChange}>
-              <FiUpload /> Change Logo
-            </button>
-            <small>(For demo: clicking cycles through sample logos)</small>
+            <div className="logo-upload-actions">
+              <div className="file-upload-container">
+                <label htmlFor="logoUpload" className="btn-upload">
+                  <FiUpload /> Upload Custom Logo
+                </label>
+                <input 
+                  type="file" 
+                  id="logoUpload" 
+                  accept="image/*" 
+                  style={{ display: 'none' }} 
+                  onChange={handleFileUpload} 
+                />
+              </div>
+            </div>
+            <small>(Upload your company logo)</small>
           </div>
           
           <div className="form-group">

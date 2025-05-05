@@ -6,10 +6,81 @@ import exchangeRateService from '../services/exchangeRateService';
  */
 const invoiceLogic = {
   /**
+   * Generate a unique ID for an invoice
+   * @returns {string} Unique ID
+   */
+  generateUniqueId: () => {
+    return 'inv_' + Math.random().toString(36).substring(2, 15) + 
+           Math.random().toString(36).substring(2, 15);
+  },
+
+  /**
    * Generate a new invoice number 
+   * @param {string} companyName - The company name to use in the invoice number
+   * @param {boolean} saveIncrement - Whether to save the incremented value to localStorage
    * @returns {string} Formatted invoice number
    */
-  generateInvoiceNumber: () => {
+  generateInvoiceNumber: (companyName = 'COMP', saveIncrement = false) => {
+    const date = new Date();
+    const year = date.getFullYear().toString();
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const day = date.getDate().toString().padStart(2, '0');
+    const dateStr = `${year}${month}${day}`;
+    
+    // Get company prefix (first 4 letters)
+    const companyPrefix = companyName.trim().substring(0, 4).toUpperCase();
+    
+    // Get last invoice serial from localStorage using a company-specific key
+    // This ensures sequential numbers regardless of date
+    const companySerialKey = `invoiceSerial_${companyPrefix}`;
+    
+    // Get all existing invoices to find the highest invoice number
+    const savedInvoices = JSON.parse(localStorage.getItem('savedInvoices')) || [];
+    
+    // Find the highest serial number for this company prefix
+    let highestSerial = 0;
+    
+    // First check if we have a stored last serial number
+    const storedLastSerial = parseInt(localStorage.getItem(companySerialKey) || '0');
+    highestSerial = storedLastSerial;
+    
+    // Also search through existing invoices to ensure we don't miss any
+    savedInvoices.forEach(invoice => {
+      if (invoice.invoiceNumber && invoice.invoiceNumber.startsWith(companyPrefix)) {
+        // Extract the serial number from the invoice number
+        const parts = invoice.invoiceNumber.split('-');
+        if (parts.length === 3) {
+          const serialPart = parseInt(parts[2]);
+          if (!isNaN(serialPart) && serialPart > highestSerial) {
+            highestSerial = serialPart;
+          }
+        }
+      }
+    });
+    
+    // Calculate next serial number
+    const nextSerial = highestSerial + 1;
+    
+    // Only save the incremented value if saveIncrement is true
+    if (saveIncrement) {
+      // Save the new serial number back to localStorage
+      localStorage.setItem(companySerialKey, nextSerial.toString());
+      console.log(`Saved new invoice number: ${companyPrefix}-${dateStr}-${nextSerial.toString().padStart(4, '0')}`);
+    } else {
+      console.log(`Generated preview invoice number: ${companyPrefix}-${dateStr}-${nextSerial.toString().padStart(4, '0')} (not saved)`);
+    }
+    
+    // Format serial with leading zeros
+    const serialFormatted = String(nextSerial).padStart(4, '0');
+    
+    return `${companyPrefix}-${dateStr}-${serialFormatted}`;
+  },
+  
+  /**
+   * Generate a new invoice number in the legacy format
+   * @returns {string} Formatted legacy invoice number
+   */
+  generateLegacyInvoiceNumber: () => {
     const date = new Date();
     const year = date.getFullYear().toString().substr(-2);
     const month = (date.getMonth() + 1).toString().padStart(2, '0');

@@ -1,14 +1,84 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import { ClassicTemplate, ModernTemplate, ProfessionalTemplate } from './InvoiceTemplates';
+
+// Default logo if none is provided
+const defaultLogo = "data:image/png;base64,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";
 
 const InvoicePreview = ({ invoiceData, formatDate, onClose }) => {
-  // Default logo if none is provided
-  const defaultLogo = "data:image/png;base64,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";
+  // Add state for template selection
+  const [selectedTemplate, setSelectedTemplate] = useState('classic');
   
+  // Add state for loading indicator
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generationStatus, setGenerationStatus] = useState('');
+  
+  // Normalize invoice data to ensure proper structure for rendering
+  const [normalizedItems, setNormalizedItems] = useState([]);
+
+  // Normalize the invoice items to ensure consistent structure
+  useEffect(() => {
+    if (invoiceData && invoiceData.items) {
+      const normalized = invoiceData.items.map(item => {
+        // If the item doesn't have a type property, assume it's a main service
+        if (!item.type) {
+          return {
+            ...item,
+            type: 'main',
+            // Convert nestedRows to subServices if needed
+            subServices: item.subServices || item.nestedRows || []
+          };
+        }
+        // If it already has a type, just ensure subServices exists
+        return {
+          ...item,
+          subServices: item.subServices || []
+        };
+      });
+      setNormalizedItems(normalized);
+    }
+  }, [invoiceData]);
+
+  // Extract exchange rate from the invoiceData or use default
+  const exchangeRate = invoiceData.exchangeRate || 82;
+
+  // Add an effect to reduce the PDF container's padding before PDF generation
+  const [pdfMode, setPdfMode] = useState(false);
+  
+  useEffect(() => {
+    const container = document.querySelector('.a4-preview-container');
+    if (container) {
+      if (pdfMode) {
+        // Apply reduced padding for PDF generation (reduced from 10mm to 5mm)
+        container.style.padding = '5mm';
+      } else {
+        // Restore original padding for display
+        container.style.padding = '20mm';
+      }
+    }
+    
+    return () => {
+      // Restore original padding when component unmounts
+      if (container && pdfMode) {
+        container.style.padding = '20mm';
+      }
+    };
+  }, [pdfMode]);
+  
+  // Generate PDF in single-page compact format
   const downloadPDF = async () => {
+    setIsGenerating(true);
+    setGenerationStatus('Generating PDF...');
+    
     try {
-      const previewElement = document.getElementById('invoicePreview');
+      // Set PDF mode to reduce padding before generating
+      setPdfMode(true);
+      
+      // Give time for the padding change to take effect
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      const previewElement = document.getElementById('invoicePreviewContent');
       
       if (!previewElement) {
         throw new Error('Preview element not found');
@@ -18,6 +88,9 @@ const InvoicePreview = ({ invoiceData, formatDate, onClose }) => {
         scale: 2,
         useCORS: true,
         scrollY: 0,
+        logging: false,
+        allowTaint: true,
+        backgroundColor: '#ffffff'
       });
       
       const imgData = canvas.toDataURL('image/jpeg', 1.0);
@@ -29,133 +102,240 @@ const InvoicePreview = ({ invoiceData, formatDate, onClose }) => {
       
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
-      const ratio = canvas.width / canvas.height;
-      const imgWidth = pdfWidth;
-      const imgHeight = imgWidth / ratio;
       
-      pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, imgHeight);
-      pdf.save(`Invoice_${invoiceData.invoiceNumber}.pdf`);
+      // Scale the content to fit on one page
+      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+      
+      // Use template name in filename
+      pdf.save(`Invoice_${invoiceData.invoiceNumber}_${selectedTemplate.charAt(0).toUpperCase() + selectedTemplate.slice(1)}.pdf`);
+      setGenerationStatus('PDF generated successfully!');
     } catch (error) {
       console.error('Error generating PDF:', error);
-      alert('Failed to generate PDF. Please try again.');
+      setGenerationStatus('Failed to generate PDF. Please try again.');
+    } finally {
+      // Reset to display mode
+      setPdfMode(false);
+      setIsGenerating(false);
     }
   };
 
-  return (
-    <div id="invoicePreview" className="invoice-preview">
-      <div className="preview-container">
-        <div className="actions" style={{ marginBottom: '20px' }}>
-          <button className="btn" onClick={downloadPDF}>
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" style={{ marginRight: '5px' }}>
-              <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
-              <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
-            </svg>
-            Download PDF
-          </button>
-          <button className="btn btn-secondary" onClick={onClose}>
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" style={{ marginRight: '5px' }}>
-              <path fillRule="evenodd" d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8z"/>
-            </svg>
-            Back to Invoice
-          </button>
-        </div>
-        
-        <div className="preview-header">
-          <img 
-            className="preview-logo" 
-            src={invoiceData.logoUrl || defaultLogo} 
-            alt="Company Logo" 
-          />
-          <div>
-            <h2>INVOICE</h2>
-            <p>Invoice #: <span>{invoiceData.invoiceNumber}</span></p>
-            <p>Date: <span>{formatDate(invoiceData.invoiceDate)}</span></p>
+  // Render the selected template
+  const renderTemplate = () => {
+    const templateProps = {
+      invoiceData,
+      normalizedItems, 
+      formatDate,
+      defaultLogo,
+      exchangeRate
+    };
+
+    switch (selectedTemplate) {
+      case 'modern':
+        return <ModernTemplate {...templateProps} />;
+      case 'professional':
+        return <ProfessionalTemplate {...templateProps} />;
+      case 'classic':
+      default:
+        return <ClassicTemplate {...templateProps} />;
+    }
+  };
+
+  // Template selection component
+  const TemplateSelector = () => {
+    return (
+      <div className="template-selector" style={{ marginBottom: '20px' }}>
+        <h3>Choose Template Style</h3>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px' }}>
+          {/* Classic Template Option */}
+          <div 
+            className={`template-option ${selectedTemplate === 'classic' ? 'selected' : ''}`} 
+            style={{ 
+              border: selectedTemplate === 'classic' ? '2px solid #4CAF50' : '1px solid #ccc', 
+              borderRadius: '5px', 
+              padding: '10px', 
+              cursor: 'pointer',
+              width: '110px',
+              backgroundColor: selectedTemplate === 'classic' ? '#f9fff9' : '#fff'
+            }}
+            onClick={() => setSelectedTemplate('classic')}
+          >
+            <div style={{ 
+              width: '90px', 
+              height: '120px', 
+              backgroundColor: '#fff', 
+              border: '1px solid #eee',
+              display: 'flex',
+              flexDirection: 'column',
+              padding: '5px',
+              marginBottom: '8px'
+            }}>
+              <div style={{ height: '10px', backgroundColor: '#f5f5f5', marginBottom: '5px' }}></div>
+              <div style={{ height: '5px', backgroundColor: '#f5f5f5', width: '70%', marginBottom: '10px' }}></div>
+              <div style={{ height: '60px', backgroundColor: '#f5f5f5', marginBottom: '5px' }}></div>
+              <div style={{ height: '5px', backgroundColor: '#f5f5f5', width: '30%', alignSelf: 'flex-end' }}></div>
+            </div>
+            <p style={{ textAlign: 'center', margin: '5px 0', fontWeight: selectedTemplate === 'classic' ? 'bold' : 'normal' }}>Classic</p>
           </div>
-        </div>
-        
-        <div className="preview-grid">
-          <div className="preview-details">
-            <h3>From</h3>
-            <p><strong>{invoiceData.senderName || 'Your Company'}</strong></p>
-            <p style={{ whiteSpace: 'pre-line' }}>{invoiceData.senderAddress || 'Company Address'}</p>
-            <p>GSTIN: <span>{invoiceData.senderGSTIN || 'N/A'}</span></p>
+
+          {/* Modern Template Option */}
+          <div 
+            className={`template-option ${selectedTemplate === 'modern' ? 'selected' : ''}`} 
+            style={{ 
+              border: selectedTemplate === 'modern' ? '2px solid #2196F3' : '1px solid #ccc', 
+              borderRadius: '5px', 
+              padding: '10px', 
+              cursor: 'pointer',
+              width: '110px',
+              backgroundColor: selectedTemplate === 'modern' ? '#f0f8ff' : '#fff'
+            }}
+            onClick={() => setSelectedTemplate('modern')}
+          >
+            <div style={{ 
+              width: '90px', 
+              height: '120px', 
+              backgroundColor: '#fff', 
+              border: '1px solid #eee',
+              display: 'flex',
+              flexDirection: 'column',
+              padding: '5px',
+              marginBottom: '8px'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
+                <div style={{ height: '10px', backgroundColor: '#2196F3', width: '20px' }}></div>
+                <div style={{ height: '10px', backgroundColor: '#2196F3', width: '40px' }}></div>
+              </div>
+              <div style={{ height: '15px', backgroundColor: '#f0f8ff', marginBottom: '5px' }}></div>
+              <div style={{ height: '40px', backgroundColor: '#f0f8ff', marginBottom: '8px' }}></div>
+              <div style={{ height: '15px', backgroundColor: '#2196F3', marginTop: 'auto' }}></div>
+            </div>
+            <p style={{ textAlign: 'center', margin: '5px 0', fontWeight: selectedTemplate === 'modern' ? 'bold' : 'normal' }}>Modern</p>
           </div>
-          
-          <div className="preview-details">
-            <h3>To</h3>
-            <p><strong>{invoiceData.recipientName || 'Client Name'}</strong></p>
-            <p>Email: <span>{invoiceData.recipientEmail || 'client@example.com'}</span></p>
-            {invoiceData.recipientPhone && <p>Phone: <span>{invoiceData.recipientPhone}</span></p>}
-            {invoiceData.recipientAddress && <p style={{ whiteSpace: 'pre-line' }}>{invoiceData.recipientAddress}</p>}
-            {invoiceData.recipientGSTIN && <p>GSTIN: <span>{invoiceData.recipientGSTIN}</span></p>}
-            {invoiceData.recipientPAN && <p>PAN: <span>{invoiceData.recipientPAN}</span></p>}
+
+          {/* Professional Template Option */}
+          <div 
+            className={`template-option ${selectedTemplate === 'professional' ? 'selected' : ''}`} 
+            style={{ 
+              border: selectedTemplate === 'professional' ? '2px solid #2c3e50' : '1px solid #ccc', 
+              borderRadius: '5px', 
+              padding: '10px', 
+              cursor: 'pointer',
+              width: '110px',
+              backgroundColor: selectedTemplate === 'professional' ? '#f5f8fa' : '#fff'
+            }}
+            onClick={() => setSelectedTemplate('professional')}
+          >
+            <div style={{ 
+              width: '90px', 
+              height: '120px', 
+              backgroundColor: '#fff', 
+              border: '1px solid #eee',
+              display: 'flex',
+              flexDirection: 'column',
+              padding: '5px',
+              marginBottom: '8px'
+            }}>
+              <div style={{ height: '15px', backgroundColor: '#2c3e50', marginBottom: '10px' }}></div>
+              <div style={{ display: 'flex', gap: '5px', marginBottom: '5px' }}>
+                <div style={{ height: '5px', backgroundColor: '#2c3e50', width: '40%' }}></div>
+                <div style={{ height: '5px', backgroundColor: '#2c3e50', width: '40%' }}></div>
+              </div>
+              <div style={{ height: '40px', backgroundColor: '#f5f8fa', marginBottom: '10px' }}></div>
+              <div style={{ height: '15px', backgroundColor: '#2c3e50', marginTop: 'auto' }}></div>
+            </div>
+            <p style={{ textAlign: 'center', margin: '5px 0', fontWeight: selectedTemplate === 'professional' ? 'bold' : 'normal' }}>Professional</p>
           </div>
-        </div>
-        
-        <div className="preview-items">
-          <h3>Invoice Items</h3>
-          <table>
-            <thead>
-              <tr>
-                <th style={{ width: '40%' }}>Item</th>
-                <th style={{ width: '30%' }}>Description</th>
-                <th style={{ width: '15%' }}>Amount (USD)</th>
-                <th style={{ width: '15%' }}>Amount (INR)</th>
-              </tr>
-            </thead>
-            <tbody>
-              {invoiceData.items.map((item, index) => (
-                <React.Fragment key={index}>
-                  <tr>
-                    <td>{item.name || 'Item name'}</td>
-                    <td>{item.description || 'Description'}</td>
-                    <td className="text-right">${parseFloat(item.amountUSD).toFixed(2)}</td>
-                    <td className="text-right">₹{parseFloat(item.amountINR).toFixed(2)}</td>
-                  </tr>
-                  {item.nestedRows?.map((row, rowIndex) => (
-                    <tr key={`${index}-${rowIndex}`} className="nested-row">
-                      <td colSpan={4}>{row}</td>
-                    </tr>
-                  ))}
-                </React.Fragment>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        
-        <div className="preview-totals">
-          <table>
-            <tbody>
-              <tr>
-                <td>Subtotal:</td>
-                <td className="text-right">
-                  ${invoiceData.subtotalUSD.toFixed(2)} / 
-                  ₹{invoiceData.subtotalINR.toFixed(2)}
-                </td>
-              </tr>
-              <tr>
-                <td>Tax ({invoiceData.taxRate}%):</td>
-                <td className="text-right">
-                  ${invoiceData.taxAmountUSD.toFixed(2)} / 
-                  ₹{invoiceData.taxAmountINR.toFixed(2)}
-                </td>
-              </tr>
-              <tr style={{ fontWeight: 'bold' }}>
-                <td>Total:</td>
-                <td className="text-right">
-                  ${invoiceData.totalUSD.toFixed(2)} / 
-                  ₹{invoiceData.totalINR.toFixed(2)}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        
-        <div className="preview-notes">
-          <h3>Notes</h3>
-          <p style={{ whiteSpace: 'pre-line' }}>{invoiceData.notes}</p>
         </div>
       </div>
+    );
+  };
+
+  return (
+    <div className="invoice-preview">
+      {/* Template selection and action buttons */}
+      <div className="actions" style={{ marginBottom: '20px' }}>
+        <TemplateSelector />
+        
+        <div className="pdf-options" style={{ marginBottom: '20px' }}>
+          <div style={{ display: 'flex', gap: '15px', marginBottom: '10px' }}>
+            <button 
+              className="btn" 
+              onClick={downloadPDF}
+              disabled={isGenerating}
+              style={{ 
+                backgroundColor: '#4CAF50',
+                color: 'white',
+                padding: '10px 15px',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: isGenerating ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center'
+              }}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" style={{ marginRight: '8px' }}>
+                <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
+                <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
+              </svg>
+              Download PDF
+            </button>
+          </div>
+          {isGenerating && (
+            <div className="spinner-container" style={{ marginTop: '10px' }}>
+              <div className="spinner" style={{ 
+                display: 'inline-block', 
+                width: '20px', 
+                height: '20px', 
+                borderRadius: '50%', 
+                border: '2px solid #ccc', 
+                borderTopColor: '#333', 
+                animation: 'spin 1s linear infinite' 
+              }}></div>
+              <span style={{ marginLeft: '10px' }}>{generationStatus}</span>
+            </div>
+          )}
+          {!isGenerating && generationStatus && (
+            <div style={{ marginTop: '10px' }}>
+              <p>{generationStatus}</p>
+            </div>
+          )}
+        </div>
+        
+        <button 
+          className="btn btn-secondary" 
+          onClick={onClose}
+          style={{ 
+            backgroundColor: '#6c757d',
+            color: 'white',
+            padding: '10px 15px',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center'
+          }}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" style={{ marginRight: '8px' }}>
+            <path fillRule="evenodd" d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8z"/>
+          </svg>
+          Back to Invoice
+        </button>
+      </div>
+      
+      {/* A4 Size Content for PDF Generation */}
+      <div id="invoicePreviewContent" className="a4-preview-container">
+        {/* Render the selected template */}
+        {renderTemplate()}
+      </div>
+      
+      {/* Add keyframes animation for spinner */}
+      <style dangerouslySetInnerHTML={{
+        __html: `
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+        `
+      }} />
     </div>
   );
 };

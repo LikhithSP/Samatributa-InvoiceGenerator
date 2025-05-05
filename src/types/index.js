@@ -8,7 +8,8 @@
 
 /**
  * @typedef {Object} InvoiceData
- * @property {string} invoiceNumber - Invoice identifier
+ * @property {string} id - Unique identifier for the invoice
+ * @property {string} invoiceNumber - Invoice identifier (display purposes)
  * @property {string} invoiceDate - ISO format date
  * @property {number} taxRate - Tax percentage
  * @property {string} currency - Primary currency (USD or INR)
