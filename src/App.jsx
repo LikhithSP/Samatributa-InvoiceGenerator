@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import './App.css'
 import LoginPage from './pages/LoginPage'
@@ -16,7 +16,6 @@ import DescriptionPage from './pages/DescriptionPage'
 import NotificationDisplay from './components/ErrorDisplay'
 import Modal from './components/Modal'
 import { useNotification } from './context/ErrorContext'
-import SoundEffects from './utils/soundEffects'
 
 // Session timeout in milliseconds (30 minutes)
 const SESSION_TIMEOUT = 30 * 60 * 1000;
@@ -29,57 +28,6 @@ function App() {
   const { notification, setNotification, clearNotification } = useNotification()
   const navigate = useNavigate()
   const location = useLocation()
-  const appRef = useRef(null)
-  const [isLoading, setIsLoading] = useState(true)
-  
-  // Mouse parallax effect handler
-  const handleMouseMove = (e) => {
-    if (!appRef.current) return;
-    
-    // Get all elements with mouse-parallax class
-    const parallaxElements = document.querySelectorAll('.mouse-parallax');
-    
-    // Calculate mouse position relative to center of screen
-    const mouseX = e.clientX / window.innerWidth - 0.5;
-    const mouseY = e.clientY / window.innerHeight - 0.5;
-    
-    // Apply transform to each element based on its layer
-    parallaxElements.forEach(el => {
-      const depth = el.dataset.depth || 10;
-      const moveX = mouseX * depth;
-      const moveY = mouseY * depth;
-      el.style.transform = `translate3d(${moveX}px, ${moveY}px, 0)`;
-    });
-  };
-
-  // Initial loading effect
-  useEffect(() => {
-    // Simulate loading time
-    setTimeout(() => {
-      setIsLoading(false);
-    }, 1500);
-    
-    // Initialize sound effects
-    SoundEffects.init();
-    
-    return () => {
-      // Clean up any ongoing sound processes if needed
-    };
-  }, []);
-
-  // Initialize and preload sound effects
-  useEffect(() => {
-    // Preload sound effects for better performance
-    SoundEffects.preload();
-    
-    // Initialize the sound effect system
-    SoundEffects.init();
-
-    // Show loading animation for a brief moment
-    setTimeout(() => {
-      setIsLoading(false);
-    }, 1200);
-  }, []);
 
   // Check authentication and dark mode on initial load
   useEffect(() => {
@@ -99,13 +47,8 @@ function App() {
 
     // Setup global error handler
     window.addEventListener('error', handleGlobalError)
-    
-    // Setup mouse parallax effect
-    window.addEventListener('mousemove', handleMouseMove)
-    
     return () => {
       window.removeEventListener('error', handleGlobalError)
-      window.removeEventListener('mousemove', handleMouseMove)
     }
   }, [])
 
@@ -151,7 +94,6 @@ function App() {
     console.error('Global error:', event.error)
     const errorMessage = event.error ? event.error.message : 'Unknown error'
     setNotification(`Error: ${errorMessage}`, 'error')
-    SoundEffects.play('ERROR');
   }
 
   // Update body class when dark mode changes
@@ -235,10 +177,6 @@ function App() {
     localStorage.setItem('lastLogin', new Date().toString())
     localStorage.setItem('lastActivity', new Date().getTime().toString())
     setIsAuthenticated(true)
-    
-    // Play success sound on successful login
-    SoundEffects.play('SUCCESS');
-    
     navigate('/')
   }
 
@@ -252,48 +190,14 @@ function App() {
     setIsAuthenticated(false);
     setShowLogoutModal(false);
     navigate('/login');
-    
-    // Play switch sound effect
-    SoundEffects.play('SWITCH');
   };
 
   const toggleDarkMode = () => {
     setDarkMode(prevMode => !prevMode)
-    SoundEffects.play('SWITCH');
-  }
-
-  if (isLoading) {
-    return (
-      <div className="loading-page">
-        <img 
-          src="/images/c-logo.png" 
-          alt="Loading" 
-          className="loading-logo" 
-          style={{ 
-            width: "80px", 
-            height: "80px",
-            animation: "pulse 2s infinite ease-in-out"
-          }} 
-        />
-        <div className="loading-dots">
-          <div className="loading-dot"></div>
-          <div className="loading-dot"></div>
-          <div className="loading-dot"></div>
-        </div>
-      </div>
-    );
   }
 
   return (
-    <div className="App" ref={appRef}>
-      {/* Floating background shapes */}
-      <div className="floating-elements">
-        <div className="floating-shape"></div>
-        <div className="floating-shape"></div>
-        <div className="floating-shape"></div>
-        <div className="floating-shape"></div>
-      </div>
-      
+    <div className="App">
       {notification && (
         <NotificationDisplay 
           notification={notification} 
