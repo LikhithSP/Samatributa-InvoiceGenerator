@@ -126,17 +126,8 @@ const InvoiceForm = ({
   };
   
   const updateCalculationsWithRate = (items, rate) => {
-    // Skip for existing invoices to preserve their values
-    if (id && id !== 'new' && invoiceData.id) {
-      console.log('Updating exchange rate for existing invoice without recalculating totals');
-      
-      // Just update the exchange rate without recalculating totals
-      setInvoiceData(prevData => ({
-        ...prevData,
-        exchangeRate: rate
-      }));
-      return;
-    }
+    // REMOVED: Conditional check that skipped recalculation for existing invoices
+    // Now, always recalculate regardless of invoice state
     
     // Calculate subtotals with the provided exchange rate
     let subtotalUSD = 0;
@@ -193,26 +184,12 @@ const InvoiceForm = ({
   
   // Calculate totals whenever items or tax rate changes
   useEffect(() => {
-    // Skip automatic recalculation when loading an existing invoice
-    if (id && id !== 'new' && invoiceData.id) {
-      console.log('Skipping automatic recalculation for existing invoice:', invoiceData.invoiceNumber);
-      return;
-    }
-    
-    // For existing invoices, only update calculations when tax rate changes manually
-    if (id && id !== 'new') {
-      // Only recalculate if tax rate is changed by user
-      if (invoiceData.items.length > 0) {
-        updateCalculations(invoiceData.items);
-      }
-      return;
-    }
-
-    // For new invoices, always recalculate
+    // REMOVED: Conditional checks that skipped recalculation for existing invoices
+    // Now, always recalculate when items or tax rate change
     updateCalculations(invoiceData.items);
-  // We're removing items from dependency array to prevent constant recalculation
+  // Added JSON.stringify(invoiceData.items) to dependencies to correctly detect item changes
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [invoiceData.taxRate, id, invoiceData.id]);
+  }, [invoiceData.taxRate, JSON.stringify(invoiceData.items)]); // Ensure items trigger recalculation
   
   const updateCalculations = (newItems) => {
     // Don't skip calculation for existing invoices during editing

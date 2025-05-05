@@ -209,27 +209,24 @@ const InvoicePage = ({ onLogout, darkMode, toggleDarkMode }) => {
           taxRate: parseFloat(taxRate) || 18
         };
         
-        // Use setTimeout to ensure state updates happen after the current execution cycle
-        // This helps prevent race conditions when loading service items
-        setTimeout(() => {
-          // Apply the loaded invoice to state
-          setInvoiceData(loadedInvoice);
-          setIsLoading(false);
-          
-          console.log('Loaded invoice with calculations:', {
-            subtotalUSD: loadedInvoice.subtotalUSD,
-            subtotalINR: loadedInvoice.subtotalINR,
-            taxAmountUSD: loadedInvoice.taxAmountUSD,
-            taxAmountINR: loadedInvoice.taxAmountINR,
-            totalUSD: loadedInvoice.totalUSD,
-            totalINR: loadedInvoice.totalINR
-          });
-        }, 0);
+        // Apply the loaded invoice to state
+        setInvoiceData(loadedInvoice);
+        setIsLoading(false);
+        
+        console.log('Loaded invoice with calculations:', {
+          subtotalUSD: loadedInvoice.subtotalUSD,
+          subtotalINR: loadedInvoice.subtotalINR,
+          taxAmountUSD: loadedInvoice.taxAmountUSD,
+          taxAmountINR: loadedInvoice.taxAmountINR,
+          totalUSD: loadedInvoice.totalUSD,
+          totalINR: loadedInvoice.totalINR
+        });
       }
     };
     
     checkAuthorization();
-  }, [id, navigate, isAdmin, currentUserId, initialInvoiceData, selectedCompany]); // Added isAdmin and currentUserId dependencies
+  // REMOVED initialInvoiceData and selectedCompany from dependencies
+  }, [id, navigate, isAdmin, currentUserId]);
 
   // Format date for input field (YYYY-MM-DD)
   const formatDateForInput = (date) => {
