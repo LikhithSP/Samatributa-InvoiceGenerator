@@ -140,7 +140,21 @@ export const UserNotificationsProvider = ({ children }) => {
     
     return true;
   };
-  
+
+  // Remove a notification by id
+  const removeNotification = (notificationId) => {
+    const userId = localStorage.getItem('userId');
+    if (!userId) return false;
+    const updatedNotifications = notifications.filter(n => n.id !== notificationId);
+    setNotifications(updatedNotifications);
+    // Update unread count
+    const unread = updatedNotifications.filter(n => !n.read).length;
+    setUnreadCount(unread);
+    // Update localStorage
+    localStorage.setItem(`notifications_${userId}`, JSON.stringify(updatedNotifications));
+    return true;
+  };
+
   const contextValue = {
     notifications,
     unreadCount,
@@ -148,6 +162,7 @@ export const UserNotificationsProvider = ({ children }) => {
     markAsRead,
     markAllAsRead,
     clearAllNotifications,
+    removeNotification, // <-- add to context
   };
 
   return (

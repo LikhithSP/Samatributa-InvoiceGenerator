@@ -3,10 +3,12 @@ import { Link, useNavigate } from 'react-router-dom';
 import { FiArrowLeft, FiUpload, FiCamera, FiTrash2 } from 'react-icons/fi';
 import { defaultLogo } from '../assets/logoData';
 import Modal from '../components/Modal';
+import { useUserRole } from '../context/UserRoleContext'; // Import the hook
 import './ProfilePage.css';
 
 const ProfilePage = () => {
   const navigate = useNavigate();
+  const { isAdmin } = useUserRole(); // Get the isAdmin status
   
   // Initialize state with data from localStorage or defaults
   const [formData, setFormData] = useState(() => {
@@ -19,7 +21,6 @@ const ProfilePage = () => {
     
     // Update "client" position to "Invoicing Associate" if that's the current value
     // but only for non-admin users
-    const isAdmin = localStorage.getItem('userRole') === 'admin';
     if (storedPosition && storedPosition.toLowerCase() === 'client' && !isAdmin) {
       storedPosition = 'Invoicing Associate';
       // Update it in localStorage right away
@@ -261,53 +262,57 @@ const ProfilePage = () => {
           </div>
         </form>
         
-        {/* Danger Zone Section */}
-        <div className="profile-section danger-zone">
-          <h3>Danger Zone</h3>
-          <p>Delete your account permanently. This action cannot be undone.</p>
-          <button 
-            className="btn btn-danger" 
-            onClick={() => setShowDeleteModal(true)}
-            disabled={isDeleting}
-          >
-            <FiTrash2 style={{ marginRight: '8px' }} /> 
-            {isDeleting ? 'Deleting Account...' : 'Delete Account'}
-          </button>
-        </div>
-      </div>
-      
-      {/* Delete Account Confirmation Modal */}
-      <Modal
-        isOpen={showDeleteModal}
-        onClose={() => setShowDeleteModal(false)}
-        title="Delete Account"
-        actions={
-          <>
-            <button 
-              className="btn btn-secondary" 
-              onClick={() => setShowDeleteModal(false)}
-              disabled={isDeleting}
-            >
-              Cancel
-            </button>
+        {/* Danger Zone Section - Conditionally render based on isAdmin */}
+        {!isAdmin && (
+          <div className="profile-section danger-zone">
+            <h3>Danger Zone</h3>
+            <p>Delete your account permanently. This action cannot be undone.</p>
             <button 
               className="btn btn-danger" 
-              onClick={handleDeleteAccount}
+              onClick={() => setShowDeleteModal(true)}
               disabled={isDeleting}
             >
-              {isDeleting ? 'Deleting...' : 'Delete Account'}
+              <FiTrash2 style={{ marginRight: '8px' }} /> 
+              {isDeleting ? 'Deleting Account...' : 'Delete Account'}
             </button>
-          </>
-        }
-      >
-        <p>Are you sure you want to delete your account? This will:</p>
-        <ul>
-          <li>Remove all your account information</li>
-          <li>Unassign any invoices assigned to you</li>
-          <li>Log you out immediately</li>
-        </ul>
-        <p style={{ fontWeight: 'bold' }}>This action cannot be undone.</p>
-      </Modal>
+          </div>
+        )}
+      </div>
+      
+      {/* Delete Account Confirmation Modal - Conditionally render based on isAdmin */}
+      {!isAdmin && (
+        <Modal
+          isOpen={showDeleteModal}
+          onClose={() => setShowDeleteModal(false)}
+          title="Delete Account"
+          actions={
+            <>
+              <button 
+                className="btn btn-secondary" 
+                onClick={() => setShowDeleteModal(false)}
+                disabled={isDeleting}
+              >
+                Cancel
+              </button>
+              <button 
+                className="btn btn-danger" 
+                onClick={handleDeleteAccount}
+                disabled={isDeleting}
+              >
+                {isDeleting ? 'Deleting...' : 'Delete Account'}
+              </button>
+            </>
+          }
+        >
+          <p>Are you sure you want to delete your account? This will:</p>
+          <ul>
+            <li>Remove all your account information</li>
+            <li>Unassign any invoices assigned to you</li>
+            <li>Log you out immediately</li>
+          </ul>
+          <p style={{ fontWeight: 'bold' }}>This action cannot be undone.</p>
+        </Modal>
+      )}
     </div>
   );
 };

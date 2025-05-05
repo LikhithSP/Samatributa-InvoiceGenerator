@@ -9,6 +9,7 @@ import html2canvas from 'html2canvas';
 import NotificationBell from '../components/NotificationBell';
 import { useUserRole } from '../context/UserRoleContext';
 import { useUserNotifications } from '../context/UserNotificationsContext';
+import Modal from '../components/Modal';
 
 const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
   const navigate = useNavigate();
@@ -84,6 +85,12 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
   // State for current user's avatar
   const [userAvatar, setUserAvatar] = useState(localStorage.getItem('userAvatar') || '');
   
+  // Download modal state
+  const [showDownloadModal, setShowDownloadModal] = useState(false);
+  const [downloadOption, setDownloadOption] = useState('all');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+
   // Update localStorage when selected company changes
   useEffect(() => {
     if (selectedCompany) {
@@ -252,9 +259,9 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
   };
 
   // Function to download all visible invoices as PDFs
-  const downloadAllInvoices = async () => {
+  const downloadAllInvoices = async (dateRange = null) => {
     // Get the filtered invoices
-    const filteredInvoices = sortInvoices(savedInvoices).filter(invoice => {
+    let filteredInvoices = sortInvoices(savedInvoices).filter(invoice => {
       // If a company is selected, only show invoices for that company
       if (!showAllInvoices && selectedCompany && !selectedAssignee) {
         // Check if the companyId is missing or doesn't match
@@ -283,6 +290,16 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
       
       return true;
     });
+    
+    // Filter by date range if provided
+    if (dateRange && dateRange.start && dateRange.end) {
+      const start = new Date(dateRange.start);
+      const end = new Date(dateRange.end);
+      filteredInvoices = filteredInvoices.filter(inv => {
+        const invDate = new Date(inv.invoiceDate);
+        return invDate >= start && invDate <= end;
+      });
+    }
     
     if (filteredInvoices.length === 0) {
       alert('No invoices to download.');
@@ -1215,7 +1232,7 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
             </button>
             <button 
               className="btn-download-all" 
-              onClick={downloadAllInvoices}
+              onClick={() => setShowDownloadModal(true)}
               disabled={isDownloading}
               style={{
                 display: 'flex',
@@ -1505,6 +1522,78 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
             )
           }
         </div>
+        
+        {/* Download Options Modal */}
+        <Modal
+          isOpen={showDownloadModal}
+          onClose={() => setShowDownloadModal(false)}
+          title="Download Invoices"
+          actions={
+            <>
+              <button className="btn btn-secondary" onClick={() => setShowDownloadModal(false)}>Cancel</button>
+              <button
+                className="btn"
+                onClick={() => {
+                  setShowDownloadModal(false);
+                  if (downloadOption === 'all') {
+                    downloadAllInvoices();
+                  } else {
+                    downloadAllInvoices({ start: startDate, end: endDate });
+                  }
+                }}
+                disabled={downloadOption === 'range' && (!startDate || !endDate)}
+              >
+                Download
+              </button>
+            </>
+          }
+        >
+          <div style={{ marginBottom: '15px' }}>
+            <label>
+              <input
+                type="radio"
+                name="downloadOption"
+                value="all"
+                checked={downloadOption === 'all'}
+                onChange={() => setDownloadOption('all')}
+              />
+              Download All Invoices
+            </label>
+            <br />
+            <label>
+              <input
+                type="radio"
+                name="downloadOption"
+                value="range"
+                checked={downloadOption === 'range'}
+                onChange={() => setDownloadOption('range')}
+              />
+              Download by Date Range
+            </label>
+          </div>
+          {downloadOption === 'range' && (
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+              <label>
+                Start Date:
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={e => setStartDate(e.target.value)}
+                  style={{ marginLeft: '5px' }}
+                />
+              </label>
+              <label>
+                End Date:
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={e => setEndDate(e.target.value)}
+                  style={{ marginLeft: '5px' }}
+                />
+              </label>
+            </div>
+          )}
+        </Modal>
       </main>
     </div>
   );

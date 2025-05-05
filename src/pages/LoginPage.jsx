@@ -97,6 +97,13 @@ const LoginPage = ({ onLogin }) => {
       
       if (user) {
         setTimeout(() => {
+          // Save user info to localStorage for context sync
+          localStorage.setItem('userId', user.id);
+          localStorage.setItem('userEmail', user.email);
+          localStorage.setItem('userPosition', user.position || '');
+          localStorage.setItem('userRole', user.role || 'user');
+          // Dispatch login event so UserRoleContext updates immediately
+          window.dispatchEvent(new Event('login'));
           // Pass the user role along with other user info to ensure position is set correctly
           onLogin(email, user.id, user.name, user.phone || '', user.position || '', user.role || 'user');
           setIsLoading(false);

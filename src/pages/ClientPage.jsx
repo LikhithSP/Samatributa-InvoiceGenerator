@@ -14,29 +14,8 @@ const ClientPage = ({ darkMode, toggleDarkMode }) => {
     if (savedClients) {
       return JSON.parse(savedClients);
     }
-    // Default sample clients if none exist
-    return [
-      { 
-        id: 1, 
-        name: 'Acme Client Corp', 
-        address: '123 Business Ave, Client District',
-        phone: '+1 (555) 123-4567',
-        email: 'contact@acmeclient.com',
-        website: 'www.acmeclient.com',
-        gstin: 'GST1234567890ABC',
-        pan: 'ABCDE1234F'
-      },
-      { 
-        id: 2, 
-        name: 'Globex Client Inc', 
-        address: '456 Client Park, Business Valley',
-        phone: '+1 (555) 987-6543',
-        email: 'info@globexclient.com',
-        website: 'www.globexclient.com',
-        gstin: 'GST9876543210XYZ',
-        pan: 'XYZAB5678G'
-      }
-    ];
+    // Default sample clients if none exist - REMOVED
+    return []; // Initialize with an empty array
   });
 
   const [activeClientId, setActiveClientId] = useState(null);

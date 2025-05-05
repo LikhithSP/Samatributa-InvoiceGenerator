@@ -31,7 +31,7 @@ export const UserRoleProvider = ({ children }) => {
     
     // Update all user roles and positions to ensure defaults are correct
     const updatedUsers = filteredUsers.map(user => {
-      // Only admin@example.com should have admin role and position, others get client
+      // Only admin@example.com should have admin role and position
       if (user.email === 'admin@example.com') {
         return { 
           ...user, 
@@ -39,10 +39,11 @@ export const UserRoleProvider = ({ children }) => {
           position: 'admin' 
         };
       } else {
+        // Others default to 'user' role and 'Invoicing Associate' position
         return { 
           ...user, 
-          role: 'client',
-          position: 'client'
+          role: user.role || 'user', // Keep existing role if defined, else 'user'
+          position: user.position && user.position.toLowerCase() !== 'client' ? user.position : 'Invoicing Associate' // Keep existing position unless it's 'client'
         };
       }
     });
@@ -116,36 +117,37 @@ export const UserRoleProvider = ({ children }) => {
         const user = users.find(u => u.id === userId || u.email === userEmail);
         
         if (user) {
-          // Ensure the user has the correct role and position based on email
-          const updatedUser = {
-            ...user,
-            role: user.email === 'admin@example.com' ? 'admin' : 'client',
-            position: user.email === 'admin@example.com' ? 'admin' : 'client'
-          };
-          
-          // Update the user in storage if role or position changed
-          if (updatedUser.role !== user.role || updatedUser.position !== user.position) {
-            const updatedUsers = users.map(u => 
-              u.id === updatedUser.id ? updatedUser : u
-            );
-            localStorage.setItem('users', JSON.stringify(updatedUsers));
-            
-            // Also update userPosition in localStorage
-            localStorage.setItem('userPosition', updatedUser.position);
+          // Use the role and position directly from the user object
+          const currentRole = user.role || (user.email === 'admin@example.com' ? 'admin' : 'user');
+          const currentPosition = user.position || (user.email === 'admin@example.com' ? 'admin' : 'Invoicing Associate');
+
+          // Update context state
+          setCurrentUser(user);
+          setUserRole(currentRole);
+          setIsAdmin(currentRole === 'admin');
+
+          // Ensure localStorage reflects the correct position
+          // Check if localStorage needs updating to avoid unnecessary writes/event triggers
+          const storedPosition = localStorage.getItem('userPosition');
+          if (storedPosition !== currentPosition) {
+            localStorage.setItem('userPosition', currentPosition);
+            // Optionally dispatch an event if other components need to react specifically to position change
+            // window.dispatchEvent(new CustomEvent('userPositionUpdated', { detail: { position: currentPosition } }));
           }
           
-          setCurrentUser(updatedUser);
-          setUserRole(updatedUser.role);
-          setIsAdmin(updatedUser.email === 'admin@example.com');
         } else {
+          // User not found in users array, clear state
           setCurrentUser(null);
-          setUserRole('client');
+          setUserRole('client'); // Default role for logged-out state
           setIsAdmin(false);
+          localStorage.removeItem('userPosition'); // Clean up position
         }
       } else {
+        // No userId or userEmail found (logged out), clear state
         setCurrentUser(null);
-        setUserRole('client');
+        setUserRole('client'); // Default role for logged-out state
         setIsAdmin(false);
+        localStorage.removeItem('userPosition'); // Clean up position
       }
     };
     

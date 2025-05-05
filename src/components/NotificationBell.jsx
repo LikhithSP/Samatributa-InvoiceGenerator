@@ -4,7 +4,7 @@ import { useUserNotifications } from '../context/UserNotificationsContext';
 import { useNavigate } from 'react-router-dom';
 
 const NotificationBell = () => {
-  const { notifications, unreadCount, markAsRead, markAllAsRead } = useUserNotifications();
+  const { notifications, unreadCount, markAsRead, markAllAsRead, removeNotification } = useUserNotifications();
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef(null);
   const navigate = useNavigate();
@@ -167,7 +167,6 @@ const NotificationBell = () => {
                 <div
                   key={notification.id}
                   className={`notification-item ${!notification.read ? 'unread' : ''}`}
-                  onClick={() => handleNotificationClick(notification)}
                   style={{
                     padding: '15px',
                     borderBottom: '1px solid var(--border-color)',
@@ -178,6 +177,25 @@ const NotificationBell = () => {
                     position: 'relative'
                   }}
                 >
+                  {/* Delete (X) button */}
+                  <button
+                    onClick={e => { e.stopPropagation(); removeNotification(notification.id); }}
+                    title="Delete notification"
+                    style={{
+                      position: 'absolute',
+                      top: '10px',
+                      right: '10px',
+                      background: 'none',
+                      border: 'none',
+                      color: 'var(--light-text)',
+                      fontSize: '16px',
+                      cursor: 'pointer',
+                      zIndex: 2
+                    }}
+                  >
+                    ×
+                  </button>
+                  {/* Unread indicator */}
                   {!notification.read && (
                     <span
                       className="unread-indicator"
@@ -193,7 +211,7 @@ const NotificationBell = () => {
                       }}
                     />
                   )}
-                  <div style={{ marginLeft: '12px' }}>
+                  <div style={{ marginLeft: '12px' }} onClick={() => handleNotificationClick(notification)}>
                     <div
                       className="notification-message"
                       style={{
