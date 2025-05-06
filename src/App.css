@@ -947,7 +947,7 @@ pre {
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 1000;
+  z-index: 2000; /* Increased to be above sidebar and overlay */
   animation: fadeIn 0.2s ease-out;
 }
 
@@ -960,6 +960,7 @@ pre {
   max-height: 90vh;
   overflow-y: auto;
   animation: scaleIn 0.2s ease-out;
+  z-index: 2100; /* Ensure modal content is above everything */
 }
 
 .modal-header {
