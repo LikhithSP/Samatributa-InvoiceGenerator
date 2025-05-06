@@ -887,8 +887,8 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
       {/* Mobile sidebar toggle button */}
       <button
         className="sidebar-toggle-btn"
-        onClick={() => setSidebarOpen(true)}
-        aria-label="Open sidebar"
+        onClick={() => setSidebarOpen(prev => !prev)}
+        aria-label={sidebarOpen ? "Close sidebar" : "Open sidebar"}
       >
         <FiMenu size={28} />
       </button>
@@ -898,14 +898,7 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
       )}
       {/* Sidebar with company list */}
       <aside className={`dashboard-sidebar${sidebarOpen ? ' open' : ''}`}>
-        {/* Close button for mobile */}
-        <button
-          className="sidebar-close-btn"
-          onClick={() => setSidebarOpen(false)}
-          aria-label="Close sidebar"
-        >
-          ×
-        </button>
+        {/* Removed sidebar-close-btn ("X") button */}
         <div className="company-logo-container">
           <img src="/images/c-logo.png" alt="Samatributa Invoice" className="main-company-logo" />
           <div className="sidebar-title">
