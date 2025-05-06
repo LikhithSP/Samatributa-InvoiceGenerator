@@ -1247,20 +1247,13 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
               Create New Invoice
             </button>
             <button 
-              className="btn-download-all" 
+              className="btn-create" 
               onClick={() => setShowDownloadModal(true)}
               disabled={isDownloading}
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '5px',
-                background: 'var(--primary-color)',
-                border: 'none',
-                borderRadius: '4px',
-                padding: '8px 12px',
-                fontSize: '14px',
-                cursor: 'pointer',
-                color: 'white'
+                gap: '5px'
               }}
             >
               <FiDownload />
