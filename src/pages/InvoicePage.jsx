@@ -6,6 +6,7 @@ import InvoicePreview from '../components/InvoicePreview';
 import invoiceLogic from '../lib/invoiceLogic';
 import { defaultLogo, companyName } from '../assets/logoData';
 import { useUserRole } from '../context/UserRoleContext';
+import Modal from '../components/Modal';
 
 const InvoicePage = ({ onLogout, darkMode, toggleDarkMode }) => {
   const { id } = useParams();
@@ -14,6 +15,9 @@ const InvoicePage = ({ onLogout, darkMode, toggleDarkMode }) => {
   const { isAdmin } = useUserRole();
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [showBackModal, setShowBackModal] = useState(false);
+  const [pendingBack, setPendingBack] = useState(false);
+  const [lastSavedInvoice, setLastSavedInvoice] = useState(null);
   
   // Get current user ID and information
   const currentUserId = localStorage.getItem('userId');
@@ -227,6 +231,33 @@ const InvoicePage = ({ onLogout, darkMode, toggleDarkMode }) => {
     checkAuthorization();
   // REMOVED initialInvoiceData and selectedCompany from dependencies
   }, [id, navigate, isAdmin, currentUserId]);
+
+  // Track last saved invoice data for unsaved changes detection
+  useEffect(() => {
+    setLastSavedInvoice(invoiceData);
+  }, []); // On mount, treat initial as saved
+
+  // Helper: check if invoice is saved (shallow compare main fields)
+  const isInvoiceSaved = () => {
+    if (!lastSavedInvoice) return false;
+    return JSON.stringify(invoiceData) === JSON.stringify(lastSavedInvoice);
+  };
+
+  // Save and update lastSavedInvoice
+  const handleSaveAndGoBack = () => {
+    saveInvoice();
+    setLastSavedInvoice(invoiceData);
+    navigate('/dashboard');
+  };
+
+  // Back button click handler
+  const handleBackClick = () => {
+    if (isInvoiceSaved()) {
+      navigate('/dashboard');
+    } else {
+      setShowBackModal(true);
+    }
+  };
 
   // Format date for input field (YYYY-MM-DD)
   const formatDateForInput = (date) => {
@@ -609,6 +640,16 @@ const InvoicePage = ({ onLogout, darkMode, toggleDarkMode }) => {
     <div className="container">
       {!showPreview && (
         <header className="header">
+          <button 
+            className="back-btn" 
+            onClick={handleBackClick}
+            style={{
+              background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', marginRight: 12, color: '#888', position: 'relative', top: 2
+            }}
+            title="Back to Dashboard"
+          >
+            &#10005;
+          </button>
           <div className="logo" onClick={() => navigate('/dashboard')} style={{ cursor: 'pointer' }}>
             <img 
               src={selectedCompany?.logo || defaultLogo} 
@@ -633,12 +674,10 @@ const InvoicePage = ({ onLogout, darkMode, toggleDarkMode }) => {
               onClick={toggleDarkMode} 
               className="btn btn-secondary"
               title={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-              style={{ padding: '8px 15px' }}
+              style={{ fontSize: '18px', padding: '8px 15px' }}
             >
               {darkMode ? '☀️' : '🌙'}
             </button>
-            <button onClick={() => navigate('/profile')} className="btn btn-secondary">Profile</button>
-            <button onClick={onLogout} className="btn">Logout</button>
           </div>
         </header>
       )}
@@ -671,6 +710,19 @@ const InvoicePage = ({ onLogout, darkMode, toggleDarkMode }) => {
           <span>Processing...</span>
         </div>
       )}
+      <Modal
+        isOpen={showBackModal}
+        onClose={() => setShowBackModal(false)}
+        title="You have not saved the invoice"
+        actions={
+          <>
+            <button className="btn btn-secondary" onClick={() => { setShowBackModal(false); navigate('/dashboard'); }}>Go Back</button>
+            <button className="btn btn-primary" onClick={handleSaveAndGoBack}>Save Invoice</button>
+          </>
+        }
+      >
+        <p>You have not saved the invoice. Would you like to save before leaving?</p>
+      </Modal>
     </div>
   );
 };

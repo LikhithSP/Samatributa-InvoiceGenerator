@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FiSearch, FiSettings, FiLogOut, FiUser, FiPlus, FiChevronDown, FiUsers, FiTrash2, FiDownload } from 'react-icons/fi';
+import { FiSearch, FiSettings, FiLogOut, FiUser, FiPlus, FiChevronDown, FiUsers, FiTrash2, FiDownload, FiMenu } from 'react-icons/fi';
 import { FiSun, FiMoon, FiArchive, FiList } from 'react-icons/fi';
 import '../App.css';
 import { defaultLogo } from '../assets/logoData';
@@ -90,6 +90,9 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
   const [downloadOption, setDownloadOption] = useState('all');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+
+  // Sidebar toggle for mobile
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Update localStorage when selected company changes
   useEffect(() => {
@@ -881,8 +884,28 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
   
   return (
     <div className="dashboard-container">
+      {/* Mobile sidebar toggle button */}
+      <button
+        className="sidebar-toggle-btn"
+        onClick={() => setSidebarOpen(true)}
+        aria-label="Open sidebar"
+      >
+        <FiMenu size={28} />
+      </button>
+      {/* Sidebar overlay for mobile */}
+      {sidebarOpen && (
+        <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)}></div>
+      )}
       {/* Sidebar with company list */}
-      <aside className="dashboard-sidebar">
+      <aside className={`dashboard-sidebar${sidebarOpen ? ' open' : ''}`}>
+        {/* Close button for mobile */}
+        <button
+          className="sidebar-close-btn"
+          onClick={() => setSidebarOpen(false)}
+          aria-label="Close sidebar"
+        >
+          ×
+        </button>
         <div className="company-logo-container">
           <img src="/images/c-logo.png" alt="Samatributa Invoice" className="main-company-logo" />
           <div className="sidebar-title">
