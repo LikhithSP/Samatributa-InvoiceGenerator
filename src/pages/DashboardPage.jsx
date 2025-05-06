@@ -928,6 +928,31 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
     };
   }, []);
   
+  // --- FILTER COMPANIES AND CLIENTS FOR NON-ADMIN USERS ---
+  // For non-admins, only show companies assigned/created and clients with their invoices
+  let filteredCompanies = companies;
+  let filteredClients = clients;
+  if (!isCurrentUserAdmin) {
+    // Companies: Only those where the user is the creator or has an assigned invoice
+    const userCompanyIds = new Set();
+    // 1. Companies where user is the creator (has a 'createdBy' field matching userId)
+    companies.forEach(company => {
+      if (company.createdBy === currentUserId) userCompanyIds.add(company.id);
+    });
+    // 2. Companies where user is assigned an invoice
+    savedInvoices.forEach(inv => {
+      if (inv.assigneeId === currentUserId && inv.companyId) userCompanyIds.add(inv.companyId);
+    });
+    filteredCompanies = companies.filter(company => userCompanyIds.has(company.id));
+
+    // Clients: Only those that have at least one invoice assigned/created by this user
+    const userClientNames = new Set();
+    savedInvoices.forEach(inv => {
+      if (inv.assigneeId === currentUserId && inv.recipientName) userClientNames.add(inv.recipientName);
+    });
+    filteredClients = clients.filter(client => userClientNames.has(client.name));
+  }
+
   return (
     <div className="dashboard-container">
       {/* Mobile sidebar toggle button */}
@@ -954,140 +979,254 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
         </div>
         
         <div className="company-list">
-          <div 
-            className={`company-item ${showAllInvoices ? 'active' : ''}`}
-            onClick={handleShowAllInvoices}
-          >
-            <FiUser className="company-icon" />
-            <span className="company-name" style={{ fontSize: '18px', color: 'white' }}>Show All Invoices</span>
-          </div>
-          
-          {/* Companies list without section header */}
-          {companies.map((company) => (
-            <div 
-              key={company.id}
-              className={`company-item ${selectedCompany?.id === company.id && !showAllInvoices && !selectedAssignee ? 'active' : ''}`}
-              onClick={() => handleCompanySelect(company)}
-            >
-              <img src={company.logo} alt={company.name} className="company-icon" />
-              <span className="company-name" style={{ fontSize: '18px', color: 'white' }}>{company.name}</span>
-            </div>
-          ))}
-          
-          {/* Client list section with renamed header */}
-          <div className="section-title" style={{ 
-            padding: '10px', 
-            fontSize: '12px', 
-            color: 'var(--light-text)', 
-            fontWeight: 'bold',
-            marginTop: '15px' 
-          }}>
-            CLIENTS
-          </div>
-          
-          {/* Display list of clients */}
-          {clients.map((client) => (
-            <div 
-              key={client.id}
-              className={`company-item ${selectedClient?.id === client.id ? 'active' : ''}`}
-              onClick={() => handleClientSelect(client)}
-            >
-              <FiUser className="company-icon" />
-              <span className="company-name" style={{ fontSize: '18px', color: 'white' }}>{client.name}</span>
-            </div>
-          ))}
-          
-          {/* Show message if no clients */}
-          {clients.length === 0 && (
-            <div style={{ padding: '5px 15px', fontSize: '14px', color: 'var(--light-text)', opacity: 0.7 }}>
-              No clients added yet
-            </div>
-          )}
-          
-          {/* Add New Client button moved after clients section */}
-          <div 
-            className="company-item"
-            style={{ marginTop: '10px', color: 'var(--light-text)' }}
-            onClick={() => navigate('/client')}
-          >
-            <FiPlus className="company-icon" />
-            <span className="company-name" style={{ fontSize: '18px', color: 'white' }}>Add New Client</span>
-          </div>
-          
-          {/* Add Descriptions button */}
-          <div 
-            className="company-item"
-            style={{ marginTop: '10px', color: 'var(--light-text)' }}
-            onClick={() => navigate('/description')}
-          >
-            <FiList className="company-icon" />
-            <span className="company-name" style={{ fontSize: '18px', color: 'white' }}>Add Descriptions</span>
-          </div>
-          
-          {/* Deleted Invoices Bin */}
-          <div 
-            className="company-item"
-            style={{ marginTop: '20px', color: 'var(--light-text)' }}
-            onClick={() => navigate('/bin')}
-          >
-            <FiArchive className="company-icon" />
-            <span className="company-name" style={{ fontSize: '18px', color: 'white' }}>Recently Deleted</span>
-          </div>
-          
-          {/* Changed "CLIENTS" to "INVOICING ASSOCIATES" */}
-          <div className="section-title" style={{ 
-            padding: '10px', 
-            fontSize: '12px', 
-            color: 'var(--light-text)', 
-            fontWeight: 'bold',
-            marginTop: '20px' 
-          }}>
-            INVOICING ASSOCIATES
-          </div>
-          
-          {/* Filter out admin accounts and only display non-admin users */}
-          {users
-            .filter(user => user.role !== 'admin')
-            .map((user) => (
-            <div 
-              key={user.id}
-              className={`company-item ${selectedAssignee === user.id ? 'active' : ''}`}
-              onClick={() => handleAssigneeSelect(user.id)}
-            >
-              {user.avatar ? (
-                <img 
-                  src={user.avatar} 
-                  alt={user.name} 
-                  style={{ 
+          {/* Sidebar for admin: Show All Invoices, Companies, Invoicing Associates, Clients */}
+          {isCurrentUserAdmin ? (
+            <>
+              <div 
+                className={`company-item ${showAllInvoices ? 'active' : ''}`}
+                onClick={handleShowAllInvoices}
+              >
+                <FiUser className="company-icon" />
+                <span className="company-name" style={{ fontSize: '18px', color: 'white' }}>Show All Invoices</span>
+              </div>
+              {/* Companies list */}
+              {companies.map((company) => (
+                <div 
+                  key={company.id}
+                  className={`company-item ${selectedCompany?.id === company.id && !showAllInvoices && !selectedAssignee ? 'active' : ''}`}
+                  onClick={() => handleCompanySelect(company)}
+                >
+                  <img src={company.logo} alt={company.name} className="company-icon" />
+                  <span className="company-name" style={{ fontSize: '18px', color: 'white' }}>{company.name}</span>
+                </div>
+              ))}
+              {/* Clients section header */}
+              <div className="section-title" style={{ 
+                padding: '10px', 
+                fontSize: '12px', 
+                color: 'var(--light-text)', 
+                fontWeight: 'bold',
+                marginTop: '15px' 
+              }}>
+                CLIENTS
+              </div>
+              {/* Clients list */}
+              {clients.map((client) => (
+                <div 
+                  key={client.id}
+                  className={`company-item ${selectedClient?.id === client.id ? 'active' : ''}`}
+                  onClick={() => handleClientSelect(client)}
+                >
+                  <FiUser className="company-icon" />
+                  <span className="company-name" style={{ fontSize: '18px', color: 'white' }}>{client.name}</span>
+                </div>
+              ))}
+              {clients.length === 0 && (
+                <div style={{ padding: '5px 15px', fontSize: '14px', color: 'var(--light-text)', opacity: 0.7 }}>
+                  No clients added yet
+                </div>
+              )}
+              {/* Add New Client button */}
+              <div 
+                className="company-item"
+                style={{ marginTop: '10px', color: 'var(--light-text)' }}
+                onClick={() => navigate('/client')}
+              >
+                <FiPlus className="company-icon" />
+                <span className="company-name" style={{ fontSize: '18px', color: 'white' }}>Add New Client</span>
+              </div>
+              {/* Add Descriptions button */}
+              <div 
+                className="company-item"
+                style={{ marginTop: '10px', color: 'var(--light-text)' }}
+                onClick={() => navigate('/description')}
+              >
+                <FiList className="company-icon" />
+                <span className="company-name" style={{ fontSize: '18px', color: 'white' }}>Add Descriptions</span>
+              </div>
+              {/* Deleted Invoices Bin */}
+              <div 
+                className="company-item"
+                style={{ marginTop: '20px', color: 'var(--light-text)' }}
+                onClick={() => navigate('/bin')}
+              >
+                <FiArchive className="company-icon" />
+                <span className="company-name" style={{ fontSize: '18px', color: 'white' }}>Recently Deleted</span>
+              </div>
+              {/* Invoicing Associates section header */}
+              <div className="section-title" style={{ 
+                padding: '10px', 
+                fontSize: '12px', 
+                color: 'var(--light-text)', 
+                fontWeight: 'bold',
+                marginTop: '20px' 
+              }}>
+                INVOICING ASSOCIATES
+              </div>
+              {/* All non-admin users */}
+              {users
+                .filter(user => user.role !== 'admin')
+                .map((user) => (
+                <div 
+                  key={user.id}
+                  className={`company-item ${selectedAssignee === user.id ? 'active' : ''}`}
+                  onClick={() => handleAssigneeSelect(user.id)}
+                >
+                  {user.avatar ? (
+                    <img 
+                      src={user.avatar} 
+                      alt={user.name} 
+                      style={{ 
+                        width: '24px',
+                        height: '24px',
+                        borderRadius: '50%',
+                        objectFit: 'cover',
+                        marginRight: '10px'
+                      }}
+                    />
+                  ) : (
+                    <div className="avatar-small" style={{ 
+                      width: '24px',
+                      height: '24px',
+                      borderRadius: '50%',
+                      backgroundColor: user.id === currentUserId ? 'var(--primary-color)' : 'var(--secondary-color)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: 'white',
+                      fontWeight: 'bold',
+                      fontSize: '12px',
+                      marginRight: '10px'
+                    }}>
+                      {user.name[0].toUpperCase()}
+                    </div>
+                  )}
+                  <span className="company-name" style={{ fontSize: '18px', color: 'white' }}>
+                    {user.name} {user.id === currentUserId && '(You)'}
+                  </span>
+                </div>
+              ))}
+            </>
+          ) : (
+            // Sidebar for non-admin: Only current user tab above clients, no show all, no associates
+            <>
+              {/* Only current user tab */}
+              <div 
+                className={`company-item ${selectedAssignee === currentUserId ? 'active' : ''}`}
+                style={{ marginBottom: '10px' }}
+                onClick={() => handleAssigneeSelect(currentUserId)}
+              >
+                {currentUser?.avatar ? (
+                  <img 
+                    src={currentUser.avatar} 
+                    alt={currentUser.name} 
+                    style={{ 
+                      width: '24px',
+                      height: '24px',
+                      borderRadius: '50%',
+                      objectFit: 'cover',
+                      marginRight: '10px'
+                    }}
+                  />
+                ) : (
+                  <div className="avatar-small" style={{ 
                     width: '24px',
                     height: '24px',
                     borderRadius: '50%',
-                    objectFit: 'cover',
+                    backgroundColor: 'var(--primary-color)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'white',
+                    fontWeight: 'bold',
+                    fontSize: '12px',
                     marginRight: '10px'
-                  }}
-                />
-              ) : (
-                <div className="avatar-small" style={{ 
-                  width: '24px',
-                  height: '24px',
-                  borderRadius: '50%',
-                  backgroundColor: user.id === currentUserId ? 'var(--primary-color)' : 'var(--secondary-color)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: 'white',
-                  fontWeight: 'bold',
+                  }}>
+                    {currentUser?.name ? currentUser.name[0].toUpperCase() : 'U'}
+                  </div>
+                )}
+                <span className="company-name" style={{ fontSize: '18px', color: 'white' }}>
+                  {currentUser?.name} (You)
+                </span>
+              </div>
+              {/* Companies section header (if any companies) */}
+              {filteredCompanies.length > 0 && (
+                <div className="section-title" style={{
+                  padding: '10px',
                   fontSize: '12px',
-                  marginRight: '10px'
+                  color: 'var(--light-text)',
+                  fontWeight: 'bold',
+                  marginTop: '0px'
                 }}>
-                  {user.name[0].toUpperCase()}
+                  COMPANIES
                 </div>
               )}
-              <span className="company-name" style={{ fontSize: '18px', color: 'white' }}>
-                {user.name} {user.id === currentUserId && '(You)'}
-              </span>
-            </div>
-          ))}
+              {/* Companies list for this user */}
+              {filteredCompanies.map((company) => (
+                <div
+                  key={company.id}
+                  className={`company-item ${selectedCompany?.id === company.id && !showAllInvoices && !selectedAssignee ? 'active' : ''}`}
+                  onClick={() => handleCompanySelect(company)}
+                >
+                  <img src={company.logo} alt={company.name} className="company-icon" />
+                  <span className="company-name" style={{ fontSize: '18px', color: 'white' }}>{company.name}</span>
+                </div>
+              ))}
+              {/* Clients section header */}
+              <div className="section-title" style={{
+                padding: '10px',
+                fontSize: '12px',
+                color: 'var(--light-text)',
+                fontWeight: 'bold',
+                marginTop: filteredCompanies.length > 0 ? '10px' : '0px'
+              }}>
+                CLIENTS
+              </div>
+              {/* Clients list for this user */}
+              {filteredClients.map((client) => (
+                <div
+                  key={client.id}
+                  className={`company-item ${selectedClient?.id === client.id ? 'active' : ''}`}
+                  onClick={() => handleClientSelect(client)}
+                >
+                  <FiUser className="company-icon" />
+                  <span className="company-name" style={{ fontSize: '18px', color: 'white' }}>{client.name}</span>
+                </div>
+              ))}
+              {filteredClients.length === 0 && (
+                <div style={{ padding: '5px 15px', fontSize: '14px', color: 'var(--light-text)', opacity: 0.7 }}>
+                  No clients added yet
+                </div>
+              )}
+              {/* Add New Client button */}
+              <div
+                className="company-item"
+                style={{ marginTop: '10px', color: 'var(--light-text)' }}
+                onClick={() => navigate('/client')}
+              >
+                <FiPlus className="company-icon" />
+                <span className="company-name" style={{ fontSize: '18px', color: 'white' }}>Add New Client</span>
+              </div>
+              {/* Add Descriptions button */}
+              <div
+                className="company-item"
+                style={{ marginTop: '10px', color: 'var(--light-text)' }}
+                onClick={() => navigate('/description')}
+              >
+                <FiList className="company-icon" />
+                <span className="company-name" style={{ fontSize: '18px', color: 'white' }}>Add Descriptions</span>
+              </div>
+              {/* Deleted Invoices Bin */}
+              <div
+                className="company-item"
+                style={{ marginTop: '20px', color: 'var(--light-text)' }}
+                onClick={() => navigate('/bin')}
+              >
+                <FiArchive className="company-icon" />
+                <span className="company-name" style={{ fontSize: '18px', color: 'white' }}>Recently Deleted</span>
+              </div>
+            </>
+          )}
         </div>
         
         <div className="sidebar-footer">

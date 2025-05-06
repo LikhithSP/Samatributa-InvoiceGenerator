@@ -35,11 +35,19 @@ const BinPage = ({ onLogout, darkMode, toggleDarkMode }) => {
       
       // Clean up invoices older than 30 days
       const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
-      const currentInvoices = sortedInvoices.filter(invoice => invoice.deletedAt > thirtyDaysAgo);
+      let currentInvoices = sortedInvoices.filter(invoice => invoice.deletedAt > thirtyDaysAgo);
       
       // If some invoices were removed due to age, update localStorage
       if (currentInvoices.length < sortedInvoices.length) {
         localStorage.setItem('invoiceBin', JSON.stringify(currentInvoices));
+      }
+      
+      // Filter by user role: admin sees all, others see only their own deleted invoices
+      const currentUserId = localStorage.getItem('userId');
+      const currentUserRole = localStorage.getItem('userRole');
+      const isAdmin = currentUserRole === 'admin';
+      if (!isAdmin) {
+        currentInvoices = currentInvoices.filter(inv => inv.deletedBy === currentUserId);
       }
       
       setDeletedInvoices(currentInvoices);

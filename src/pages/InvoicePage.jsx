@@ -354,10 +354,8 @@ const InvoicePage = ({ onLogout, darkMode, toggleDarkMode }) => {
         };
       });
       
-      // Auto-assign to current user if they are an Invoicing Associate
+      // Auto-assign to current user if they are not admin (regardless of position)
       let assigneeInfo = {};
-      
-      // For existing invoices, keep existing assignment if there is one
       if (invoiceData.assigneeId) {
         assigneeInfo = {
           assigneeId: invoiceData.assigneeId,
@@ -365,9 +363,7 @@ const InvoicePage = ({ onLogout, darkMode, toggleDarkMode }) => {
           assigneeRole: invoiceData.assigneeRole,
           assigneePosition: invoiceData.assigneePosition
         };
-      }
-      // For new invoices created by Invoicing Associates, auto-assign to them
-      else if (isInvoicingAssociate) {
+      } else if (!isAdmin) {
         assigneeInfo = {
           assigneeId: currentUserId,
           assigneeName: currentUserName,
@@ -519,8 +515,9 @@ const InvoicePage = ({ onLogout, darkMode, toggleDarkMode }) => {
         const invoiceToDelete = savedInvoices.find(invoice => invoice.id === invoiceData.id);
         
         if (invoiceToDelete) {
-          // Add deletion timestamp and move to bin
+          // Add deletion timestamp and deletedBy, then move to bin
           invoiceToDelete.deletedAt = new Date().getTime();
+          invoiceToDelete.deletedBy = currentUserId; // Track who deleted
           
           // Get existing bin or create new one
           const bin = JSON.parse(localStorage.getItem('invoiceBin')) || [];
