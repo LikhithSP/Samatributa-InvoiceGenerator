@@ -1993,3 +1993,21 @@ body:not(.dark-mode) .no-invoices-message .btn {
     padding: 8px 6px;
   }
 }
+
+/* Modern custom scrollbar for sidebar */
+.dashboard-sidebar .company-list {
+  scrollbar-width: thin;
+  scrollbar-color: #c2c9d5 var(--sidebar-bg);
+}
+.dashboard-sidebar .company-list::-webkit-scrollbar-thumb {
+  background: #c2c9d5;
+}
+.dashboard-sidebar .company-list:hover::-webkit-scrollbar-thumb {
+  background: #c2c9d5;
+}
+body.dark-mode .dashboard-sidebar .company-list::-webkit-scrollbar-thumb {
+  background: #c2c9d5;
+}
+body.dark-mode .dashboard-sidebar .company-list:hover::-webkit-scrollbar-thumb {
+  background: #c2c9d5;
+}

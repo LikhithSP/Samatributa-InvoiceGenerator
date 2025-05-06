@@ -81,10 +81,29 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
   
   // Current user ID
   const currentUserId = localStorage.getItem('userId') || 'demo_user';
-  
+  const currentUser = users.find(u => u.id === currentUserId);
+  const isCurrentUserAdmin = currentUser?.role === 'admin';
+
   // State for current user's avatar
   const [userAvatar, setUserAvatar] = useState(localStorage.getItem('userAvatar') || '');
-  
+
+  // --- Auto-select invoicing associate after login ---
+  useEffect(() => {
+    if (currentUser && !isCurrentUserAdmin) {
+      setSelectedAssignee(currentUserId);
+      setShowAllInvoices(false);
+      setSelectedCompany(null);
+      setSelectedClient(null);
+    } else if (isCurrentUserAdmin) {
+      setShowAllInvoices(true);
+      setSelectedAssignee(null);
+      setSelectedCompany(null);
+      setSelectedClient(null);
+    }
+  // Only run on login (userId change) or users update
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUserId, users.length]);
+
   // Download modal state
   const [showDownloadModal, setShowDownloadModal] = useState(false);
   const [downloadOption, setDownloadOption] = useState('all');
@@ -862,9 +881,12 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
         if (currentUser.avatar !== localStorage.getItem('userAvatar')) {
           localStorage.setItem('userAvatar', currentUser.avatar);
         }
+      } else {
+        setUserAvatar('');
+        localStorage.removeItem('userAvatar');
       }
     }
-    
+
     // Listen for profile updates
     const handleUserUpdated = () => {
       const updatedUsers = JSON.parse(localStorage.getItem('users')) || [];
@@ -872,15 +894,39 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
       const updatedUser = updatedUsers.find(user => user.id === loggedInUserId);
       if (updatedUser && updatedUser.avatar) {
         setUserAvatar(updatedUser.avatar);
+      } else {
+        setUserAvatar('');
       }
     };
-    
+
     window.addEventListener('userUpdated', handleUserUpdated);
-    
+
     return () => {
       window.removeEventListener('userUpdated', handleUserUpdated);
     };
   }, [users]);
+
+  // Effect to update avatar/profile info when userId changes (e.g., after login/logout)
+  useEffect(() => {
+    const handleStorageChange = (e) => {
+      if (e.key === 'userId') {
+        const newUserId = e.newValue;
+        const updatedUsers = JSON.parse(localStorage.getItem('users')) || [];
+        const updatedUser = updatedUsers.find(user => user.id === newUserId);
+        if (updatedUser && updatedUser.avatar) {
+          setUserAvatar(updatedUser.avatar);
+          localStorage.setItem('userAvatar', updatedUser.avatar);
+        } else {
+          setUserAvatar('');
+          localStorage.removeItem('userAvatar');
+        }
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, []);
   
   return (
     <div className="dashboard-container">
