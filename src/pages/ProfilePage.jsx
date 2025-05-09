@@ -5,6 +5,7 @@ import { defaultLogo } from '../assets/logoData';
 import Modal from '../components/Modal';
 import { useUserRole } from '../context/UserRoleContext'; // Import the hook
 import { storage } from '../utils/storage';
+import { supabase } from '../utils/supabaseClient';
 import './ProfilePage.css';
 
 const ProfilePage = () => {
@@ -64,14 +65,24 @@ const ProfilePage = () => {
     setFormData({ ...formData, [name]: value });
   };
 
-  const handleAvatarChange = (e) => {
+  const handleAvatarChange = async (e) => {
     const file = e.target.files[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setFormData({ ...formData, avatar: reader.result });
-      };
-      reader.readAsDataURL(file);
+      // Upload to Supabase Storage
+      const userId = await storage.get('userId');
+      const fileExt = file.name.split('.').pop();
+      const filePath = `avatars/${userId}.${fileExt}`;
+      const { error: uploadError } = await supabase.storage.from('avatars').upload(filePath, file, { upsert: true });
+      if (uploadError) {
+        alert('Failed to upload avatar.');
+        return;
+      }
+      // Get public URL
+      const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
+      const publicUrl = data.publicUrl;
+      setFormData({ ...formData, avatar: publicUrl });
+      // Optionally, update in storage immediately
+      await storage.set('userAvatar', publicUrl);
     }
   };
 

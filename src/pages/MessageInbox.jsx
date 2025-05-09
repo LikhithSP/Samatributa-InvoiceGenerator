@@ -3,6 +3,7 @@ import { FiSend, FiMail, FiCircle, FiPlus, FiMoreVertical, FiEdit2, FiTrash2 } f
 import '../App.css';
 import { useUserNotifications } from '../context/UserNotificationsContext';
 import { storage } from '../utils/storage';
+import { supabase } from '../utils/supabaseClient';
 
 const getAllUsers = async () => (await storage.get('users', [])) || [];
 const getCurrentUser = async () => {
@@ -89,7 +90,7 @@ const MessageInbox = () => {
   }, []);
 
   // Handle file selection
-  const handleFileChange = (e) => {
+  const handleFileChange = async (e) => {
     const selected = e.target.files[0];
     if (!selected) return;
     const isImage = selected.type.startsWith('image/');
@@ -98,18 +99,25 @@ const MessageInbox = () => {
       alert('Only images and PDFs are allowed.');
       return;
     }
-    if (selected.size > 5 * 1024 * 1024) {
-      alert('File size must be less than 5MB.');
+    // Upload to Supabase Storage
+    const userId = currentUser?.id || 'unknown';
+    const timestamp = Date.now();
+    const fileExt = selected.name.split('.').pop();
+    const filePath = `attachments/${userId}_${timestamp}.${fileExt}`;
+    const { error: uploadError } = await supabase.storage.from('attachments').upload(filePath, selected, { upsert: true });
+    if (uploadError) {
+      alert('Failed to upload file.');
       return;
     }
-    setFile(selected);
-    if (isImage) {
-      const reader = new FileReader();
-      reader.onload = (ev) => setFilePreview(ev.target.result);
-      reader.readAsDataURL(selected);
-    } else if (isPDF) {
-      setFilePreview(URL.createObjectURL(selected));
-    }
+    // Get public URL
+    const { data } = supabase.storage.from('attachments').getPublicUrl(filePath);
+    const publicUrl = data.publicUrl;
+    setFile({
+      name: selected.name,
+      type: selected.type,
+      url: publicUrl
+    });
+    setFilePreview(publicUrl);
   };
 
   const handleSend = async (e) => {
@@ -124,12 +132,10 @@ const MessageInbox = () => {
       read: false // Mark as unread for recipient
     };
     if (file) {
-      const isImage = file.type.startsWith('image/');
-      const isPDF = file.type === 'application/pdf';
       newMsg.file = {
         name: file.name,
         type: file.type,
-        data: filePreview // base64 for image, blob url for pdf
+        url: file.url // Use public URL from Supabase
       };
     }
     const conv = (await storage.get(`messages_${key}`, [])) || [];
@@ -375,10 +381,10 @@ const MessageInbox = () => {
                       gap: 8
                     }} onMouseEnter={() => setHoveredMsg(idx)} onMouseLeave={() => setHoveredMsg(null)}>
                       {msg.file && msg.file.type.startsWith('image/') && (
-                        <img src={msg.file.data} alt="attachment" style={{ maxWidth: 120, maxHeight: 120, borderRadius: 8, marginRight: 8 }} />
+                        <img src={msg.file.url} alt="attachment" style={{ maxWidth: 120, maxHeight: 120, borderRadius: 8, marginRight: 8 }} />
                       )}
                       {msg.file && msg.file.type === 'application/pdf' && (
-                        <a href={msg.file.data} target="_blank" rel="noopener noreferrer" style={{ color: '#3b82f6', fontWeight: 600, marginRight: 8 }}>
+                        <a href={msg.file.url} target="_blank" rel="noopener noreferrer" style={{ color: '#3b82f6', fontWeight: 600, marginRight: 8 }}>
                           PDF: {msg.file.name}
                         </a>
                       )}
