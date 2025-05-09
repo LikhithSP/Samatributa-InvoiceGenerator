@@ -12,7 +12,7 @@ npm-debug.log
 # Production build
 dist
 
-# Misc
+# Misc files
 .DS_Store
 *.pem
 .vscode
