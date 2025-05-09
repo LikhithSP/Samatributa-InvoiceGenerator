@@ -3,20 +3,19 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { FiArrowLeft, FiSave, FiUpload, FiTrash2, FiPlus, FiSun, FiMoon } from 'react-icons/fi';
 import './ClientPage.css';
+import { storage } from '../utils/storage';
 
 const ClientPage = ({ darkMode, toggleDarkMode }) => {
   // Add a ref to track if we're dispatching our own events
   const isSelfDispatch = React.useRef(false);
   
-  // Get clients from localStorage or use sample data
-  const [clients, setClients] = useState(() => {
-    const savedClients = localStorage.getItem('userClients');
-    if (savedClients) {
-      return JSON.parse(savedClients);
-    }
-    // Default sample clients if none exist - REMOVED
-    return []; // Initialize with an empty array
-  });
+  const [clients, setClients] = useState([]);
+
+  useEffect(() => {
+    (async () => {
+      setClients((await storage.get('userClients', [])) || []);
+    })();
+  }, []);
 
   const [activeClientId, setActiveClientId] = useState(null);
   const [newClient, setNewClient] = useState({
@@ -46,14 +45,11 @@ const ClientPage = ({ darkMode, toggleDarkMode }) => {
     setIsAddingClient(true);
   };
   
-  const handleDeleteClient = (id) => {
+  const handleDeleteClient = async (id) => {
     if (window.confirm('Are you sure you want to delete this client?')) {
-      // Update the clients list
       const updatedClients = clients.filter(client => client.id !== id);
       setClients(updatedClients);
-      localStorage.setItem('userClients', JSON.stringify(updatedClients));
-      
-      // Dispatch event to notify other components about the client changes
+      await storage.set('userClients', updatedClients);
       window.dispatchEvent(new Event('clientsUpdated'));
     }
   };
@@ -72,7 +68,7 @@ const ClientPage = ({ darkMode, toggleDarkMode }) => {
     });
   };
   
-  const handleSaveClient = () => {
+  const handleSaveClient = async () => {
     if (!newClient.name) {
       alert('Client name is required');
       return;
@@ -93,32 +89,11 @@ const ClientPage = ({ darkMode, toggleDarkMode }) => {
     }
     
     setClients(updatedClients);
-    localStorage.setItem('userClients', JSON.stringify(updatedClients));
-    
-    // Set the flag to indicate we're dispatching our own event
-    isSelfDispatch.current = true;
-    
-    // Dispatch a custom event with updated client data
-    const updatedClient = isEditing 
-      ? { ...newClient, id: activeClientId } 
-      : { ...newClient, id: Math.max(0, ...clients.map(c => c.id)) + 1 };
-    
-    window.dispatchEvent(new CustomEvent('clientUpdated', {
-      detail: { client: updatedClient, action: isEditing ? 'edit' : 'add' }
-    }));
-    
-    // Reset the flag after a short delay to ensure the event handler has time to check it
-    setTimeout(() => {
-      isSelfDispatch.current = false;
-    }, 100);
-    
+    await storage.set('userClients', updatedClients);
     setIsAddingClient(false);
-    
-    // Show success message
     setSaveSuccess(true);
-    setTimeout(() => {
-      setSaveSuccess(false);
-    }, 3000);
+    window.dispatchEvent(new Event('clientsUpdated'));
+    setTimeout(() => setSaveSuccess(false), 2000);
   };
   
   const handleCancelClientEdit = () => {

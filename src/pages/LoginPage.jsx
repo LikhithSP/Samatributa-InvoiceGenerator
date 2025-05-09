@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { FiArrowRight, FiUserPlus, FiUser, FiMail, FiPhone, FiBriefcase, FiLock, FiEye, FiEyeOff, FiSun, FiMoon, FiArrowLeft } from 'react-icons/fi';
 import './LoginPage.css'; // Import the CSS file
+import { storage } from '../utils/storage';
 
 const LoginPage = ({ onLogin, darkMode, toggleDarkMode }) => {
   const [email, setEmail] = useState('');
@@ -70,82 +71,66 @@ const LoginPage = ({ onLogin, darkMode, toggleDarkMode }) => {
     }
   }, [formAnimation, isRegistering]);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    
+
     if (isRegistering) {
       // Handle registration
       if (!email || !password || !confirmPassword || !name) {
         setError('Please fill in all required fields');
         return;
       }
-      
       if (password !== confirmPassword) {
         setError('Passwords do not match');
         return;
       }
-      
       setIsLoading(true);
-      
       // Check if user already exists
-      const users = JSON.parse(localStorage.getItem('users')) || [];
+      const users = (await storage.get('users', [])) || [];
       const userExists = users.some(user => user.email === email);
-      
       if (userExists) {
         setError('User with this email already exists');
         setIsLoading(false);
         return;
       }
-      
       // Add new user with phone and position fields
       const newUser = {
         id: `user_${Date.now()}`,
         email,
         name,
         phone,
-        // Set position to "Invoicing Associate" as default if not specified
         position: position || 'Invoicing Associate',
         password, // In a real app, you'd hash this password
         role: 'user',
         createdAt: new Date().toISOString()
       };
-      
       users.push(newUser);
-      localStorage.setItem('users', JSON.stringify(users));
-      
+      await storage.set('users', users);
       // Auto-login after registration
-      setTimeout(() => {
-        // Pass the finalized position value and role
+      setTimeout(async () => {
         onLogin(email, newUser.id, newUser.name, phone, newUser.position, newUser.role);
         setIsLoading(false);
       }, 1000);
-      
     } else {
       // Handle login
       if (!email || !password) {
         setError('Please enter both email and password');
         return;
       }
-      
       setIsLoading(true);
-      
-      // Get users from localStorage
-      const users = JSON.parse(localStorage.getItem('users')) || [];
-      
+      // Get users from storage
+      const users = (await storage.get('users', [])) || [];
       // Check credentials
       const user = users.find(u => u.email === email && u.password === password);
-      
       if (user) {
-        setTimeout(() => {
-          // Save user info to localStorage for context sync
-          localStorage.setItem('userId', user.id);
-          localStorage.setItem('userEmail', user.email);
-          localStorage.setItem('userPosition', user.position || '');
-          localStorage.setItem('userRole', user.role || 'user');
-          // Dispatch login event so UserRoleContext updates immediately
+        setTimeout(async () => {
+          // Save user info to storage for context sync
+          await storage.set('userId', user.id);
+          await storage.set('userEmail', user.email);
+          await storage.set('userPosition', user.position || '');
+          await storage.set('userRole', user.role || 'user');
           window.dispatchEvent(new Event('login'));
-          // Pass the user role along with other user info to ensure position is set correctly
           onLogin(email, user.id, user.name, user.phone || '', user.position || '', user.role || 'user');
           setIsLoading(false);
         }, 1000);

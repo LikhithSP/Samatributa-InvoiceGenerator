@@ -2,34 +2,35 @@ import React, { useState, useEffect } from 'react';
 import { FiSend, FiMail, FiCircle, FiPlus, FiMoreVertical, FiEdit2, FiTrash2 } from 'react-icons/fi';
 import '../App.css';
 import { useUserNotifications } from '../context/UserNotificationsContext';
+import { storage } from '../utils/storage';
 
-const getAllUsers = () => JSON.parse(localStorage.getItem('users')) || [];
-const getCurrentUser = () => {
-  const userId = localStorage.getItem('userId');
-  const users = getAllUsers();
+const getAllUsers = async () => (await storage.get('users', [])) || [];
+const getCurrentUser = async () => {
+  const userId = await storage.get('userId');
+  const users = await getAllUsers();
   return users.find(u => u.id === userId);
 };
 const getConversationKey = (email1, email2) => [email1, email2].sort().join('__');
 
-const getLastMessage = (currentEmail, otherEmail) => {
+const getLastMessage = async (currentEmail, otherEmail) => {
   const key = getConversationKey(currentEmail, otherEmail);
-  const conv = JSON.parse(localStorage.getItem(`messages_${key}`)) || [];
+  const conv = (await storage.get(`messages_${key}`, [])) || [];
   return conv.length > 0 ? conv[conv.length - 1] : null;
 };
 
 const getAvatar = (user) => user?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || 'U')}&background=3b82f6&color=fff&size=64`;
 
 // Utility to get unread count for a conversation
-const getUnreadCount = (currentEmail, otherEmail) => {
+const getUnreadCount = async (currentEmail, otherEmail) => {
   const key = getConversationKey(currentEmail, otherEmail);
-  const conv = JSON.parse(localStorage.getItem(`messages_${key}`)) || [];
+  const conv = (await storage.get(`messages_${key}`, [])) || [];
   return conv.filter(msg => msg.to === currentEmail && !msg.read).length;
 };
 
 // Mark all messages as read in a conversation
-const markConversationRead = (currentEmail, otherEmail) => {
+const markConversationRead = async (currentEmail, otherEmail) => {
   const key = getConversationKey(currentEmail, otherEmail);
-  let conv = JSON.parse(localStorage.getItem(`messages_${key}`)) || [];
+  let conv = (await storage.get(`messages_${key}`, [])) || [];
   let updated = false;
   conv = conv.map(msg => {
     if (msg.to === currentEmail && !msg.read) {
@@ -39,7 +40,7 @@ const markConversationRead = (currentEmail, otherEmail) => {
     return msg;
   });
   if (updated) {
-    localStorage.setItem(`messages_${key}`, JSON.stringify(conv));
+    await storage.set(`messages_${key}`, conv);
   }
 };
 
@@ -59,20 +60,24 @@ const MessageInbox = () => {
   const [showMenuIdx, setShowMenuIdx] = useState(null);
 
   useEffect(() => {
-    setUsers(getAllUsers());
-    setCurrentUser(getCurrentUser());
+    (async () => {
+      setUsers(await getAllUsers());
+      setCurrentUser(await getCurrentUser());
+    })();
   }, []);
 
   useEffect(() => {
-    if (currentUser && selectedUser) {
-      const key = getConversationKey(currentUser.email, selectedUser.email);
-      const conv = JSON.parse(localStorage.getItem(`messages_${key}`)) || [];
-      setMessages(conv);
-      // Mark as read when opening conversation
-      markConversationRead(currentUser.email, selectedUser.email);
-    } else {
-      setMessages([]);
-    }
+    (async () => {
+      if (currentUser && selectedUser) {
+        const key = getConversationKey(currentUser.email, selectedUser.email);
+        const conv = (await storage.get(`messages_${key}`, [])) || [];
+        setMessages(conv);
+        // Mark as read when opening conversation
+        await markConversationRead(currentUser.email, selectedUser.email);
+      } else {
+        setMessages([]);
+      }
+    })();
   }, [currentUser, selectedUser]);
 
   useEffect(() => {
@@ -107,7 +112,7 @@ const MessageInbox = () => {
     }
   };
 
-  const handleSend = (e) => {
+  const handleSend = async (e) => {
     e.preventDefault();
     if ((!messageText.trim() && !file) || !selectedUser) return;
     const key = getConversationKey(currentUser.email, selectedUser.email);
@@ -127,19 +132,19 @@ const MessageInbox = () => {
         data: filePreview // base64 for image, blob url for pdf
       };
     }
-    const conv = JSON.parse(localStorage.getItem(`messages_${key}`)) || [];
+    const conv = (await storage.get(`messages_${key}`, [])) || [];
     const updatedConv = [...conv, newMsg];
-    localStorage.setItem(`messages_${key}`, JSON.stringify(updatedConv));
+    await storage.set(`messages_${key}`, updatedConv);
     setMessages(updatedConv);
     setMessageText('');
     setFile(null);
     setFilePreview(null);
     // Send notification to recipient if not self
-    const allUsers = getAllUsers();
+    const allUsers = await getAllUsers();
     const recipient = allUsers.find(u => u.email === selectedUser.email);
     if (recipient && recipient.id !== currentUser.id) {
       // Store notification in recipient's notifications in localStorage
-      const recipientNotifications = JSON.parse(localStorage.getItem(`notifications_${recipient.id}`)) || [];
+      const recipientNotifications = (await storage.get(`notifications_${recipient.id}`, [])) || [];
       const notification = {
         id: `notification_${Date.now()}`,
         timestamp: new Date().toISOString(),
@@ -148,12 +153,12 @@ const MessageInbox = () => {
         read: false,
         data: { from: currentUser.id, to: recipient.id }
       };
-      localStorage.setItem(`notifications_${recipient.id}`, JSON.stringify([
+      await storage.set(`notifications_${recipient.id}`, [
         notification,
         ...recipientNotifications
-      ]));
+      ]);
       // If recipient is current user (for demo/multi-tab), also show in bell
-      if (recipient.id === localStorage.getItem('userId')) {
+      if (recipient.id === await storage.get('userId')) {
         addNotification(`${currentUser.name} has sent you a message`, 'info', { from: currentUser.id, to: recipient.id });
       }
       // Dispatch event so NotificationBell updates in real time
@@ -166,11 +171,11 @@ const MessageInbox = () => {
     setEditText(text);
   };
 
-  const saveEdit = (idx) => {
+  const saveEdit = async (idx) => {
     const key = getConversationKey(currentUser.email, selectedUser.email);
-    const conv = JSON.parse(localStorage.getItem(`messages_${key}`)) || [];
+    const conv = (await storage.get(`messages_${key}`, [])) || [];
     conv[idx].text = editText;
-    localStorage.setItem(`messages_${key}`, JSON.stringify(conv));
+    await storage.set(`messages_${key}`, conv);
     setMessages(conv);
     setEditIdx(null);
     setEditText('');
@@ -181,11 +186,11 @@ const MessageInbox = () => {
     setEditText('');
   };
 
-  const deleteMessage = (idx) => {
+  const deleteMessage = async (idx) => {
     const key = getConversationKey(currentUser.email, selectedUser.email);
-    const conv = JSON.parse(localStorage.getItem(`messages_${key}`)) || [];
+    const conv = (await storage.get(`messages_${key}`, [])) || [];
     conv.splice(idx, 1);
-    localStorage.setItem(`messages_${key}`, JSON.stringify(conv));
+    await storage.set(`messages_${key}`, conv);
     setMessages(conv);
   };
 
@@ -254,10 +259,10 @@ const MessageInbox = () => {
           </div>
           {selectedUser && (
             <button
-              onClick={() => {
+              onClick={async () => {
                 if (window.confirm(`Clear chat with ${selectedUser.name}? This cannot be undone.`)) {
                   const key = getConversationKey(currentUser.email, selectedUser.email);
-                  localStorage.removeItem(`messages_${key}`);
+                  await storage.remove(`messages_${key}`);
                   setMessages([]);
                   window.dispatchEvent(new Event('userUpdated'));
                 }
@@ -295,9 +300,9 @@ const MessageInbox = () => {
             return (
               <div
                 key={u.email}
-                onClick={() => {
+                onClick={async () => {
                   setSelectedUser(u);
-                  markConversationRead(currentUser.email, u.email);
+                  await markConversationRead(currentUser.email, u.email);
                 }}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 14, padding: '14px 24px', cursor: 'pointer', background: selectedUser?.email === u.email ? (isDark ? '#232f45' : '#f3f6fd') : (isDark ? '#232a36' : '#fff'), borderLeft: selectedUser?.email === u.email ? '4px solid #3b82f6' : '4px solid transparent', transition: 'background 0.2s', position: 'relative'
