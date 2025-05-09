@@ -3,18 +3,45 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { FiArrowLeft, FiSave, FiUpload, FiTrash2, FiPlus, FiSun, FiMoon } from 'react-icons/fi';
 import { defaultLogo } from '../assets/logoData';
-import { storage } from '../utils/storage';
 import './CompanyPage.css';
 
 const CompanyPage = ({ darkMode, toggleDarkMode }) => {
-  // Get companies from storage or use sample data
-  const [companies, setCompanies] = useState([]);
-
-  useEffect(() => {
-    (async () => {
-      setCompanies((await storage.get('userCompanies', [])) || []);
-    })();
-  }, []);
+  // Get companies from localStorage or use sample data
+  const [companies, setCompanies] = useState(() => {
+    const savedCompanies = localStorage.getItem('userCompanies');
+    if (savedCompanies) {
+      return JSON.parse(savedCompanies);
+    }
+    // Default sample companies if none exist
+    return [
+      { 
+        id: 1, 
+        name: 'Acme Corporation', 
+        logo: './images/default-logo.png',
+        address: '123 Corporate Ave, Business District',
+        gstin: 'GST1234567890ABC',
+        bankDetails: {
+          accountName: 'Acme Corp Ltd.',
+          bankName: 'First National Bank',
+          accountNumber: '1234567890',
+          ifscCode: 'FNBK0001234'
+        }
+      },
+      { 
+        id: 2, 
+        name: 'Globex Industries', 
+        logo: './images/c-logo.png',
+        address: '456 Tech Park, Innovation Valley',
+        gstin: 'GST9876543210XYZ',
+        bankDetails: {
+          accountName: 'Globex Industries Inc.',
+          bankName: 'Global Banking Corp',
+          accountNumber: '9876543210',
+          ifscCode: 'GBCI0005678'
+        }
+      }
+    ];
+  });
 
   const [activeCompanyId, setActiveCompanyId] = useState(null);
   const [newCompany, setNewCompany] = useState({
@@ -59,25 +86,28 @@ const CompanyPage = ({ darkMode, toggleDarkMode }) => {
     setIsAddingCompany(true);
   };
   
-  const handleDeleteCompany = async (id) => {
+  const handleDeleteCompany = (id) => {
     if (window.confirm('Are you sure you want to delete this company? All invoices associated with this company will also be deleted.')) {
       // Update the companies list
       const updatedCompanies = companies.filter(company => company.id !== id);
       setCompanies(updatedCompanies);
-      await storage.set('userCompanies', updatedCompanies);
+      localStorage.setItem('userCompanies', JSON.stringify(updatedCompanies));
       
       // Delete all invoices associated with this company
-      const savedInvoices = (await storage.get('savedInvoices', [])) || [];
+      const savedInvoices = JSON.parse(localStorage.getItem('savedInvoices')) || [];
       const filteredInvoices = savedInvoices.filter(invoice => invoice.companyId !== id);
-      await storage.set('savedInvoices', filteredInvoices);
+      localStorage.setItem('savedInvoices', JSON.stringify(filteredInvoices));
       
       // Dispatch event to notify other components about the invoice changes
       window.dispatchEvent(new Event('invoicesUpdated'));
       
-      // If the deleted company was selected, clear it
-      const selectedCompany = await storage.get('selectedCompany');
-      if (selectedCompany && selectedCompany.id === id) {
-        await storage.remove('selectedCompany');
+      // If the deleted company was selected in localStorage, clear it
+      const selectedCompany = localStorage.getItem('selectedCompany');
+      if (selectedCompany) {
+        const parsed = JSON.parse(selectedCompany);
+        if (parsed.id === id) {
+          localStorage.removeItem('selectedCompany');
+        }
       }
     }
   };
@@ -114,7 +144,7 @@ const CompanyPage = ({ darkMode, toggleDarkMode }) => {
     });
   };
   
-  const handleSaveCompany = async () => {
+  const handleSaveCompany = () => {
     if (!newCompany.name) {
       alert('Company name is required');
       return;
@@ -135,7 +165,7 @@ const CompanyPage = ({ darkMode, toggleDarkMode }) => {
     }
     
     setCompanies(updatedCompanies);
-    await storage.set('userCompanies', updatedCompanies);
+    localStorage.setItem('userCompanies', JSON.stringify(updatedCompanies));
     
     // Dispatch a custom event with updated company data
     const updatedCompany = isEditing 
@@ -147,11 +177,11 @@ const CompanyPage = ({ darkMode, toggleDarkMode }) => {
     }));
     
     // Update selected company if needed
-    const selectedCompany = await storage.get('selectedCompany');
+    const selectedCompany = localStorage.getItem('selectedCompany');
     if (selectedCompany) {
       const parsedCompany = JSON.parse(selectedCompany);
       if (parsedCompany.id === updatedCompany.id) {
-        await storage.set('selectedCompany', JSON.stringify(updatedCompany));
+        localStorage.setItem('selectedCompany', JSON.stringify(updatedCompany));
       }
     }
     

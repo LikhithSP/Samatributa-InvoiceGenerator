@@ -8,7 +8,6 @@ import { useNotification } from '../context/NotificationContext';
 import Modal from './Modal';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
-import { supabase } from '../utils/supabaseClient';
 
 const InvoiceForm = ({ 
   invoiceData, 
@@ -264,28 +263,31 @@ const InvoiceForm = ({
     }));
   };
   
-  const handleLogoUpload = async (e) => {
+  const handleLogoUpload = (e) => {
     const file = e.target.files[0];
     if (file) {
+      // Validate file type
+      const validTypes = ['image/jpeg', 'image/png', 'image/svg+xml', 'image/gif'];
+      if (!validTypes.includes(file.type)) {
+        setNotification('Please upload a valid image file (JPEG, PNG, SVG, or GIF)', 'error');
+        return;
+      }
+      
       // Validate file size (max 2MB)
       const maxSize = 2 * 1024 * 1024; // 2MB in bytes
       if (file.size > maxSize) {
         setNotification('Image file is too large. Please upload an image smaller than 2MB.', 'error');
         return;
       }
-      // Upload to Supabase Storage
-      const invoiceId = id || `new_${Date.now()}`;
-      const fileExt = file.name.split('.').pop();
-      const filePath = `logos/${invoiceId}.${fileExt}`;
-      const { error: uploadError } = await supabase.storage.from('logos').upload(filePath, file, { upsert: true });
-      if (uploadError) {
-        setNotification('Failed to upload logo.', 'error');
-        return;
-      }
-      // Get public URL
-      const { data } = supabase.storage.from('logos').getPublicUrl(filePath);
-      const publicUrl = data.publicUrl;
-      setInvoiceData(prevData => ({ ...prevData, logoUrl: publicUrl }));
+      
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setInvoiceData(prevData => ({
+          ...prevData,
+          logoUrl: e.target.result
+        }));
+      };
+      reader.readAsDataURL(file);
     }
   };
   

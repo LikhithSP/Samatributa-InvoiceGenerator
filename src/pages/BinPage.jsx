@@ -4,14 +4,13 @@ import { useNavigate } from 'react-router-dom';
 import { FiArchive, FiArrowLeft, FiTrash2, FiRefreshCw, FiClock, FiAlertTriangle } from 'react-icons/fi';
 import '../App.css';
 import './BinPage.css';
-import { storage } from '../utils/storage';
 
 const BinPage = ({ onLogout, darkMode, toggleDarkMode }) => {
   const navigate = useNavigate();
   const [deletedInvoices, setDeletedInvoices] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Load deleted invoices from storage on component mount
+  // Load deleted invoices from localStorage on component mount
   useEffect(() => {
     loadDeletedInvoices();
     
@@ -23,44 +22,43 @@ const BinPage = ({ onLogout, darkMode, toggleDarkMode }) => {
     };
   }, []);
   
-  // Load deleted invoices from storage
-  const loadDeletedInvoices = async () => {
+  // Load deleted invoices from localStorage
+  const loadDeletedInvoices = () => {
     try {
       setIsLoading(true);
       
       // Get invoices from bin
-      let binInvoices = (await storage.get('invoiceBin', [])) || [];
+      const binInvoices = JSON.parse(localStorage.getItem('invoiceBin')) || [];
       
       // Sort by deletion date (newest first)
-      binInvoices = binInvoices.sort((a, b) => b.deletedAt - a.deletedAt);
+      const sortedInvoices = binInvoices.sort((a, b) => b.deletedAt - a.deletedAt);
       
       // Clean up invoices older than 30 days
       const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
-      let currentInvoices = binInvoices.filter(invoice => invoice.deletedAt > thirtyDaysAgo);
+      let currentInvoices = sortedInvoices.filter(invoice => invoice.deletedAt > thirtyDaysAgo);
       
-      // If some invoices were removed due to age, update storage
-      if (currentInvoices.length < binInvoices.length) {
-        await storage.set('invoiceBin', currentInvoices);
+      // If some invoices were removed due to age, update localStorage
+      if (currentInvoices.length < sortedInvoices.length) {
+        localStorage.setItem('invoiceBin', JSON.stringify(currentInvoices));
       }
       
       // Filter by user role: only show invoices deleted by the current user
-      const currentUserId = await storage.get('userId');
+      const currentUserId = localStorage.getItem('userId');
       currentInvoices = currentInvoices.filter(inv => inv.deletedBy === currentUserId);
       
       setDeletedInvoices(currentInvoices);
     } catch (error) {
       console.error('Error loading bin invoices:', error);
-      setDeletedInvoices([]);
     } finally {
       setIsLoading(false);
     }
   };
   
   // Restore invoice from bin
-  const restoreInvoice = async (invoiceId) => {
+  const restoreInvoice = (invoiceId) => {
     try {
       // Get current invoices from bin
-      let binInvoices = (await storage.get('invoiceBin', [])) || [];
+      const binInvoices = JSON.parse(localStorage.getItem('invoiceBin')) || [];
       
       // Find invoice to restore
       const invoiceToRestore = binInvoices.find(invoice => invoice.id === invoiceId);
@@ -70,13 +68,13 @@ const BinPage = ({ onLogout, darkMode, toggleDarkMode }) => {
         delete invoiceToRestore.deletedAt;
         
         // Get existing invoices and add the restored one
-        const savedInvoices = (await storage.get('savedInvoices', [])) || [];
+        const savedInvoices = JSON.parse(localStorage.getItem('savedInvoices')) || [];
         savedInvoices.push(invoiceToRestore);
-        await storage.set('savedInvoices', savedInvoices);
+        localStorage.setItem('savedInvoices', JSON.stringify(savedInvoices));
         
         // Remove from bin
         const updatedBin = binInvoices.filter(invoice => invoice.id !== invoiceId);
-        await storage.set('invoiceBin', updatedBin);
+        localStorage.setItem('invoiceBin', JSON.stringify(updatedBin));
         
         // Update state
         setDeletedInvoices(updatedBin);
@@ -94,15 +92,15 @@ const BinPage = ({ onLogout, darkMode, toggleDarkMode }) => {
   };
   
   // Permanently delete an invoice
-  const permanentlyDeleteInvoice = async (invoiceId) => {
+  const permanentlyDeleteInvoice = (invoiceId) => {
     if (window.confirm('Are you sure you want to permanently delete this invoice? This action cannot be undone.')) {
       try {
         // Get current invoices from bin
-        let binInvoices = (await storage.get('invoiceBin', [])) || [];
+        const binInvoices = JSON.parse(localStorage.getItem('invoiceBin')) || [];
         
         // Remove invoice from bin
         const updatedBin = binInvoices.filter(invoice => invoice.id !== invoiceId);
-        await storage.set('invoiceBin', updatedBin);
+        localStorage.setItem('invoiceBin', JSON.stringify(updatedBin));
         
         // Update state
         setDeletedInvoices(updatedBin);
@@ -119,11 +117,11 @@ const BinPage = ({ onLogout, darkMode, toggleDarkMode }) => {
   };
   
   // Empty the bin (remove all deleted invoices)
-  const emptyBin = async () => {
+  const emptyBin = () => {
     if (window.confirm('Are you sure you want to permanently delete all invoices in the bin? This action cannot be undone.')) {
       try {
-        // Clear bin in storage
-        await storage.set('invoiceBin', []);
+        // Clear bin in localStorage
+        localStorage.setItem('invoiceBin', JSON.stringify([]));
         
         // Update state
         setDeletedInvoices([]);

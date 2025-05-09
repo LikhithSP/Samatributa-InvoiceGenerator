@@ -1,8 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { FiArrowRight, FiUserPlus, FiUser, FiMail, FiPhone, FiBriefcase, FiLock, FiEye, FiEyeOff, FiSun, FiMoon, FiArrowLeft } from 'react-icons/fi';
 import './LoginPage.css'; // Import the CSS file
-import { storage } from '../utils/storage';
-import { supabase } from '../utils/supabaseClient';
 
 const LoginPage = ({ onLogin, darkMode, toggleDarkMode }) => {
   const [email, setEmail] = useState('');
@@ -72,73 +70,89 @@ const LoginPage = ({ onLogin, darkMode, toggleDarkMode }) => {
     }
   }, [formAnimation, isRegistering]);
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
     setError('');
-
+    
     if (isRegistering) {
+      // Handle registration
       if (!email || !password || !confirmPassword || !name) {
         setError('Please fill in all required fields');
         return;
       }
+      
       if (password !== confirmPassword) {
         setError('Passwords do not match');
         return;
       }
+      
       setIsLoading(true);
-      // Register with Supabase Auth
-      const { data, error: signUpError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: { name, phone, position: position || 'Invoicing Associate' }
-        }
-      });
-      if (signUpError) {
-        setError(signUpError.message);
+      
+      // Check if user already exists
+      const users = JSON.parse(localStorage.getItem('users')) || [];
+      const userExists = users.some(user => user.email === email);
+      
+      if (userExists) {
+        setError('User with this email already exists');
         setIsLoading(false);
         return;
       }
-      // Store user profile in storage (optional: also in a users table)
-      const user = data.user;
-      await storage.set('userId', user.id);
-      await storage.set('userEmail', email);
-      await storage.set('userName', name);
-      await storage.set('userPhone', phone);
-      await storage.set('userPosition', position || 'Invoicing Associate');
-      await storage.set('userRole', 'user');
+      
+      // Add new user with phone and position fields
+      const newUser = {
+        id: `user_${Date.now()}`,
+        email,
+        name,
+        phone,
+        // Set position to "Invoicing Associate" as default if not specified
+        position: position || 'Invoicing Associate',
+        password, // In a real app, you'd hash this password
+        role: 'user',
+        createdAt: new Date().toISOString()
+      };
+      
+      users.push(newUser);
+      localStorage.setItem('users', JSON.stringify(users));
+      
+      // Auto-login after registration
       setTimeout(() => {
-        onLogin(email, user.id, name, phone, position || 'Invoicing Associate', 'user');
+        // Pass the finalized position value and role
+        onLogin(email, newUser.id, newUser.name, phone, newUser.position, newUser.role);
         setIsLoading(false);
       }, 1000);
+      
     } else {
+      // Handle login
       if (!email || !password) {
         setError('Please enter both email and password');
         return;
       }
+      
       setIsLoading(true);
-      // Login with Supabase Auth
-      const { data, error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password
-      });
-      if (signInError) {
-        setError(signInError.message);
+      
+      // Get users from localStorage
+      const users = JSON.parse(localStorage.getItem('users')) || [];
+      
+      // Check credentials
+      const user = users.find(u => u.email === email && u.password === password);
+      
+      if (user) {
+        setTimeout(() => {
+          // Save user info to localStorage for context sync
+          localStorage.setItem('userId', user.id);
+          localStorage.setItem('userEmail', user.email);
+          localStorage.setItem('userPosition', user.position || '');
+          localStorage.setItem('userRole', user.role || 'user');
+          // Dispatch login event so UserRoleContext updates immediately
+          window.dispatchEvent(new Event('login'));
+          // Pass the user role along with other user info to ensure position is set correctly
+          onLogin(email, user.id, user.name, user.phone || '', user.position || '', user.role || 'user');
+          setIsLoading(false);
+        }, 1000);
+      } else {
+        setError('Invalid email or password');
         setIsLoading(false);
-        return;
       }
-      // Fetch user profile from storage (or users table if implemented)
-      const user = data.user;
-      await storage.set('userId', user.id);
-      await storage.set('userEmail', email);
-      await storage.set('userName', user.user_metadata?.name || '');
-      await storage.set('userPhone', user.user_metadata?.phone || '');
-      await storage.set('userPosition', user.user_metadata?.position || 'Invoicing Associate');
-      await storage.set('userRole', 'user');
-      setTimeout(() => {
-        onLogin(email, user.id, user.user_metadata?.name || '', user.user_metadata?.phone || '', user.user_metadata?.position || 'Invoicing Associate', 'user');
-        setIsLoading(false);
-      }, 1000);
     }
   };
   

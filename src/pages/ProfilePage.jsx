@@ -4,155 +4,167 @@ import { FiArrowLeft, FiUpload, FiCamera, FiTrash2 } from 'react-icons/fi';
 import { defaultLogo } from '../assets/logoData';
 import Modal from '../components/Modal';
 import { useUserRole } from '../context/UserRoleContext'; // Import the hook
-import { storage } from '../utils/storage';
-import { supabase } from '../utils/supabaseClient';
 import './ProfilePage.css';
 
 const ProfilePage = () => {
   const navigate = useNavigate();
-  const { isAdmin } = useUserRole();
-
-  // Initialize state with async storage
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    position: '',
-    phone: '',
-    avatar: defaultLogo
+  const { isAdmin } = useUserRole(); // Get the isAdmin status
+  
+  // Initialize state with data from localStorage or defaults
+  const [formData, setFormData] = useState(() => {
+    // Get the stored values
+    const storedName = localStorage.getItem('userName') || 'John Doe';
+    const storedEmail = localStorage.getItem('userEmail') || 'johndoe@example.com';
+    let storedPosition = localStorage.getItem('userPosition') || 'CEO';
+    const storedPhone = localStorage.getItem('userPhone') || '';
+    const storedAvatar = localStorage.getItem('userAvatar') || defaultLogo;
+    
+    // Update "client" position to "Invoicing Associate" if that's the current value
+    // but only for non-admin users
+    if (storedPosition && storedPosition.toLowerCase() === 'client' && !isAdmin) {
+      storedPosition = 'Invoicing Associate';
+      // Update it in localStorage right away
+      localStorage.setItem('userPosition', storedPosition);
+    }
+    
+    return {
+      name: storedName,
+      email: storedEmail,
+      position: storedPosition,
+      phone: storedPhone,
+      avatar: storedAvatar
+    };
   });
+  
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [isHovering, setIsHovering] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-
-  // Load user data from storage on mount
-  useEffect(() => {
-    (async () => {
-      const storedName = await storage.get('userName', 'John Doe');
-      const storedEmail = await storage.get('userEmail', 'johndoe@example.com');
-      let storedPosition = await storage.get('userPosition', 'CEO');
-      const storedPhone = await storage.get('userPhone', '');
-      const storedAvatar = await storage.get('userAvatar', defaultLogo);
-      if (storedPosition && storedPosition.toLowerCase() === 'client' && !isAdmin) {
-        storedPosition = 'Invoicing Associate';
-        await storage.set('userPosition', storedPosition);
-      }
-      setFormData({
-        name: storedName,
-        email: storedEmail,
-        position: storedPosition,
-        phone: storedPhone,
-        avatar: storedAvatar
-      });
-    })();
-  }, [isAdmin]);
-
+  
   // Initialize avatar from user object if available
   useEffect(() => {
-    (async () => {
-      const userId = await storage.get('userId');
-      const users = (await storage.get('users', [])) || [];
-      const currentUser = users.find(user => user.id === userId);
-      if (currentUser && currentUser.avatar) {
-        setFormData(prev => ({ ...prev, avatar: currentUser.avatar }));
-      }
-    })();
+    const userId = localStorage.getItem('userId');
+    const users = JSON.parse(localStorage.getItem('users')) || [];
+    const currentUser = users.find(user => user.id === userId);
+    
+    if (currentUser && currentUser.avatar) {
+      setFormData(prev => ({
+        ...prev,
+        avatar: currentUser.avatar
+      }));
+    }
   }, []);
-
+  
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData({ ...formData, [name]: value });
+    setFormData({
+      ...formData,
+      [name]: value
+    });
   };
-
-  const handleAvatarChange = async (e) => {
+  
+  const handleAvatarChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      // Upload to Supabase Storage
-      const userId = await storage.get('userId');
-      const fileExt = file.name.split('.').pop();
-      const filePath = `avatars/${userId}.${fileExt}`;
-      const { error: uploadError } = await supabase.storage.from('avatars').upload(filePath, file, { upsert: true });
-      if (uploadError) {
-        alert('Failed to upload avatar.');
-        return;
-      }
-      // Get public URL
-      const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
-      const publicUrl = data.publicUrl;
-      setFormData({ ...formData, avatar: publicUrl });
-      // Optionally, update in storage immediately
-      await storage.set('userAvatar', publicUrl);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFormData({
+          ...formData,
+          avatar: reader.result
+        });
+      };
+      reader.readAsDataURL(file);
     }
   };
-
-  const handleSubmit = async (e) => {
+  
+  const handleSubmit = (e) => {
     e.preventDefault();
     setIsSaving(true);
-    // Save user data to storage
-    await storage.set('userName', formData.name);
-    await storage.set('userEmail', formData.email);
-    await storage.set('userPosition', formData.position);
-    await storage.set('userPhone', formData.phone);
-    await storage.set('userAvatar', formData.avatar);
-    // Update this user in the users array
-    const userId = await storage.get('userId');
-    const users = (await storage.get('users', [])) || [];
-    const userIndex = users.findIndex(user => user.id === userId);
-    if (userIndex !== -1) {
-      users[userIndex] = {
-        ...users[userIndex],
-        name: formData.name,
-        email: formData.email,
-        phone: formData.phone,
-        position: formData.position,
-        avatar: formData.avatar,
-        updatedAt: new Date().toISOString()
-      };
-      await storage.set('users', users);
-    }
-    setIsSaving(false);
-    setSaveSuccess(true);
-    window.dispatchEvent(new CustomEvent('userUpdated'));
-    setTimeout(() => setSaveSuccess(false), 3000);
+    
+    // Simulate API call delay
+    setTimeout(() => {
+      // Save user data to localStorage
+      localStorage.setItem('userName', formData.name);
+      localStorage.setItem('userEmail', formData.email);
+      localStorage.setItem('userPosition', formData.position);
+      localStorage.setItem('userPhone', formData.phone);
+      localStorage.setItem('userAvatar', formData.avatar);
+      
+      // Update this user in the users array
+      const userId = localStorage.getItem('userId');
+      const users = JSON.parse(localStorage.getItem('users')) || [];
+      const userIndex = users.findIndex(user => user.id === userId);
+      
+      if (userIndex !== -1) {
+        users[userIndex] = {
+          ...users[userIndex],
+          name: formData.name,
+          email: formData.email,
+          phone: formData.phone,
+          position: formData.position,
+          avatar: formData.avatar,
+          updatedAt: new Date().toISOString()
+        };
+        
+        localStorage.setItem('users', JSON.stringify(users));
+      }
+      
+      setIsSaving(false);
+      setSaveSuccess(true);
+      
+      // Dispatch event to notify other components about the user update
+      window.dispatchEvent(new CustomEvent('userUpdated'));
+      
+      // Reset success message after 3 seconds
+      setTimeout(() => {
+        setSaveSuccess(false);
+      }, 3000);
+    }, 800);
   };
-
-  const handleDeleteAccount = async () => {
-    setShowDeleteModal(false);
+  
+  const handleDeleteAccount = () => {
     setIsDeleting(true);
-    setTimeout(async () => {
-      const userId = await storage.get('userId');
+    
+    // Simulate a bit of processing time
+    setTimeout(() => {
+      const userId = localStorage.getItem('userId');
+      
       // 1. Unassign all invoices assigned to this user
-      const savedInvoices = (await storage.get('savedInvoices', [])) || [];
+      const savedInvoices = JSON.parse(localStorage.getItem('savedInvoices')) || [];
       const updatedInvoices = savedInvoices.map(invoice => {
         if (invoice.assigneeId === userId) {
-          return { ...invoice, assigneeId: '' };
+          return { ...invoice, assigneeId: '' }; // Unassign
         }
         return invoice;
       });
-      await storage.set('savedInvoices', updatedInvoices);
+      localStorage.setItem('savedInvoices', JSON.stringify(updatedInvoices));
+      
       // 2. Remove user from users array
-      const users = (await storage.get('users', [])) || [];
+      const users = JSON.parse(localStorage.getItem('users')) || [];
       const filteredUsers = users.filter(user => user.id !== userId);
-      await storage.set('users', filteredUsers);
-      // 3. Clear all user data from storage
-      await storage.remove('isLoggedIn');
-      await storage.remove('userEmail');
-      await storage.remove('userId');
-      await storage.remove('userName');
-      await storage.remove('userPhone');
-      await storage.remove('userPosition');
-      await storage.remove('userAvatar');
-      await storage.remove('lastLogin');
-      await storage.remove('lastActivity');
-      await storage.remove('selectedCompany');
+      localStorage.setItem('users', JSON.stringify(filteredUsers));
+      
+      // 3. Clear all user data from localStorage
+      localStorage.removeItem('isLoggedIn');
+      localStorage.removeItem('userEmail');
+      localStorage.removeItem('userId');
+      localStorage.removeItem('userName');
+      localStorage.removeItem('userPhone');
+      localStorage.removeItem('userPosition');
+      localStorage.removeItem('userAvatar');
+      localStorage.removeItem('lastLogin');
+      localStorage.removeItem('lastActivity');
+      localStorage.removeItem('selectedCompany');
+      
       // 4. Dispatch event to notify other components
       window.dispatchEvent(new Event('invoicesUpdated'));
+      
       // 5. Navigate to login page
       navigate('/login');
     }, 1000);
   };
-
+  
   return (
     <div className="profile-container">
       <Link to="/dashboard" className="profile-back-btn">

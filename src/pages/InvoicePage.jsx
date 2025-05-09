@@ -7,7 +7,6 @@ import invoiceLogic from '../lib/invoiceLogic';
 import { defaultLogo, companyName } from '../assets/logoData';
 import { useUserRole } from '../context/UserRoleContext';
 import Modal from '../components/Modal';
-import { storage } from '../utils/storage';
 
 const InvoicePage = ({ onLogout, darkMode, toggleDarkMode }) => {
   const { id } = useParams();
@@ -28,7 +27,10 @@ const InvoicePage = ({ onLogout, darkMode, toggleDarkMode }) => {
   const isInvoicingAssociate = !isAdmin && currentUserPosition === 'Invoicing Associate';
   
   // Get the selected company from localStorage if available
-  const [selectedCompany, setSelectedCompany] = useState(null);
+  const [selectedCompany, setSelectedCompany] = useState(() => {
+    const companyData = localStorage.getItem('selectedCompany');
+    return companyData ? JSON.parse(companyData) : null;
+  });
   
   // Define initial state
   const initialInvoiceData = {
@@ -91,11 +93,11 @@ const InvoicePage = ({ onLogout, darkMode, toggleDarkMode }) => {
     }
     
     // For existing invoices, check authorization
-    const checkAuthorization = async () => {
+    const checkAuthorization = () => {
       // Check if we're editing an existing invoice
       if (id && id !== 'new') {
         // Load the existing invoice data
-        const savedInvoices = (await storage.get('savedInvoices', [])) || [];
+        const savedInvoices = JSON.parse(localStorage.getItem('savedInvoices')) || [];
         
         // Log for debugging purposes
         console.log('Loading invoice with ID:', id);
@@ -173,7 +175,7 @@ const InvoicePage = ({ onLogout, darkMode, toggleDarkMode }) => {
         
         // Set loaded company if the invoice has a companyId
         if (existingInvoice.companyId) {
-          const companies = (await storage.get('userCompanies', [])) || [];
+          const companies = JSON.parse(localStorage.getItem('userCompanies')) || [];
           const invoiceCompany = companies.find(c => c.id === existingInvoice.companyId);
           if (invoiceCompany && invoiceCompany.id !== selectedCompany?.id) {
             setSelectedCompany(invoiceCompany);
@@ -287,7 +289,7 @@ const InvoicePage = ({ onLogout, darkMode, toggleDarkMode }) => {
   };
 
   // Save invoice to localStorage
-  const saveInvoice = async () => {
+  const saveInvoice = () => {
     // Check if user is authorized to edit
     if (!isAuthorized) {
       alert("You don't have permission to edit this invoice.");
@@ -320,7 +322,7 @@ const InvoicePage = ({ onLogout, darkMode, toggleDarkMode }) => {
 
     try {
       // Get existing invoices from localStorage or initialize empty array
-      let savedInvoices = (await storage.get('savedInvoices', [])) || [];
+      const savedInvoices = JSON.parse(localStorage.getItem('savedInvoices')) || [];
       
       // Now that we're actually saving, generate the final invoice number with increment
       // Only regenerate if we're creating a new invoice (not editing an existing one)
@@ -412,7 +414,7 @@ const InvoicePage = ({ onLogout, darkMode, toggleDarkMode }) => {
       }
       
       // Save updated invoices array back to localStorage
-      await storage.set('savedInvoices', savedInvoices);
+      localStorage.setItem('savedInvoices', JSON.stringify(savedInvoices));
       
       setIsLoading(false);
       alert('Invoice saved successfully!');
@@ -496,7 +498,7 @@ const InvoicePage = ({ onLogout, darkMode, toggleDarkMode }) => {
   };
 
   // Delete the current invoice
-  const deleteInvoice = async () => {
+  const deleteInvoice = () => {
     // Check if user is authorized to delete
     // Only admin or invoice creator can delete
     if (!isAdmin && invoiceData.assigneeId !== currentUserId) {
@@ -507,7 +509,7 @@ const InvoicePage = ({ onLogout, darkMode, toggleDarkMode }) => {
     if (window.confirm('Are you sure you want to delete this invoice? It will be moved to the Bin for 30 days before permanent removal.')) {
       try {
         // Get existing invoices from localStorage
-        const savedInvoices = (await storage.get('savedInvoices', [])) || [];
+        const savedInvoices = JSON.parse(localStorage.getItem('savedInvoices')) || [];
         
         // Get the invoice to be deleted
         const invoiceToDelete = savedInvoices.find(invoice => invoice.id === invoiceData.id);
@@ -518,11 +520,11 @@ const InvoicePage = ({ onLogout, darkMode, toggleDarkMode }) => {
           invoiceToDelete.deletedBy = currentUserId; // Track who deleted
           
           // Get existing bin or create new one
-          const bin = (await storage.get('invoiceBin', [])) || [];
+          const bin = JSON.parse(localStorage.getItem('invoiceBin')) || [];
           bin.push(invoiceToDelete);
           
           // Save updated bin back to localStorage
-          await storage.set('invoiceBin', bin);
+          localStorage.setItem('invoiceBin', JSON.stringify(bin));
           
           // Filter out the current invoice using the unique ID
           const updatedInvoices = savedInvoices.filter(
@@ -530,7 +532,7 @@ const InvoicePage = ({ onLogout, darkMode, toggleDarkMode }) => {
           );
           
           // Save updated invoices array back to localStorage
-          await storage.set('savedInvoices', updatedInvoices);
+          localStorage.setItem('savedInvoices', JSON.stringify(updatedInvoices));
           
           // Trigger a custom event to notify other components about the change
           window.dispatchEvent(new Event('invoicesUpdated'));
@@ -549,7 +551,7 @@ const InvoicePage = ({ onLogout, darkMode, toggleDarkMode }) => {
   // Update company data when a company is updated from Company Page
   useEffect(() => {
     // Handler for when a company is updated
-    const handleCompanyUpdate = async (event) => {
+    const handleCompanyUpdate = (event) => {
       const { company, action } = event.detail;
       console.log(`Company ${action === 'edit' ? 'updated' : 'added'}:`, company);
       
@@ -578,7 +580,7 @@ const InvoicePage = ({ onLogout, darkMode, toggleDarkMode }) => {
       }
       
       // Update all saved invoices that use this company
-      const savedInvoices = (await storage.get('savedInvoices', [])) || [];
+      const savedInvoices = JSON.parse(localStorage.getItem('savedInvoices')) || [];
       let updatedInvoices = false;
       
       const updatedInvoicesList = savedInvoices.map(invoice => {
@@ -605,7 +607,7 @@ const InvoicePage = ({ onLogout, darkMode, toggleDarkMode }) => {
       // Only update localStorage if any invoices were modified
       if (updatedInvoices) {
         console.log('Updating saved invoices with new company details');
-        await storage.set('savedInvoices', JSON.stringify(updatedInvoicesList));
+        localStorage.setItem('savedInvoices', JSON.stringify(updatedInvoicesList));
         
         // Notify other components that invoices have been updated
         window.dispatchEvent(new Event('invoicesUpdated'));

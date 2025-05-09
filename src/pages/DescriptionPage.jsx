@@ -3,31 +3,42 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { FiArrowLeft, FiSave, FiTrash2, FiPlus, FiSun, FiMoon } from 'react-icons/fi';
 import './ClientPage.css'; // Reuse ClientPage styling
-import { storage } from '../utils/storage';
 
 const DescriptionPage = ({ darkMode, toggleDarkMode }) => {
   // Add a ref to track if we're dispatching our own events
   const isSelfDispatch = React.useRef(false);
 
-  const [descriptions, setDescriptions] = useState([]);
-
-  useEffect(() => {
-    (async () => {
-      let savedDescriptions = await storage.get('serviceDescriptions');
-      if (!savedDescriptions) {
-        // If not found, set default descriptions
-        const defaultDescriptions = [
-          { id: 1, text: 'Preparation and filing of US Federal Income Tax Return (Form 1120)' },
-          { id: 2, text: 'Foreign related party disclosure form with respect to a foreign subsidiary (Form 5417)' },
-          { id: 3, text: 'Foreign related party disclosure form with respect to a foreign shareholders (Form 5472)' },
-          { id: 4, text: 'Application for Automatic Extension of Time To File Business Income Tax (Form 7004)' }
-        ];
-        await storage.set('serviceDescriptions', defaultDescriptions);
-        savedDescriptions = defaultDescriptions;
+  // Get descriptions from localStorage or use sample data
+  const [descriptions, setDescriptions] = useState(() => {
+    const savedDescriptions = localStorage.getItem('serviceDescriptions');
+    if (savedDescriptions) {
+      return JSON.parse(savedDescriptions);
+    }
+    // Default sample descriptions if none exist
+    const defaultDescriptions = [
+      { 
+        id: 1, 
+        text: 'US Federal Corporation Income Tax Return (Form 1120)' 
+      },
+      { 
+        id: 2, 
+        text: 'Foreign related party disclosure form with respect to a foreign subsidiary (Form 5417)' 
+      },
+      { 
+        id: 3,
+        text: 'Foreign related party disclosure form with respect to a foreign shareholders (Form 5472)'
+      },
+      {
+        id: 4,
+        text: 'Application for Automatic Extension of Time To File Business Income Tax (Form 7004)'
       }
-      setDescriptions(savedDescriptions);
-    })();
-  }, []);
+    ];
+    
+    // Save the default descriptions to localStorage immediately
+    localStorage.setItem('serviceDescriptions', JSON.stringify(defaultDescriptions));
+    
+    return defaultDescriptions;
+  });
 
   const [activeDescriptionId, setActiveDescriptionId] = useState(null);
   const [newDescription, setNewDescription] = useState({
@@ -51,11 +62,14 @@ const DescriptionPage = ({ darkMode, toggleDarkMode }) => {
     setIsAddingDescription(true);
   };
   
-  const handleDeleteDescription = async (id) => {
+  const handleDeleteDescription = (id) => {
     if (window.confirm('Are you sure you want to delete this description?')) {
+      // Update the descriptions list
       const updatedDescriptions = descriptions.filter(desc => desc.id !== id);
       setDescriptions(updatedDescriptions);
-      await storage.set('serviceDescriptions', updatedDescriptions);
+      localStorage.setItem('serviceDescriptions', JSON.stringify(updatedDescriptions));
+      
+      // Dispatch event to notify other components about the description changes
       window.dispatchEvent(new Event('descriptionsUpdated'));
     }
   };
@@ -68,7 +82,7 @@ const DescriptionPage = ({ darkMode, toggleDarkMode }) => {
     });
   };
   
-  const handleSaveDescription = async () => {
+  const handleSaveDescription = () => {
     if (!newDescription.text) {
       alert('Description text is required');
       return;
@@ -89,7 +103,7 @@ const DescriptionPage = ({ darkMode, toggleDarkMode }) => {
     }
     
     setDescriptions(updatedDescriptions);
-    await storage.set('serviceDescriptions', updatedDescriptions);
+    localStorage.setItem('serviceDescriptions', JSON.stringify(updatedDescriptions));
     
     // Set the flag to indicate we're dispatching our own event
     isSelfDispatch.current = true;
