@@ -1206,10 +1206,20 @@ body.dark-mode .btn-logout {
   transform: translateY(-1px);
 }
 
+/* Adding custom styling for invoice-list and dashboard-empty-state */
 .invoice-list {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 20px;
+  width: 100%;
+}
+
+/* Adding specific style for dashboard-empty-state to ensure it's centered properly */
+.dashboard-empty-state {
+  grid-column: 1 / -1;
+  justify-self: center;
+  margin: 48px auto;
+  max-width: 600px;
 }
 
 .invoice-card {

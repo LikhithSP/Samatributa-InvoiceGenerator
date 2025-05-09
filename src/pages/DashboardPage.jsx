@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FiSearch, FiSettings, FiLogOut, FiUser, FiPlus, FiChevronDown, FiUsers, FiTrash2, FiDownload, FiMenu } from 'react-icons/fi';
-import { FiSun, FiMoon, FiArchive, FiList } from 'react-icons/fi';
+import { FiSun, FiMoon, FiArchive, FiList, FiMail } from 'react-icons/fi';
 import '../App.css';
 import { defaultLogo } from '../assets/logoData';
 import jsPDF from 'jspdf';
@@ -1053,6 +1053,15 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
                 <FiArchive className="company-icon" />
                 <span className="company-name" style={{ fontSize: '18px', color: 'white' }}>Recently Deleted</span>
               </div>
+              {/* Message Inbox button */}
+              <div
+                className="company-item"
+                style={{ marginTop: '10px', color: 'var(--light-text)' }}
+                onClick={() => navigate('/inbox')}
+              >
+                <FiMail className="company-icon" />
+                <span className="company-name" style={{ fontSize: '18px', color: 'white' }}>Message Inbox</span>
+              </div>
               {/* Invoicing Associates section header */}
               <div className="section-title" style={{ 
                 padding: '10px', 
@@ -1225,6 +1234,15 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
                 <FiArchive className="company-icon" />
                 <span className="company-name" style={{ fontSize: '18px', color: 'white' }}>Recently Deleted</span>
               </div>
+              {/* Message Inbox button */}
+              <div
+                className="company-item"
+                style={{ marginTop: '10px', color: 'var(--light-text)' }}
+                onClick={() => navigate('/inbox')}
+              >
+                <FiMail className="company-icon" />
+                <span className="company-name" style={{ fontSize: '18px', color: 'white' }}>Message Inbox</span>
+              </div>
             </>
           )}
         </div>
@@ -1241,12 +1259,48 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
         gridArea: 'topbar',
         padding: '27.5px 25px',
         display: 'flex',
-        justifyContent: 'flex-end',
         alignItems: 'center',
         borderBottom: '1px solid var(--border-color)',
         backgroundColor: 'var(--card-bg)'
       }}>
-        <div className="user-actions" style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+        {/* Keep search bar at the start */}
+        <div className="search-container" style={{ maxWidth: 350, flex: 1 }}>
+          <FiSearch className="search-icon" style={{
+            position: 'absolute',
+            left: '12px',
+            top: '50%',
+            transform: 'translateY(-50%)',
+            color: darkMode ? '#bfc7d5' : '#888',
+            pointerEvents: 'none',
+            fontSize: '18px'
+          }} />
+          <input 
+            type="text" 
+            placeholder="Search invoices..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            style={{
+              width: '100%',
+              padding: '8px 32px 8px 36px',
+              borderRadius: '20px',
+              border: darkMode ? '1px solid #3a4252' : '1px solid var(--border-color)',
+              background: darkMode ? '#232a36' : 'var(--input-bg, #f7f7f7)',
+              color: darkMode ? '#f5f7fa' : 'var(--text-color)',
+              fontSize: '15px',
+              outline: 'none',
+              boxShadow: darkMode ? '0 1px 4px 0 rgba(0,0,0,0.25)' : 'none',
+              transition: 'border 0.2s, background 0.2s, color 0.2s',
+              '::placeholder': {
+                color: darkMode ? '#bfc7d5' : '#888',
+                opacity: 1
+              }
+            }}
+          />
+        </div>
+        {/* Spacer to push actions to the right */}
+        <div style={{ flex: 1 }} />
+        {/* Actions: Bell, theme switch, profile */}
+        <div className="user-actions" style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
           <NotificationBell />
           <div className="theme-switch-wrapper">
             <label className="theme-switch">
@@ -1290,7 +1344,7 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
                 {(localStorage.getItem('userName') || 'U')[0].toUpperCase()}
               </div>
             )}
-            <span>My Profile</span>
+            <span>{currentUser?.name || (localStorage.getItem('userName') || 'User')}</span>
             {isAdmin && <span className="admin-badge" style={{
               fontSize: '10px',
               padding: '2px 5px',
@@ -1318,16 +1372,6 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
                     : 'Invoices')}
           </h2>
           <div className="dashboard-controls">
-            <div className="search-container">
-              <FiSearch className="search-icon" />
-              <input 
-                type="text" 
-                placeholder="Search invoices..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-            
             {/* Sort dropdown */}
             <div className="sort-container" style={{ position: 'relative' }}>
               <button 
@@ -1486,7 +1530,7 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
           </div>
         )}
         
-        <div className="invoice-list">
+        <div className="invoice-list" style={{ width: '100%' }}>
           {savedInvoices.length > 0 ? (
             sortInvoices(savedInvoices)
               .filter(invoice => {
@@ -1668,9 +1712,73 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
                 );
               })
           ) : (
-            <div className="no-invoices-message">
-              <h3>No Invoices Yet</h3>
-              <p>You haven't created any invoices yet. Click the "Create New Invoice" button to get started.</p>
+            <div className="dashboard-empty-state" style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '100%',
+              maxWidth: 600,
+              minWidth: 340,
+              minHeight: 420,
+              height: 'calc(60vh - 40px)',
+              background: darkMode
+                ? 'linear-gradient(135deg, #232a36 0%, #181f2a 100%)'
+                : 'linear-gradient(135deg, #e3eafc 0%, #f6f8fa 100%)',
+              borderRadius: 24,
+              boxShadow: darkMode ? '0 4px 24px #10131a33' : '0 4px 24px #e0e7ef33',
+              margin: '48px auto',
+              gap: 24,
+              padding: '64px 40px',
+              position: 'relative',
+              // Center horizontally
+              marginLeft: 'auto',
+              marginRight: 'auto',
+            }}>
+              {/* Modern minimal illustration (card, lines, dot) */}
+              <div style={{
+                width: 120,
+                height: 60,
+                background: darkMode ? '#232a36' : '#f6f8fa', // match the light card background
+                borderRadius: 18,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginBottom: 32,
+                position: 'relative',
+                boxShadow: darkMode ? '0 2px 8px #10131a33' : '0 2px 8px #e0e7ef33',
+              }}>
+                <div style={{
+                  width: 70,
+                  height: 14,
+                  background: '#3b82f6',
+                  borderRadius: 7,
+                  marginBottom: 10,
+                  marginTop: 6,
+                }} />
+                <div style={{
+                  width: 40,
+                  height: 8,
+                  background: darkMode ? '#374151' : '#bfc7d5', // lighter for light mode
+                  borderRadius: 4,
+                  marginBottom: 10,
+                }} />
+                <div style={{
+                  width: 18,
+                  height: 18,
+                  background: '#3b82f6',
+                  borderRadius: '50%',
+                  position: 'absolute',
+                  right: 14,
+                  bottom: 10,
+                  boxShadow: darkMode ? '0 1px 4px #10131a33' : '0 1px 4px #e0e7ef33',
+                }} />
+              </div>
+              <div style={{ fontWeight: 700, fontSize: 26, color: darkMode ? '#fff' : '#232a36', marginBottom: 6, textAlign: 'center' }}>No Invoices Found</div>
+              <div style={{ color: darkMode ? '#bfc7d5' : '#6b7280', fontSize: 17, marginBottom: 18, textAlign: 'center', maxWidth: 420 }}>
+                Try creating one with create new invoice button
+              </div>
               <button className="btn" onClick={handleCreateInvoice} style={{ marginTop: '15px' }}>
                 Create Your First Invoice
               </button>
@@ -1701,16 +1809,75 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
               }
               return true;
             }).length === 0 && (
-              <div className="no-invoices-message">
-                <p>No invoices found with the current filter.</p>
-                <button className="btn-clear-filter" onClick={() => {
-                  setSearchTerm('');
-                  if (selectedAssignee) {
-                    setSelectedAssignee(null);
-                    setShowAllInvoices(true);
-                  }
+              <div className="dashboard-empty-state" style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '100%',
+                maxWidth: 600,
+                minWidth: 340,
+                minHeight: 420,
+                height: 'calc(60vh - 40px)',
+                background: darkMode
+                  ? 'linear-gradient(135deg, #232a36 0%, #181f2a 100%)'
+                  : 'linear-gradient(135deg, #e3eafc 0%, #f6f8fa 100%)',
+                borderRadius: 24,
+                boxShadow: darkMode ? '0 4px 24px #10131a33' : '0 4px 24px #e0e7ef33',
+                margin: '48px auto',
+                gap: 24,
+                padding: '64px 40px',
+                position: 'relative',
+                // Center horizontally
+                marginLeft: 'auto',
+                marginRight: 'auto',
+              }}>
+                {/* Modern minimal illustration (card, lines, dot) */}
+                <div style={{
+                  width: 120,
+                  height: 60,
+                  background: darkMode ? '#232a36' : '#f6f8fa', // match the light card background
+                  borderRadius: 18,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginBottom: 32,
+                  position: 'relative',
+                  boxShadow: darkMode ? '0 2px 8px #10131a33' : '0 2px 8px #e0e7ef33',
                 }}>
-                  Clear Filters
+                  <div style={{
+                    width: 70,
+                    height: 14,
+                    background: '#3b82f6',
+                    borderRadius: 7,
+                    marginBottom: 10,
+                    marginTop: 6,
+                  }} />
+                  <div style={{
+                    width: 40,
+                    height: 8,
+                    background: darkMode ? '#374151' : '#bfc7d5', // lighter for light mode
+                    borderRadius: 4,
+                    marginBottom: 10,
+                  }} />
+                  <div style={{
+                    width: 18,
+                    height: 18,
+                    background: '#3b82f6',
+                    borderRadius: '50%',
+                    position: 'absolute',
+                    right: 14,
+                    bottom: 10,
+                    boxShadow: darkMode ? '0 1px 4px #10131a33' : '0 1px 4px #e0e7ef33',
+                  }} />
+                </div>
+                <div style={{ fontWeight: 700, fontSize: 26, color: darkMode ? '#fff' : '#232a36', marginBottom: 6, textAlign: 'center' }}>No Invoices Found</div>
+                <div style={{ color: darkMode ? '#bfc7d5' : '#6b7280', fontSize: 17, marginBottom: 18, textAlign: 'center', maxWidth: 420 }}>
+                  Try creating one with create new invoice button
+                </div>
+                <button className="btn" onClick={handleCreateInvoice} style={{ marginTop: '15px' }}>
+                  Create Your First Invoice
                 </button>
               </div>
             )

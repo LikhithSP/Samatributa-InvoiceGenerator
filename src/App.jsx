@@ -16,6 +16,7 @@ import DescriptionPage from './pages/DescriptionPage'
 import NotificationDisplay from './components/ErrorDisplay'
 import Modal from './components/Modal'
 import { useNotification } from './context/ErrorContext'
+import MessageInbox from './pages/MessageInbox'
 
 // Session timeout in milliseconds (30 minutes)
 const SESSION_TIMEOUT = 30 * 60 * 1000;
@@ -303,6 +304,12 @@ function App() {
               darkMode={darkMode} 
               toggleDarkMode={toggleDarkMode}
             /> : 
+            <Navigate to="/login" replace />
+        } />
+
+        <Route path="/inbox" element={
+          isAuthenticated ? 
+            <MessageInbox /> : 
             <Navigate to="/login" replace />
         } />
 

@@ -42,13 +42,9 @@ const BinPage = ({ onLogout, darkMode, toggleDarkMode }) => {
         localStorage.setItem('invoiceBin', JSON.stringify(currentInvoices));
       }
       
-      // Filter by user role: admin sees all, others see only their own deleted invoices
+      // Filter by user role: only show invoices deleted by the current user
       const currentUserId = localStorage.getItem('userId');
-      const currentUserRole = localStorage.getItem('userRole');
-      const isAdmin = currentUserRole === 'admin';
-      if (!isAdmin) {
-        currentInvoices = currentInvoices.filter(inv => inv.deletedBy === currentUserId);
-      }
+      currentInvoices = currentInvoices.filter(inv => inv.deletedBy === currentUserId);
       
       setDeletedInvoices(currentInvoices);
     } catch (error) {
@@ -159,60 +155,121 @@ const BinPage = ({ onLogout, darkMode, toggleDarkMode }) => {
   
   // Header with navigation, title, and theme toggle
   const Header = () => (
-    <header className="header">
-      <div className="header-left">
-        <div className="back-button" onClick={() => navigate('/dashboard')}>
-          <FiArrowLeft /> Back to Dashboard
+    <header className="header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', minHeight: 80 }}>
+      <div className="header-left" style={{ position: 'absolute', left: 0, top: 0, height: '100%', display: 'flex', alignItems: 'center', paddingLeft: 24 }}>
+        <div className="back-button" onClick={() => navigate('/dashboard')} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', fontSize: 28, color: darkMode ? '#fff' : '#232a36' }}>
+          <FiArrowLeft />
         </div>
       </div>
-      <div className="header-title">
-        <h1><FiArchive /> Invoice Bin</h1>
+      <div className="header-title" style={{ display: 'flex', alignItems: 'center', gap: 16, justifyContent: 'center', width: '100%' }}>
+        <h1 style={{ display: 'flex', alignItems: 'center', gap: 16, fontSize: 38, fontWeight: 800, color: darkMode ? '#fff' : '#232a36', margin: 0 }}><FiArchive size={38} /> Invoice Bin</h1>
       </div>
-      <div className="header-right">
-        {/* Add theme toggle or other controls here if needed */}
-      </div>
+      <div className="header-right" style={{ width: 48 }}></div>
     </header>
   );
   
   return (
-    <div className="bin-page">
+    <div className="bin-page" style={{
+      minHeight: '90vh',
+      background: darkMode
+        ? 'linear-gradient(135deg, #181f2a 0%, #232a36 100%)'
+        : 'linear-gradient(135deg, #f6f8fa 0%, #e3eafc 100%)',
+      borderRadius: 24,
+      boxShadow: darkMode
+        ? '0 4px 32px 0 #10131a99, 0 1.5px 6px #232a36'
+        : '0 4px 32px 0 #e0e7ef99, 0 1.5px 6px #e3eafc',
+      margin: '40px auto',
+      padding: '32px 0',
+      maxWidth: 1100,
+      border: darkMode ? '1.5px solid #232a36' : '1.5px solid #e5e7eb',
+      transition: 'background 0.3s, box-shadow 0.3s',
+    }}>
       <Header />
-      
-      <div className="bin-content">
-        <div className="bin-description">
-          <div className="bin-info">
-            <p><FiClock /> Deleted invoices are kept for 30 days before permanent removal.</p>
-            <p>You can restore invoices to your active list or delete them permanently at any time.</p>
+      <div className="bin-content" style={{ maxWidth: 900, margin: '0 auto' }}>
+        <div className="bin-description" style={{
+          background: darkMode ? '#232a36' : '#fff',
+          boxShadow: darkMode ? '0 1px 4px #10131a33' : '0 1px 4px #e0e7ef33',
+          borderRadius: 16,
+          marginBottom: 32,
+          padding: '24px 32px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 24
+        }}>
+          <div className="bin-info" style={{ flex: 1 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 18, fontWeight: 600, color: darkMode ? '#fff' : '#232a36' }}>
+              <FiClock size={22} />
+              Deleted invoices are kept for 30 days before permanent removal.
+            </div>
+            <div style={{ color: darkMode ? '#bfc7d5' : '#6b7280', marginTop: 6, fontSize: 15 }}>
+              You can restore invoices to your active list or delete them permanently at any time.
+            </div>
           </div>
-          
           {deletedInvoices.length > 0 && (
             <div className="bin-actions">
-              <button onClick={emptyBin} className="btn btn-danger">
+              <button onClick={emptyBin} className="btn btn-danger" style={{
+                background: 'linear-gradient(90deg, #ef4444 60%, #b91c1c 100%)',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 16,
+                padding: '10px 24px',
+                fontWeight: 600,
+                fontSize: 16,
+                boxShadow: darkMode ? '0 2px 8px #10131a33' : '0 2px 8px #e0e7ef33',
+                display: 'flex', alignItems: 'center', gap: 8
+              }}>
                 <FiTrash2 /> Empty Bin
               </button>
             </div>
           )}
         </div>
-
         {isLoading ? (
           <div className="loading-indicator">
             <div className="spinner"></div>
             <p>Loading deleted invoices...</p>
           </div>
         ) : deletedInvoices.length === 0 ? (
-          <div className="empty-bin">
-            <div className="empty-bin-icon">
-              <FiArchive size={48} />
-            </div>
-            <h2>Bin is empty</h2>
-            <p>No deleted invoices were found.</p>
-            <button onClick={() => navigate('/dashboard')} className="btn">
+          <div className="empty-bin" style={{
+            background: darkMode ? '#232a36' : '#fff',
+            borderRadius: 16,
+            boxShadow: darkMode ? '0 1px 4px #10131a33' : '0 1px 4px #e0e7ef33',
+            marginTop: 40,
+            padding: '64px 24px',
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+            gap: 18
+          }}>
+            <svg width="110" height="110" viewBox="0 0 110 110" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginBottom: 18 }}>
+              <rect x="15" y="35" width="80" height="40" rx="16" fill={darkMode ? '#232a36' : '#e3eafc'} />
+              <rect x="30" y="50" width="50" height="8" rx="4" fill={darkMode ? '#3b82f6' : '#60a5fa'} />
+              <rect x="30" y="62" width="28" height="6" rx="3" fill={darkMode ? '#334155' : '#cbd5e1'} />
+              <circle cx="85" cy="70" r="7" fill={darkMode ? '#3b82f6' : '#60a5fa'} />
+              <rect x="45" y="25" width="20" height="8" rx="4" fill={darkMode ? '#bfc7d5' : '#cbd5e1'} />
+            </svg>
+            <h2 style={{ fontWeight: 700, fontSize: 26, color: darkMode ? '#fff' : '#232a36', marginBottom: 6 }}>Bin is empty</h2>
+            <div style={{ color: darkMode ? '#bfc7d5' : '#6b7280', fontSize: 17, marginBottom: 18 }}>No deleted invoices were found.</div>
+            <button onClick={() => navigate('/dashboard')} className="btn" style={{
+              background: 'linear-gradient(90deg, #3b82f6 60%, #2563eb 100%)',
+              color: '#fff',
+              border: 'none',
+              borderRadius: 16,
+              padding: '10px 28px',
+              fontWeight: 600,
+              fontSize: 16,
+              boxShadow: darkMode ? '0 2px 8px #10131a33' : '0 2px 8px #e0e7ef33',
+              marginTop: 8
+            }}>
               Return to Dashboard
             </button>
           </div>
         ) : (
-          <div className="bin-invoice-list">
-            <table className="bin-table">
+          <div className="bin-invoice-list" style={{ marginTop: 24 }}>
+            <table className="bin-table" style={{
+              background: darkMode ? '#232a36' : '#fff',
+              borderRadius: 16,
+              overflow: 'hidden',
+              boxShadow: darkMode ? '0 1px 4px #10131a33' : '0 1px 4px #e0e7ef33',
+              fontSize: 16
+            }}>
               <thead>
                 <tr>
                   <th>Invoice #</th>
@@ -225,27 +282,37 @@ const BinPage = ({ onLogout, darkMode, toggleDarkMode }) => {
                 </tr>
               </thead>
               <tbody>
-                {deletedInvoices.map((invoice) => {
+                {deletedInvoices.map((invoice, idx) => {
                   const deletedDate = new Date(invoice.deletedAt).toLocaleDateString();
                   const timeLeft = getTimeLeft(invoice.deletedAt);
-                  
                   return (
-                    <tr key={invoice.id}>
-                      <td>{invoice.invoiceNumber}</td>
+                    <tr key={invoice.id} style={{ background: idx % 2 === 0 ? (darkMode ? '#232a36' : '#f6f8fa') : 'transparent', transition: 'background 0.2s' }}>
+                      <td style={{ fontWeight: 600 }}>{invoice.invoiceNumber}</td>
                       <td>{invoice.recipientName || 'N/A'}</td>
                       <td>{new Date(invoice.invoiceDate).toLocaleDateString()}</td>
                       <td>
-                        ${invoice.totalUSD ? invoice.totalUSD.toFixed(2) : '0.00'} / 
-                        ₹{invoice.totalINR ? invoice.totalINR.toFixed(2) : '0.00'}
+                        <span style={{ color: '#3b82f6', fontWeight: 600 }}>${invoice.totalUSD ? invoice.totalUSD.toFixed(2) : '0.00'}</span>
+                        <span style={{ color: '#6b7280', marginLeft: 6 }}>/ ₹{invoice.totalINR ? invoice.totalINR.toFixed(2) : '0.00'}</span>
                       </td>
                       <td>{deletedDate}</td>
-                      <td>{timeLeft}</td>
+                      <td><span style={{ color: '#f59e0b', fontWeight: 500 }}>{timeLeft}</span></td>
                       <td>
-                        <div className="bin-actions">
+                        <div className="bin-actions" style={{ gap: 8 }}>
                           <button 
                             onClick={() => restoreInvoice(invoice.id)}
                             className="btn btn-secondary bin-action-btn"
                             title="Restore Invoice"
+                            style={{
+                              background: 'linear-gradient(90deg, #60a5fa 60%, #3b82f6 100%)',
+                              color: '#fff',
+                              border: 'none',
+                              borderRadius: 10,
+                              fontWeight: 600,
+                              fontSize: 15,
+                              padding: '7px 18px',
+                              display: 'flex', alignItems: 'center', gap: 7,
+                              boxShadow: darkMode ? '0 1px 4px #10131a33' : '0 1px 4px #e0e7ef33',
+                            }}
                           >
                             <FiRefreshCw /> Restore
                           </button>
@@ -253,6 +320,17 @@ const BinPage = ({ onLogout, darkMode, toggleDarkMode }) => {
                             onClick={() => permanentlyDeleteInvoice(invoice.id)}
                             className="btn btn-danger bin-action-btn"
                             title="Delete Permanently"
+                            style={{
+                              background: 'linear-gradient(90deg, #ef4444 60%, #b91c1c 100%)',
+                              color: '#fff',
+                              border: 'none',
+                              borderRadius: 10,
+                              fontWeight: 600,
+                              fontSize: 15,
+                              padding: '7px 18px',
+                              display: 'flex', alignItems: 'center', gap: 7,
+                              boxShadow: darkMode ? '0 1px 4px #10131a33' : '0 1px 4px #e0e7ef33',
+                            }}
                           >
                             <FiTrash2 /> Delete
                           </button>
