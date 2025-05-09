@@ -16,38 +16,32 @@ const invoiceLogic = {
 
   /**
    * Generate a new invoice number 
-   * @param {string} companyName - The company name to use in the invoice number
+   * @param {string} recipientName - The customer name to use in the invoice number
    * @param {boolean} saveIncrement - Whether to save the incremented value to localStorage
    * @returns {string} Formatted invoice number
    */
-  generateInvoiceNumber: (companyName = 'COMP', saveIncrement = false) => {
+  generateInvoiceNumber: (recipientName = 'CUST', saveIncrement = false) => {
     const date = new Date();
     const year = date.getFullYear().toString();
     const month = (date.getMonth() + 1).toString().padStart(2, '0');
     const day = date.getDate().toString().padStart(2, '0');
     const dateStr = `${year}${month}${day}`;
     
-    // Get company prefix (first 4 letters)
-    const companyPrefix = companyName.trim().substring(0, 4).toUpperCase();
+    // Get customer prefix (first 4 letters)
+    const customerPrefix = recipientName ? recipientName.trim().substring(0, 4).toUpperCase() : 'CUST';
     
-    // Get last invoice serial from localStorage using a company-specific key
-    // This ensures sequential numbers regardless of date
-    const companySerialKey = `invoiceSerial_${companyPrefix}`;
+    // Get last invoice serial from localStorage using a customer-specific key
+    const customerSerialKey = `invoiceSerial_${customerPrefix}`;
     
     // Get all existing invoices to find the highest invoice number
     const savedInvoices = JSON.parse(localStorage.getItem('savedInvoices')) || [];
     
-    // Find the highest serial number for this company prefix
+    // Find the highest serial number for this customer prefix
     let highestSerial = 0;
-    
-    // First check if we have a stored last serial number
-    const storedLastSerial = parseInt(localStorage.getItem(companySerialKey) || '0');
+    const storedLastSerial = parseInt(localStorage.getItem(customerSerialKey) || '0');
     highestSerial = storedLastSerial;
-    
-    // Also search through existing invoices to ensure we don't miss any
     savedInvoices.forEach(invoice => {
-      if (invoice.invoiceNumber && invoice.invoiceNumber.startsWith(companyPrefix)) {
-        // Extract the serial number from the invoice number
+      if (invoice.invoiceNumber && invoice.invoiceNumber.startsWith(customerPrefix)) {
         const parts = invoice.invoiceNumber.split('-');
         if (parts.length === 3) {
           const serialPart = parseInt(parts[2]);
@@ -57,52 +51,37 @@ const invoiceLogic = {
         }
       }
     });
-    
-    // Calculate next serial number
     const nextSerial = highestSerial + 1;
-    
-    // Only save the incremented value if saveIncrement is true
     if (saveIncrement) {
-      // Save the new serial number back to localStorage
-      localStorage.setItem(companySerialKey, nextSerial.toString());
-      console.log(`Saved new invoice number: ${companyPrefix}-${dateStr}-${nextSerial.toString().padStart(4, '0')}`);
+      localStorage.setItem(customerSerialKey, nextSerial.toString());
+      console.log(`Saved new invoice number: ${customerPrefix}-${dateStr}-${nextSerial.toString().padStart(4, '0')}`);
     } else {
-      console.log(`Generated preview invoice number: ${companyPrefix}-${dateStr}-${nextSerial.toString().padStart(4, '0')} (not saved)`);
+      console.log(`Generated preview invoice number: ${customerPrefix}-${dateStr}-${nextSerial.toString().padStart(4, '0')} (not saved)`);
     }
-    
-    // Format serial with leading zeros
     const serialFormatted = String(nextSerial).padStart(4, '0');
-    
-    return `${companyPrefix}-${dateStr}-${serialFormatted}`;
+    return `${customerPrefix}-${dateStr}-${serialFormatted}`;
   },
 
   /**
-   * Update the prefix of an existing invoice number based on a new company name.
+   * Update the prefix of an existing invoice number based on a new customer name.
    * Preserves the date and serial number parts.
-   * @param {string} currentInvoiceNumber - The existing invoice number (e.g., "SUPR-20250505-0001")
-   * @param {string} newCompanyName - The new company name (e.g., "Samatributa Solutions LLP")
-   * @returns {string} The updated invoice number (e.g., "SAMA-20250505-0001") or the original if format is invalid.
+   * @param {string} currentInvoiceNumber - The existing invoice number (e.g., "CUST-20250505-0001")
+   * @param {string} newRecipientName - The new customer name
+   * @returns {string} The updated invoice number or the original if format is invalid.
    */
-  updateInvoiceNumberPrefix: (currentInvoiceNumber, newCompanyName) => {
-    if (!currentInvoiceNumber || !newCompanyName) {
-      return currentInvoiceNumber; // Return original if inputs are invalid
+  updateInvoiceNumberPrefix: (currentInvoiceNumber, newRecipientName) => {
+    if (!currentInvoiceNumber || !newRecipientName) {
+      return currentInvoiceNumber;
     }
-
     const parts = currentInvoiceNumber.split('-');
-    // Expecting format: PREFIX-YYYYMMDD-SERIAL
     if (parts.length !== 3) {
       console.warn('Cannot update invoice number prefix: Invalid format', currentInvoiceNumber);
-      return currentInvoiceNumber; // Return original if format doesn't match
+      return currentInvoiceNumber;
     }
-
     const datePart = parts[1];
     const serialPart = parts[2];
-
-    // Generate new prefix
-    const newCompanyPrefix = newCompanyName.trim().substring(0, 4).toUpperCase();
-
-    // Combine new prefix with existing date and serial
-    const updatedInvoiceNumber = `${newCompanyPrefix}-${datePart}-${serialPart}`;
+    const newCustomerPrefix = newRecipientName.trim().substring(0, 4).toUpperCase();
+    const updatedInvoiceNumber = `${newCustomerPrefix}-${datePart}-${serialPart}`;
     console.log(`Updated invoice number prefix: ${currentInvoiceNumber} -> ${updatedInvoiceNumber}`);
     return updatedInvoiceNumber;
   },

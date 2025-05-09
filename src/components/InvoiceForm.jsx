@@ -57,26 +57,22 @@ const InvoiceForm = ({
     };
   }, []);
   
-  // Add useEffect to update invoice number prefix when company name changes on an existing invoice
+  // Add useEffect to update invoice number prefix when recipient name changes on an existing invoice
   useEffect(() => {
     // Skip this effect on the initial mount or if it's a new invoice
     if (isInitialMount.current || !id || id === 'new') {
       isInitialMount.current = false; // Set to false after first run
       return;
     }
-
-    // Check if senderName exists and is different from the prefix part of invoiceNumber
-    if (invoiceData.senderName && invoiceData.invoiceNumber) {
+    // Check if recipientName exists and is different from the prefix part of invoiceNumber
+    if (invoiceData.recipientName && invoiceData.invoiceNumber) {
       const currentPrefix = invoiceData.invoiceNumber.split('-')[0];
-      const newPrefix = invoiceData.senderName.trim().substring(0, 4).toUpperCase();
-
+      const newPrefix = invoiceData.recipientName.trim().substring(0, 4).toUpperCase();
       if (currentPrefix !== newPrefix) {
         const updatedInvoiceNumber = invoiceLogic.updateInvoiceNumberPrefix(
           invoiceData.invoiceNumber,
-          invoiceData.senderName
+          invoiceData.recipientName
         );
-
-        // Update the invoice data only if the number actually changed
         if (updatedInvoiceNumber !== invoiceData.invoiceNumber) {
           setInvoiceData(prevData => ({
             ...prevData,
@@ -85,61 +81,54 @@ const InvoiceForm = ({
         }
       }
     }
-  // Add invoiceData.senderName and invoiceData.invoiceNumber to dependency array
+  // Add invoiceData.recipientName and invoiceData.invoiceNumber to dependency array
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [invoiceData.senderName, id, setInvoiceData]); // Removed invoiceData.invoiceNumber from deps to avoid loop
+  }, [invoiceData.recipientName, id, setInvoiceData]);
 
   // Handle client selection
   const handleClientSelect = (e) => {
     const clientId = parseInt(e.target.value);
-    
     if (!clientId) {
-      // If "Select Client" option is chosen, do nothing
       return;
     }
-    
-    // Find selected client
     const selectedClient = clients.find(client => client.id === clientId);
-    
     if (selectedClient) {
-      // Auto-fill all client details
-      setInvoiceData(prevData => ({
-        ...prevData,
-        recipientName: selectedClient.name,
-        recipientAddress: selectedClient.address || '',
-        recipientPhone: selectedClient.phone || '',
-        recipientEmail: selectedClient.email || '',
-        recipientWebsite: selectedClient.website || '',
-        recipientGSTIN: selectedClient.gstin || '',
-        recipientPAN: selectedClient.pan || ''
-      }));
+      setInvoiceData(prevData => {
+        const updated = {
+          ...prevData,
+          recipientName: selectedClient.name,
+          recipientAddress: selectedClient.address || '',
+          recipientPhone: selectedClient.phone || '',
+          recipientEmail: selectedClient.email || '',
+          recipientWebsite: selectedClient.website || '',
+          recipientGSTIN: selectedClient.gstin || '',
+          recipientPAN: selectedClient.pan || ''
+        };
+        // Also update invoice number prefix if recipientName changes
+        if (selectedClient.name) {
+          updated.invoiceNumber = invoiceLogic.generateInvoiceNumber(selectedClient.name, false);
+        }
+        return updated;
+      });
     }
   };
 
-  // Generate invoice number with format COMP-YYYYMMDD-XXXX
+  // Generate invoice number with format CUST-YYYYMMDD-XXXX (now using recipientName)
   const generateInvoiceNumber = () => {
     const today = new Date();
     const year = today.getFullYear();
     const month = String(today.getMonth() + 1).padStart(2, '0');
     const day = String(today.getDate()).padStart(2, '0');
     const date = `${year}${month}${day}`;
-    
-    // Get company prefix (first 4 letters)
-    const companyName = invoiceData.senderName || 'COMP';
-    const companyPrefix = companyName.trim().substring(0, 4).toUpperCase();
-    
-    // Get last serial from localStorage
+    // Get customer prefix (first 4 letters)
+    const customerName = invoiceData.recipientName || 'CUST';
+    const customerPrefix = customerName.trim().substring(0, 4).toUpperCase();
     const lastSerialKey = `invoiceSerial_${date}`;
     let lastSerial = parseInt(localStorage.getItem(lastSerialKey) || '0');
     lastSerial += 1;
-    
-    // Save new serial to localStorage
     localStorage.setItem(lastSerialKey, lastSerial.toString());
-    
-    // Format serial with leading zeros
     const serialFormatted = String(lastSerial).padStart(4, '0');
-    const invoiceNumber = `${companyPrefix}-${date}-${serialFormatted}`;
-    
+    const invoiceNumber = `${customerPrefix}-${date}-${serialFormatted}`;
     return invoiceNumber;
   };
 

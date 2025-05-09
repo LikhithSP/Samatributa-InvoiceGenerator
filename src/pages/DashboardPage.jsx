@@ -1310,7 +1310,7 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
             {selectedAssignee
               ? `Invoices Assigned to ${getAssigneeName(selectedAssignee)}`
               : (showAllInvoices 
-                ? 'All Invoices' 
+                ? 'Invoice Tracker' 
                 : selectedCompany 
                   ? `${selectedCompany.name} Invoices` 
                   : selectedClient 
@@ -1563,7 +1563,7 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
                       />
                       <div className="invoice-info">
                         <span className="invoice-number">{invoice.invoiceNumber}</span>
-                        <span className="invoice-company">{invoice.recipientName || 'No Customer'}</span>
+                        <span className="invoice-company">{invoiceCompany.name || 'No Company'}</span>
                         {!canAccessInvoice && (
                           <span className="access-restricted" style={{
                             fontSize: '11px',

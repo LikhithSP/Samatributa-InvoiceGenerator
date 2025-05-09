@@ -32,7 +32,7 @@ body.dark-mode {
   --text-color: #f9fafb;
   --light-text: #d1d5db;
   --secondary-color: #514f37;
-  --border-color: rgb(31, 29, 29);
+  --border-color: rgba(19, 18, 18, 0.637);
   --sidebar-bg: #111827; /* Dark sidebar for dark mode */
   --sidebar-text: #f9fafb; /* Light text for sidebar in dark mode */
   --bg-color: #111827da;

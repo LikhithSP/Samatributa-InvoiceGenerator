@@ -34,8 +34,8 @@ const InvoicePage = ({ onLogout, darkMode, toggleDarkMode }) => {
   
   // Define initial state
   const initialInvoiceData = {
-    // Pass false to avoid incrementing the counter until we actually save
-    invoiceNumber: invoiceLogic.generateInvoiceNumber(selectedCompany?.name, false),
+    // Use recipientName for invoice number prefix
+    invoiceNumber: invoiceLogic.generateInvoiceNumber('', false),
     invoiceDate: new Date().toISOString().split('T')[0],
     senderName: selectedCompany?.name || companyName,
     senderAddress: selectedCompany?.address || '',
@@ -298,8 +298,8 @@ const InvoicePage = ({ onLogout, darkMode, toggleDarkMode }) => {
     
     // Check if invoice number is empty and needs to be generated
     if (!invoiceData.invoiceNumber.trim()) {
-      // Generate a new invoice number using the company name, but don't save the increment yet
-      const newInvoiceNumber = invoiceLogic.generateInvoiceNumber(invoiceData.senderName, false);
+      // Generate a new invoice number using the recipient name (customer), but don't save the increment yet
+      const newInvoiceNumber = invoiceLogic.generateInvoiceNumber(invoiceData.recipientName, false);
       
       // Set the new invoice number
       setInvoiceData(prevData => ({
@@ -328,7 +328,7 @@ const InvoicePage = ({ onLogout, darkMode, toggleDarkMode }) => {
       // Only regenerate if we're creating a new invoice (not editing an existing one)
       let finalInvoiceNumber = invoiceData.invoiceNumber;
       if (!invoiceData.id) {
-        finalInvoiceNumber = invoiceLogic.generateInvoiceNumber(invoiceData.senderName, true);
+        finalInvoiceNumber = invoiceLogic.generateInvoiceNumber(invoiceData.recipientName, true);
       }
       
       // Process the items to ensure correct structure before saving
