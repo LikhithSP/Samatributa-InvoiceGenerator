@@ -1339,7 +1339,7 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
                   gap: '5px',
                   background: 'var(--card-bg)',
                   border: '1px solid var(--border-color)',
-                  borderRadius: '4px',
+                  borderRadius: '40px',
                   padding: '8px 12px',
                   fontSize: '14px',
                   cursor: 'pointer',

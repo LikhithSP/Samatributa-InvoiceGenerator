@@ -11,7 +11,7 @@
   --sidebar-bg: #f3f4f6; /* Light gray sidebar for light mode */
   --sidebar-text: #111827; /* Dark text for sidebar in light mode */
   --light-gray: #f9fafb;
-  --dark-bg: #97a4b6;
+  --dark-bg:  #1f2937;
   --dark-card: #374151;
   --dark-text: #f9fafb;
   --status-completed: #10b981; /* Teal green */
@@ -32,10 +32,10 @@ body.dark-mode {
   --text-color: #f9fafb;
   --light-text: #d1d5db;
   --secondary-color: #514f37;
-  --border-color: #4b5563;
-  --sidebar-bg: #1e293b; /* Dark sidebar for dark mode */
+  --border-color: rgb(31, 29, 29);
+  --sidebar-bg: #111827; /* Dark sidebar for dark mode */
   --sidebar-text: #f9fafb; /* Light text for sidebar in dark mode */
-  --bg-color: #8fa2cc;
+  --bg-color: #111827da;
   --preview-bg: #1e2130;
   --preview-text: #f9fafb;
   --card-shadow: 0 4px 6px rgba(0, 0, 0, 0.2), 0 1px 3px rgba(0, 0, 0, 0.15);
@@ -103,7 +103,7 @@ body {
   color: white;
   border: none;
   padding: 10px 20px;
-  border-radius: 50px;
+  border-radius: 24px;
   cursor: pointer;
   font-size: 14px;
   transition: all var(--transition-speed);
@@ -119,6 +119,7 @@ body {
 .btn-secondary {
   background-color: var(--secondary-color);
   color: var(--text-color);
+  border-radius: 24px;
 }
 
 .btn-secondary:hover {
@@ -155,7 +156,7 @@ body {
 
 .card {
   background-color: var(--card-bg);
-  border-radius: 10px;
+  border-radius: 18px;
   box-shadow: var(--card-shadow);
   padding: 25px;
   margin-bottom: 25px;
@@ -190,7 +191,7 @@ input, textarea, select {
   width: 100%;
   padding: 12px;
   border: 1px solid var(--border-color);
-  border-radius: 5px;
+  border-radius: 10px;
   font-size: 16px;
   background-color: var(--card-bg);
   color: var(--text-color);
@@ -347,7 +348,7 @@ body.dark-mode .add-sub-service-row td {
   margin: 0 auto;
   background: var(--preview-bg);
   padding: 40px;
-  border-radius: 10px;
+  border-radius: 18px;
   box-shadow: var(--card-shadow);
 }
 
@@ -457,7 +458,7 @@ body.dark-mode .service-table td {
 
 body.dark-mode .service-table tr.indented td {
   background-color: var(--dark-card);
-  color: var(--dark-text);
+  color: var (--dark-text);
   border-bottom-color: var(--border-color);
 }
 
@@ -953,7 +954,7 @@ pre {
 
 .modal-content {
   background-color: var(--card-bg);
-  border-radius: 10px;
+  border-radius: 18px;
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
   width: 90%;
   max-width: 500px;
@@ -1032,6 +1033,7 @@ body.dark-mode .dashboard-container {
   height: 100%;
   overflow-y: auto;
   box-shadow: var(--card-shadow);
+  border-radius: 18px 0 0 18px;
 }
 
 .dashboard-main {
@@ -1040,6 +1042,7 @@ body.dark-mode .dashboard-container {
   overflow-y: auto;
   background-color: var(--bg-color);
   transition: background-color var(--transition-speed);
+  border-radius: 0 18px 18px 0;
 }
 
 .dashboard-topbar {
@@ -1077,7 +1080,7 @@ body.dark-mode .dashboard-container {
   align-items: center;
   gap: 10px;
   padding: 12px;
-  border-radius: 8px;
+  border-radius: 40px;
   cursor: pointer;
   transition: all var(--transition-speed);
   color: var(--sidebar-text);
@@ -1085,7 +1088,7 @@ body.dark-mode .dashboard-container {
 }
 
 .company-item:hover {
-  background-color: rgba(255, 255, 255, 0.1);
+  background-color: rgba(122, 113, 113, 0.1);
   opacity: 1;
 }
 
@@ -1120,7 +1123,7 @@ body.dark-mode .dashboard-container {
   background-color: #e53e3e; /* Red background to match UI theme */
   border: 1px solid var(--border-color);
   color: #fff; /* White text for contrast */
-  border-radius: 8px;
+  border-radius: 24px;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -1139,7 +1142,8 @@ body:not(.dark-mode) .btn-logout {
 }
 
 body.dark-mode .btn-logout {
-  background-color: #514f42c2; /* Updated background color for logout button in dark mode */
+  background-color: #a07c07;
+  border-color: #111827; /* Updated background color for logout button in dark mode */
   /* ...existing code... */
 }
 
@@ -1172,7 +1176,7 @@ body.dark-mode .btn-logout {
 .search-container input {
   padding: 10px 10px 10px 35px;
   border: 1px solid var(--border-color);
-  border-radius: 8px;
+  border-radius: 40px;
   background-color: var(--card-bg);
   color: var(--text-color);
   width: 250px;
@@ -1189,7 +1193,7 @@ body.dark-mode .btn-logout {
   color: white;
   border: none;
   padding: 10px 20px;
-  border-radius: 8px;
+  border-radius: 24px;
   cursor: pointer;
   transition: all var(--transition-speed);
   display: flex;
@@ -1210,7 +1214,7 @@ body.dark-mode .btn-logout {
 
 .invoice-card {
   background-color: var(--card-bg);
-  border-radius: 10px;
+  border-radius: 18px;
   padding: 20px;
   box-shadow: var(--card-shadow);
   cursor: pointer;
@@ -1321,7 +1325,7 @@ body.dark-mode .btn-logout {
   text-align: center;
   padding: 50px;
   background-color: var(--card-bg);
-  border-radius: 10px;
+  border-radius: 18px;
   box-shadow: var(--card-shadow);
   color: var(--text-color);
 }
@@ -1482,7 +1486,7 @@ body, .card, .dashboard-sidebar, .dashboard-topbar, input, select, textarea, but
 
 .empty-bin {
   background-color: var(--card-bg);
-  border-radius: 10px;
+  border-radius: 18px;
   padding: 40px 20px;
   text-align: center;
   box-shadow: var(--card-shadow);
@@ -1509,7 +1513,7 @@ body, .card, .dashboard-sidebar, .dashboard-topbar, input, select, textarea, but
   border-collapse: collapse;
   margin-bottom: 20px;
   background-color: var(--card-bg);
-  border-radius: 10px;
+  border-radius: 18px;
   box-shadow: var(--card-shadow);
   overflow: hidden;
 }
@@ -1539,6 +1543,7 @@ body, .card, .dashboard-sidebar, .dashboard-topbar, input, select, textarea, but
 .bin-action-btn {
   padding: 8px 10px;
   font-size: 13px;
+  border-radius: 24px;
 }
 
 .btn-danger {
@@ -1802,6 +1807,7 @@ body:not(.dark-mode) .no-invoices-message .btn {
     display: flex;
     flex-direction: column;
     padding-bottom: 0;
+    border-radius: 0 18px 18px 0;
   }
   .dashboard-sidebar.open {
     transform: translateX(0);
@@ -1870,6 +1876,7 @@ body:not(.dark-mode) .no-invoices-message .btn {
   .dashboard-sidebar {
     width: 95vw;
     max-width: 100vw;
+    border-radius: 0 0 18px 18px;
   }
   .dashboard-main {
     padding: 8px 2px 24px 2px;
