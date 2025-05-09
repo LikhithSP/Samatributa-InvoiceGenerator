@@ -228,7 +228,7 @@ function App() {
         <Route path="/login" element={
           isAuthenticated ? 
             <Navigate to="/dashboard" replace /> : 
-            <LoginPage onLogin={handleLogin} />
+            <LoginPage onLogin={handleLogin} darkMode={darkMode} toggleDarkMode={toggleDarkMode} />
         } />
         
         <Route path="/dashboard" element={

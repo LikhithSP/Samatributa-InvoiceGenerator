@@ -11,7 +11,7 @@
   --sidebar-bg: #f3f4f6; /* Light gray sidebar for light mode */
   --sidebar-text: #111827; /* Dark text for sidebar in light mode */
   --light-gray: #f9fafb;
-  --dark-bg: #1f2937;
+  --dark-bg: #97a4b6;
   --dark-card: #374151;
   --dark-text: #f9fafb;
   --status-completed: #10b981; /* Teal green */
@@ -31,11 +31,11 @@ body.dark-mode {
   --card-bg: #1e2130;
   --text-color: #f9fafb;
   --light-text: #d1d5db;
-  --secondary-color: #374151;
+  --secondary-color: #514f37;
   --border-color: #4b5563;
   --sidebar-bg: #1e293b; /* Dark sidebar for dark mode */
   --sidebar-text: #f9fafb; /* Light text for sidebar in dark mode */
-  --bg-color: #111827;
+  --bg-color: #8fa2cc;
   --preview-bg: #1e2130;
   --preview-text: #f9fafb;
   --card-shadow: 0 4px 6px rgba(0, 0, 0, 0.2), 0 1px 3px rgba(0, 0, 0, 0.15);

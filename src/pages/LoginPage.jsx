@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
-import { FiArrowRight, FiUserPlus, FiUser, FiMail, FiPhone, FiBriefcase, FiLock, FiEye, FiEyeOff } from 'react-icons/fi';
+import { FiArrowRight, FiUserPlus, FiUser, FiMail, FiPhone, FiBriefcase, FiLock, FiEye, FiEyeOff, FiSun, FiMoon, FiArrowLeft } from 'react-icons/fi';
 import './LoginPage.css'; // Import the CSS file
 
-const LoginPage = ({ onLogin }) => {
+const LoginPage = ({ onLogin, darkMode, toggleDarkMode }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -22,42 +22,53 @@ const LoginPage = ({ onLogin }) => {
   const passwordRef = useRef(null);
   const nameRef = useRef(null);
 
-  // Force light mode for login page and set up animations
+  // Set up animations
   useEffect(() => {
-    // Store the original dark mode state
-    const wasDarkMode = document.body.classList.contains('dark-mode');
-    
-    // Force remove dark mode class while on login page
-    document.body.classList.remove('dark-mode');
-    
     // Trigger animation after component mounts
     setTimeout(() => setFadeIn(true), 100);
-    
-    // Cleanup function to restore original mode when component unmounts
-    return () => {
-      if (wasDarkMode) {
-        document.body.classList.add('dark-mode');
-      }
-    };
   }, []);
 
-  // Animation for form switch
+  // Effect for managing browser history and popstate
   useEffect(() => {
-    // Briefly show animation class and then remove it
-    setFormAnimation(true);
-    const timer = setTimeout(() => setFormAnimation(false), 500);
-    
-    // Focus on the appropriate field after switching form mode
-    setTimeout(() => {
-      if (isRegistering && nameRef.current) {
-        nameRef.current.focus();
-      } else if (!isRegistering && emailRef.current) {
-        emailRef.current.focus();
+    const handlePopState = (event) => {
+      const newIsRegistering = event.state ? event.state.isRegistering : window.location.hash === '#register';
+      if (isRegistering !== newIsRegistering) {
+        setIsRegistering(newIsRegistering);
+        setError('');
+        setShowPassword(false);
+        setShowConfirmPassword(false);
+        // Trigger form change animation
+        setFormAnimation(true);
+        setTimeout(() => setFormAnimation(false), 500);
       }
-    }, 100);
-    
-    return () => clearTimeout(timer);
-  }, [isRegistering]);
+    };
+
+    // Initial setup based on URL hash
+    const initialIsRegistering = window.location.hash === '#register';
+    if (isRegistering !== initialIsRegistering) {
+        setIsRegistering(initialIsRegistering);
+    }
+    // Ensure history state matches the component state
+    window.history.replaceState({ isRegistering: initialIsRegistering }, '', window.location.href);
+
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, []); // Run once on mount
+
+  // Animation for form switch, now also handles focusing
+  useEffect(() => {
+    if (formAnimation) { // Only run focus logic if formAnimation was triggered
+      setTimeout(() => {
+        if (isRegistering && nameRef.current) {
+          nameRef.current.focus();
+        } else if (!isRegistering && emailRef.current) {
+          emailRef.current.focus();
+        }
+      }, 100); // Delay focus slightly after animation starts
+    }
+  }, [formAnimation, isRegistering]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -145,16 +156,46 @@ const LoginPage = ({ onLogin }) => {
     }
   };
   
-  const toggleMode = () => {
-    setIsRegistering(!isRegistering);
+  const toggleMode = (e) => {
+    if (e) e.preventDefault(); // Prevent default if called from an event (e.g., <a> tag click)
+
+    const newIsRegistering = !isRegistering;
+    
+    // Update component state first
+    setIsRegistering(newIsRegistering);
     setError('');
-    // Reset password visibility when switching modes
     setShowPassword(false);
     setShowConfirmPassword(false);
+    setFormAnimation(true); // Trigger animation
+    setTimeout(() => setFormAnimation(false), 500);
+
+
+    // Then update browser history
+    if (newIsRegistering) {
+      window.history.pushState({ isRegistering: true }, 'Create Account', '#register');
+    } else {
+      // Going back to login, remove #register from URL
+      // Check current hash to avoid pushing same state if already on login page without hash
+      if (window.location.hash === '#register') {
+        window.history.pushState({ isRegistering: false }, 'Sign In', window.location.pathname);
+      } else {
+        // If already on login page (no hash), replace state to ensure it's correct
+        window.history.replaceState({ isRegistering: false}, 'Sign In', window.location.pathname);
+      }
+    }
   };
 
   return (
-    <div className={`login-page-light-mode ${fadeIn ? 'fade-in' : ''}`}>
+    <div className={`login-page-light-mode ${fadeIn ? 'fade-in' : ''} ${darkMode ? 'dark-mode' : ''}`}>
+      <div className="theme-switch-wrapper login-theme-switch">
+        <label className="theme-switch">
+          <input type="checkbox" checked={darkMode} onChange={toggleDarkMode} />
+          <span className="slider">
+            <span className="sun-icon"><FiSun /></span>
+            <span className="moon-icon"><FiMoon /></span>
+          </span>
+        </label>
+      </div>
       <div className="login-container">
         <div className={`login-card ${formAnimation ? 'form-change' : ''}`}>
           {/* Left Content */}
