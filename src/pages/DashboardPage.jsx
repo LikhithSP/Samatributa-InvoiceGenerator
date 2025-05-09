@@ -68,12 +68,12 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
 
   // --- Auto-select invoicing associate after login ---
   useEffect(() => {
-    if (currentUserId && !isCurrentUserAdmin) {
+    if (currentUserId && !isAdmin) {
       setSelectedAssignee(currentUserId);
       setShowAllInvoices(false);
       setSelectedCompany(null);
       setSelectedClient(null);
-    } else if (isCurrentUserAdmin) {
+    } else if (isAdmin) {
       setShowAllInvoices(true);
       setSelectedAssignee(null);
       setSelectedCompany(null);
@@ -874,7 +874,7 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
   // For non-admins, only show companies assigned/created and clients with their invoices
   let filteredCompanies = companies;
   let filteredClients = clients;
-  if (!isCurrentUserAdmin) {
+  if (!isAdmin) {
     // Companies: Only those where the user is the creator or has an assigned invoice
     const userCompanyIds = new Set();
     // 1. Companies where user is the creator (has a 'createdBy' field matching userId)
@@ -929,7 +929,7 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
         
         <div className="company-list">
           {/* Sidebar for admin: Show All Invoices, Companies, Invoicing Associates, Clients */}
-          {isCurrentUserAdmin ? (
+          {isAdmin ? (
             <>
               <div 
                 className={`company-item ${showAllInvoices ? 'active' : ''}`}
