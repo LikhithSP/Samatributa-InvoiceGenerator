@@ -811,41 +811,42 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
   };
   
   // Effect to sync user avatar from users array
-  useEffect(async () => {
-    // Find current user in users array to get the latest avatar
-    const loggedInUserId = currentUserId;
-    if (loggedInUserId) {
-      const currentUser = users.find(user => user.id === loggedInUserId);
-      if (currentUser && currentUser.avatar) {
-        // Update local state and storage if needed
-        setUserAvatar(currentUser.avatar);
-        if (currentUser.avatar !== (await storage.get('userAvatar', ''))) {
-          storage.set('userAvatar', currentUser.avatar);
+  useEffect(() => {
+    let isMounted = true;
+    async function syncAvatar() {
+      const loggedInUserId = currentUserId;
+      if (loggedInUserId) {
+        const currentUser = users.find(user => user.id === loggedInUserId);
+        if (currentUser && currentUser.avatar) {
+          setUserAvatar(currentUser.avatar);
+          const storedAvatar = await storage.get('userAvatar', '');
+          if (currentUser.avatar !== storedAvatar) {
+            await storage.set('userAvatar', currentUser.avatar);
+          }
+        } else {
+          setUserAvatar('');
+          await storage.remove('userAvatar');
         }
-      } else {
-        setUserAvatar('');
-        storage.remove('userAvatar');
       }
     }
-
+    syncAvatar();
     // Listen for profile updates
     const handleUserUpdated = async () => {
       const updatedUsers = (await storage.get('users', [])) || [];
       const loggedInUserId = currentUserId;
       const updatedUser = updatedUsers.find(user => user.id === loggedInUserId);
       if (updatedUser && updatedUser.avatar) {
-        setUserAvatar(updatedUser.avatar);
+        if (isMounted) setUserAvatar(updatedUser.avatar);
       } else {
-        setUserAvatar('');
+        if (isMounted) setUserAvatar('');
       }
     };
-
     window.addEventListener('userUpdated', handleUserUpdated);
-
     return () => {
+      isMounted = false;
       window.removeEventListener('userUpdated', handleUserUpdated);
     };
-  }, [users]);
+  }, [users, currentUserId]);
 
   // Effect to update avatar/profile info when userId changes (e.g., after login/logout)
   useEffect(() => {
@@ -893,6 +894,13 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
     });
     filteredClients = clients.filter(client => userClientNames.has(client.name));
   }
+
+  const [userName, setUserName] = useState('');
+  useEffect(() => {
+    (async () => {
+      setUserName(await storage.get('userName', 'U'));
+    })();
+  }, []);
 
   return (
     <div className="dashboard-container">
@@ -1282,10 +1290,10 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
                 color: 'var(--dark-text)',
                 fontWeight: 'bold'
               }}>
-                {(localStorage.getItem('userName') || 'U')[0].toUpperCase()}
+                {(userName || 'U')[0].toUpperCase()}
               </div>
             )}
-            <span>{currentUser?.name || (localStorage.getItem('userName') || 'User')}</span>
+            <span>{currentUser?.name || userName || 'User'}</span>
             {isAdmin && <span className="admin-badge" style={{
               fontSize: '10px',
               padding: '2px 5px',
