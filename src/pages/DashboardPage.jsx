@@ -973,7 +973,7 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
         <div className="company-logo-container">
           <img src="/images/c-logo.png" alt="Samatributa Invoice" className="main-company-logo" />
           <div className="sidebar-title">
-            <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '2px', color: 'var(--sidebar-text)' }}>Samatributa</h3>
+            <h3 style={{ fontSize: '20px', fontWeight: '600', marginBottom: '2px', color: 'var(--sidebar-text)' }}>Samatributa</h3>
             <p style={{ fontSize: '12px', fontWeight: '400', margin: 0, color: 'var(--light-text)', opacity: 0.8 }}>Invoice Automation</p>
           </div>
         </div>
@@ -1239,7 +1239,7 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
       {/* Top navigation bar */}
       <div className="dashboard-topbar" style={{
         gridArea: 'topbar',
-        padding: '24.5px 25px',
+        padding: '27.5px 25px',
         display: 'flex',
         justifyContent: 'flex-end',
         alignItems: 'center',
