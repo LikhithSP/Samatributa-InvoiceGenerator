@@ -895,6 +895,9 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
     filteredClients = clients.filter(client => userClientNames.has(client.name));
   }
 
+// Find the current user object for non-admin sidebar rendering
+const currentUser = users.find(user => user.id === currentUserId);
+
   const [userName, setUserName] = useState('');
   useEffect(() => {
     (async () => {
