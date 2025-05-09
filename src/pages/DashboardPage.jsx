@@ -10,7 +10,6 @@ import NotificationBell from '../components/NotificationBell';
 import { useUserRole } from '../context/UserRoleContext';
 import { useUserNotifications } from '../context/UserNotificationsContext';
 import Modal from '../components/Modal';
-import { storage } from '../utils/storage';
 
 const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
   const navigate = useNavigate();
@@ -22,53 +21,75 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
   const [downloadProgress, setDownloadProgress] = useState({ current: 0, total: 0 });
   const [downloadStatus, setDownloadStatus] = useState('');
   
-  const [companies, setCompanies] = useState([]);
-  const [selectedCompany, setSelectedCompany] = useState(null);
-  const [clients, setClients] = useState([]);
-  const [users, setUsers] = useState([]);
-  const [invoiceStatuses, setInvoiceStatuses] = useState({});
-  const [savedInvoices, setSavedInvoices] = useState([]);
-  const [userAvatar, setUserAvatar] = useState('');
-  const [currentUserId, setCurrentUserId] = useState('');
-
+  const [companies, setCompanies] = useState(() => {
+    const savedCompanies = localStorage.getItem('userCompanies');
+    return savedCompanies ? JSON.parse(savedCompanies) : [];
+  });
+  
   // State for selected company and dashboard view
+  const [selectedCompany, setSelectedCompany] = useState(() => {
+    const savedCompany = localStorage.getItem('selectedCompany');
+    return savedCompany ? JSON.parse(savedCompany) : null;
+  });
+
+  // State for clients and selected client
+  const [clients, setClients] = useState(() => {
+    const savedClients = localStorage.getItem('userClients');
+    return savedClients ? JSON.parse(savedClients) : [];
+  });
+  
   const [selectedClient, setSelectedClient] = useState(null);
+  
+  // State for users
+  const [users, setUsers] = useState(() => {
+    const savedUsers = JSON.parse(localStorage.getItem('users')) || [];
+    // If no users exist yet, create a demo user
+    if (savedUsers.length === 0) {
+      const demoUser = {
+        id: 'demo_user',
+        name: 'Demo User',
+        email: 'user@example.com',
+        role: 'admin',
+        position: 'CEO'
+      };
+      localStorage.setItem('users', JSON.stringify([demoUser]));
+      return [demoUser];
+    }
+    return savedUsers;
+  });
   
   const [showAllInvoices, setShowAllInvoices] = useState(true);
   const [selectedAssignee, setSelectedAssignee] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // Invoice status state
+  const [invoiceStatuses, setInvoiceStatuses] = useState(() => {
+    const savedStatuses = localStorage.getItem('invoiceStatuses');
+    return savedStatuses ? JSON.parse(savedStatuses) : {};
+  });
   
   // Sort state
   const [sortField, setSortField] = useState('date');
   const [sortDirection, setSortDirection] = useState('desc');
   const [showSortOptions, setShowSortOptions] = useState(false);
   
-  // Download modal state
-  const [showDownloadModal, setShowDownloadModal] = useState(false);
-  const [downloadOption, setDownloadOption] = useState('all');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  // State for saved invoices
+  const [savedInvoices, setSavedInvoices] = useState(() => {
+    const invoices = JSON.parse(localStorage.getItem('savedInvoices')) || [];
+    return invoices;
+  });
+  
+  // Current user ID
+  const currentUserId = localStorage.getItem('userId') || 'demo_user';
+  const currentUser = users.find(u => u.id === currentUserId);
+  const isCurrentUserAdmin = currentUser?.role === 'admin';
 
-  // Sidebar toggle for mobile
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-
-  // Async load all dashboard data on mount
-  useEffect(() => {
-    (async () => {
-      setCompanies((await storage.get('userCompanies', [])) || []);
-      setSelectedCompany((await storage.get('selectedCompany', null)));
-      setClients((await storage.get('userClients', [])) || []);
-      setUsers((await storage.get('users', [])) || []);
-      setInvoiceStatuses((await storage.get('invoiceStatuses', {})) || {});
-      setSavedInvoices((await storage.get('savedInvoices', [])) || []);
-      setUserAvatar((await storage.get('userAvatar', '')) || '');
-      setCurrentUserId((await storage.get('userId', 'demo_user')) || 'demo_user');
-    })();
-  }, []);
+  // State for current user's avatar
+  const [userAvatar, setUserAvatar] = useState(localStorage.getItem('userAvatar') || '');
 
   // --- Auto-select invoicing associate after login ---
   useEffect(() => {
-    if (currentUserId && !isCurrentUserAdmin) {
+    if (currentUser && !isCurrentUserAdmin) {
       setSelectedAssignee(currentUserId);
       setShowAllInvoices(false);
       setSelectedCompany(null);
@@ -83,38 +104,62 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUserId, users.length]);
 
-  // Update storage when selected company changes
+  // Download modal state
+  const [showDownloadModal, setShowDownloadModal] = useState(false);
+  const [downloadOption, setDownloadOption] = useState('all');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+
+  // Sidebar toggle for mobile
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Update localStorage when selected company changes
   useEffect(() => {
     if (selectedCompany) {
-      storage.set('selectedCompany', selectedCompany);
+      localStorage.setItem('selectedCompany', JSON.stringify(selectedCompany));
       setShowAllInvoices(false);
       setSelectedAssignee(null);
     }
   }, [selectedCompany]);
   
-  // Save invoice statuses to storage when they change
+  // Save invoice statuses to localStorage when they change
   useEffect(() => {
-    storage.set('invoiceStatuses', invoiceStatuses);
+    localStorage.setItem('invoiceStatuses', JSON.stringify(invoiceStatuses));
   }, [invoiceStatuses]);
   
-  // Listen for changes in the userCompanies storage item
+  // Listen for changes in the userCompanies localStorage item
   useEffect(() => {
-    const handleStorageChange = async () => {
-      setCompanies((await storage.get('userCompanies', [])) || []);
-      setSavedInvoices((await storage.get('savedInvoices', [])) || []);
+    const handleStorageChange = () => {
+      const savedCompanies = localStorage.getItem('userCompanies');
+      if (savedCompanies) {
+        setCompanies([...JSON.parse(savedCompanies)]);
+      } else {
+        setCompanies([]);
+      }
+
+      // Also refresh the saved invoices
+      const invoices = JSON.parse(localStorage.getItem('savedInvoices')) || [];
+      setSavedInvoices(invoices);
       
       // Refresh users list
-      setUsers((await storage.get('users', [])) || []);
+      const updatedUsers = JSON.parse(localStorage.getItem('users')) || [];
+      setUsers(updatedUsers);
     };
     
     // Listen for the custom invoicesUpdated event
-    const handleInvoicesUpdated = async () => {
-      setSavedInvoices((await storage.get('savedInvoices', [])) || []);
+    const handleInvoicesUpdated = () => {
+      const invoices = JSON.parse(localStorage.getItem('savedInvoices')) || [];
+      setSavedInvoices(invoices);
     };
     
     // Listen for client updates
-    const handleClientsUpdated = async () => {
-      setClients((await storage.get('userClients', [])) || []);
+    const handleClientsUpdated = () => {
+      const savedClients = localStorage.getItem('userClients');
+      if (savedClients) {
+        setClients(JSON.parse(savedClients));
+      } else {
+        setClients([]);
+      }
     };
     
     // Set up event listeners
@@ -133,17 +178,31 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
   // Need to manually refresh when returning from CompanyPage or InvoicePage
   useEffect(() => {
     // Check for updates to companies when the component mounts
-    (async () => {
-      setCompanies((await storage.get('userCompanies', [])) || []);
-      setSavedInvoices((await storage.get('savedInvoices', [])) || []);
-      setUsers((await storage.get('users', [])) || []);
-    })();
+    const savedCompanies = localStorage.getItem('userCompanies');
+    if (savedCompanies) {
+      setCompanies([...JSON.parse(savedCompanies)]);
+    } else {
+      setCompanies([]);
+    }
+
+    // Also refresh saved invoices
+    const invoices = JSON.parse(localStorage.getItem('savedInvoices')) || [];
+    setSavedInvoices(invoices);
+    
+    // Refresh users list
+    const updatedUsers = JSON.parse(localStorage.getItem('users')) || [];
+    setUsers(updatedUsers);
     
     // Add a focus event listener to refresh data when returning to this tab/window
-    const handleFocus = async () => {
-      setSavedInvoices((await storage.get('savedInvoices', [])) || []);
-      setCompanies((await storage.get('userCompanies', [])) || []);
-      setUsers((await storage.get('users', [])) || []);
+    const handleFocus = () => {
+      const refreshedInvoices = JSON.parse(localStorage.getItem('savedInvoices')) || [];
+      setSavedInvoices(refreshedInvoices);
+      
+      const refreshedCompanies = JSON.parse(localStorage.getItem('userCompanies')) || [];
+      setCompanies(refreshedCompanies);
+      
+      const refreshedUsers = JSON.parse(localStorage.getItem('users')) || [];
+      setUsers(refreshedUsers);
     };
     
     window.addEventListener('focus', handleFocus);
@@ -693,7 +752,7 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
   };
   
   // Function to assign an invoice to a user
-  const assignInvoice = async (e, invoiceId, assigneeId) => {
+  const assignInvoice = (e, invoiceId, assigneeId) => {
     e.stopPropagation(); // Prevent navigating to invoice detail page
     
     // Check if user has permission to assign invoices
@@ -718,8 +777,8 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
       return invoice;
     });
     
-    // Save updated invoices to storage
-    await storage.set('savedInvoices', updatedInvoices);
+    // Save updated invoices to localStorage
+    localStorage.setItem('savedInvoices', JSON.stringify(updatedInvoices));
     setSavedInvoices(updatedInvoices);
     
     // Send notification to the assignee if this is a new assignment
@@ -730,7 +789,7 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
       
       if (assignee) {
         // Store notification in assignee's notifications
-        const assigneeNotifications = (await storage.get(`notifications_${assigneeId}`, [])) || [];
+        const assigneeNotifications = JSON.parse(localStorage.getItem(`notifications_${assigneeId}`)) || [];
         const newNotification = {
           id: `notification_${Date.now()}`,
           timestamp: new Date().toISOString(),
@@ -743,10 +802,10 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
           }
         };
         
-        await storage.set(`notifications_${assigneeId}`, [
+        localStorage.setItem(`notifications_${assigneeId}`, JSON.stringify([
           newNotification,
           ...assigneeNotifications
-        ]);
+        ]));
         
         // If the assignee is the current user, update their notifications
         if (assigneeId === currentUserId) {
@@ -812,55 +871,54 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
   
   // Effect to sync user avatar from users array
   useEffect(() => {
-    let isMounted = true;
-    async function syncAvatar() {
-      const loggedInUserId = currentUserId;
-      if (loggedInUserId) {
-        const currentUser = users.find(user => user.id === loggedInUserId);
-        if (currentUser && currentUser.avatar) {
-          setUserAvatar(currentUser.avatar);
-          const storedAvatar = await storage.get('userAvatar', '');
-          if (currentUser.avatar !== storedAvatar) {
-            await storage.set('userAvatar', currentUser.avatar);
-          }
-        } else {
-          setUserAvatar('');
-          await storage.remove('userAvatar');
+    // Find current user in users array to get the latest avatar
+    const loggedInUserId = localStorage.getItem('userId');
+    if (loggedInUserId) {
+      const currentUser = users.find(user => user.id === loggedInUserId);
+      if (currentUser && currentUser.avatar) {
+        // Update local state and localStorage if needed
+        setUserAvatar(currentUser.avatar);
+        if (currentUser.avatar !== localStorage.getItem('userAvatar')) {
+          localStorage.setItem('userAvatar', currentUser.avatar);
         }
+      } else {
+        setUserAvatar('');
+        localStorage.removeItem('userAvatar');
       }
     }
-    syncAvatar();
+
     // Listen for profile updates
-    const handleUserUpdated = async () => {
-      const updatedUsers = (await storage.get('users', [])) || [];
-      const loggedInUserId = currentUserId;
+    const handleUserUpdated = () => {
+      const updatedUsers = JSON.parse(localStorage.getItem('users')) || [];
+      const loggedInUserId = localStorage.getItem('userId');
       const updatedUser = updatedUsers.find(user => user.id === loggedInUserId);
       if (updatedUser && updatedUser.avatar) {
-        if (isMounted) setUserAvatar(updatedUser.avatar);
+        setUserAvatar(updatedUser.avatar);
       } else {
-        if (isMounted) setUserAvatar('');
+        setUserAvatar('');
       }
     };
+
     window.addEventListener('userUpdated', handleUserUpdated);
+
     return () => {
-      isMounted = false;
       window.removeEventListener('userUpdated', handleUserUpdated);
     };
-  }, [users, currentUserId]);
+  }, [users]);
 
   // Effect to update avatar/profile info when userId changes (e.g., after login/logout)
   useEffect(() => {
-    const handleStorageChange = async (e) => {
+    const handleStorageChange = (e) => {
       if (e.key === 'userId') {
         const newUserId = e.newValue;
-        const updatedUsers = (await storage.get('users', [])) || [];
+        const updatedUsers = JSON.parse(localStorage.getItem('users')) || [];
         const updatedUser = updatedUsers.find(user => user.id === newUserId);
         if (updatedUser && updatedUser.avatar) {
           setUserAvatar(updatedUser.avatar);
-          storage.set('userAvatar', updatedUser.avatar);
+          localStorage.setItem('userAvatar', updatedUser.avatar);
         } else {
           setUserAvatar('');
-          storage.remove('userAvatar');
+          localStorage.removeItem('userAvatar');
         }
       }
     };
@@ -894,13 +952,6 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
     });
     filteredClients = clients.filter(client => userClientNames.has(client.name));
   }
-
-  const [userName, setUserName] = useState('');
-  useEffect(() => {
-    (async () => {
-      setUserName(await storage.get('userName', 'U'));
-    })();
-  }, []);
 
   return (
     <div className="dashboard-container">
@@ -1290,10 +1341,10 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
                 color: 'var(--dark-text)',
                 fontWeight: 'bold'
               }}>
-                {(userName || 'U')[0].toUpperCase()}
+                {(localStorage.getItem('userName') || 'U')[0].toUpperCase()}
               </div>
             )}
-            <span>{currentUser?.name || userName || 'User'}</span>
+            <span>{currentUser?.name || (localStorage.getItem('userName') || 'User')}</span>
             {isAdmin && <span className="admin-badge" style={{
               fontSize: '10px',
               padding: '2px 5px',
@@ -1606,8 +1657,8 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
                                   : inv
                               );
                               
-                              // Save to storage
-                              storage.set('savedInvoices', updatedInvoices);
+                              // Save to localStorage
+                              localStorage.setItem('savedInvoices', JSON.stringify(updatedInvoices));
                               setSavedInvoices(updatedInvoices);
                             } else {
                               // Show error message if user is not the assignee
