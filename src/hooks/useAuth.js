@@ -5,7 +5,7 @@ import { UserRoleContext } from '../context/UserRoleContext';
 
 const useAuth = () => {
   const [user, setUser] = useState(null);
-  const [profile, setProfile] = useState(null); // Added profile state
+  const [profile, setProfile] = useState(null); // Added profile state 
   const [loading, setLoading] = useState(true);
   const { setUserRole } = useContext(UserRoleContext); 
   const navigate = useNavigate();
@@ -13,7 +13,7 @@ const useAuth = () => {
   const fetchUserProfile = useCallback(async (userId) => {
     if (!userId) {
       setProfile(null);
-      // setUserRole(null); // Assuming role might be part of profile or fetched based on it
+      // setUserRole(null); // Assuming role might be part of profile or fetched based on the role
       return;
     }
     try {
