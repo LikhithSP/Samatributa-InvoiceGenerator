@@ -1,13 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom'; // Import useNavigate
 import { FiArrowRight, FiUserPlus, FiUser, FiMail, FiPhone, FiBriefcase, FiLock, FiEye, FiEyeOff, FiSun, FiMoon, FiArrowLeft } from 'react-icons/fi';
 import './LoginPage.css'; // Import the CSS file
-import useAuth from '../hooks/useAuth';
 
-const LoginPage = ({ darkMode, toggleDarkMode }) => { // Removed onLogin prop
-  const { login, signUp, loading, error: authError, sendPasswordResetEmail } = useAuth(); // Added sendPasswordResetEmail
-  const navigate = useNavigate(); // Initialize useNavigate
-
+const LoginPage = ({ onLogin, darkMode, toggleDarkMode }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -15,33 +10,31 @@ const LoginPage = ({ darkMode, toggleDarkMode }) => { // Removed onLogin prop
   const [phone, setPhone] = useState('');
   const [position, setPosition] = useState('');
   const [error, setError] = useState('');
-  // const [isLoading, setIsLoading] = useState(false); // Removed unused isLoading state
+  const [isLoading, setIsLoading] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [formAnimation, setFormAnimation] = useState(false);
   const [fadeIn, setFadeIn] = useState(false);
-  const [forgotPasswordMessage, setForgotPasswordMessage] = useState(''); // For forgot password feedback
-
+  
   // Refs for form fields
   const emailRef = useRef(null);
   const passwordRef = useRef(null);
   const nameRef = useRef(null);
 
-  // ... existing useEffect for fadeIn ...
+  // Set up animations
   useEffect(() => {
     // Trigger animation after component mounts
     setTimeout(() => setFadeIn(true), 100);
   }, []);
 
-  // ... existing useEffect for popstate ...
+  // Effect for managing browser history and popstate
   useEffect(() => {
     const handlePopState = (event) => {
       const newIsRegistering = event.state ? event.state.isRegistering : window.location.hash === '#register';
       if (isRegistering !== newIsRegistering) {
         setIsRegistering(newIsRegistering);
         setError('');
-        setForgotPasswordMessage(''); // Clear forgot password message on mode toggle
         setShowPassword(false);
         setShowConfirmPassword(false);
         // Trigger form change animation
@@ -62,9 +55,9 @@ const LoginPage = ({ darkMode, toggleDarkMode }) => { // Removed onLogin prop
     return () => {
       window.removeEventListener('popstate', handlePopState);
     };
-  }, []); // isRegistering removed from deps as it's managed internally by popstate
+  }, []); // Run once on mount
 
-  // ... existing useEffect for formAnimation and focus ...
+  // Animation for form switch, now also handles focusing
   useEffect(() => {
     if (formAnimation) { // Only run focus logic if formAnimation was triggered
       setTimeout(() => {
@@ -77,110 +70,124 @@ const LoginPage = ({ darkMode, toggleDarkMode }) => { // Removed onLogin prop
     }
   }, [formAnimation, isRegistering]);
 
-
-  const handleSubmit = async (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
-    setError(''); 
-    setForgotPasswordMessage(''); // Clear forgot password message on new submission
-    try {
-      if (isRegistering) {
-        if (!email || !password || !confirmPassword || !name) {
-          setError('Please fill in all required fields');
-          return;
-        }
-        
-        if (password !== confirmPassword) {
-          setError('Passwords do not match');
-          return;
-        }
-        
-        const metadata = {
-          full_name: name,
-          phone: phone || null, // Pass null if empty, assuming DB handles it
-          position: position || null, // Pass null if empty
-        };
-        await signUp(email, password, metadata);
-        alert('Sign up successful! Please check your email for verification.'); 
-        // Reset form fields after successful sign-up
-        setName('');
-        setEmail('');
-        setPhone('');
-        setPosition('');
-        setPassword('');
-        setConfirmPassword('');
-        setIsRegistering(false); // Switch to login form
-        // Update URL to reflect login mode
-        if (window.location.hash === '#register') {
-            window.history.pushState({ isRegistering: false }, 'Sign In', window.location.pathname);
-        } else {
-            window.history.replaceState({ isRegistering: false}, 'Sign In', window.location.pathname);
-        }
-
-      } else { // Logging in
-        if (!email || !password) {
-          setError('Please enter both email and password.');
-          return;
-        }
-        await login(email, password);
-        // On successful login, the useAuth hook updates user state.
-        // App.jsx should have a listener for user state to redirect.
-        // Or, we can navigate explicitly here.
-        navigate('/dashboard'); 
-      }
-    } catch (err) {
-      setError(err.message || 'An unexpected error occurred.');
-      console.error("Auth error:", err);
-    }
-  };
-
-  const handleForgotPassword = async () => {
-    if (!email) {
-      setError('Please enter your email address to reset your password.');
-      return;
-    }
     setError('');
-    setForgotPasswordMessage('');
-    try {
-      await sendPasswordResetEmail(email);
-      setForgotPasswordMessage('Password reset email sent! Please check your inbox.');
-    } catch (err) {
-      setError(err.message || 'Failed to send password reset email.');
-      console.error("Forgot password error:", err);
+    
+    if (isRegistering) {
+      // Handle registration
+      if (!email || !password || !confirmPassword || !name) {
+        setError('Please fill in all required fields');
+        return;
+      }
+      
+      if (password !== confirmPassword) {
+        setError('Passwords do not match');
+        return;
+      }
+      
+      setIsLoading(true);
+      
+      // Check if user already exists
+      const users = JSON.parse(localStorage.getItem('users')) || [];
+      const userExists = users.some(user => user.email === email);
+      
+      if (userExists) {
+        setError('User with this email already exists');
+        setIsLoading(false);
+        return;
+      }
+      
+      // Add new user with phone and position fields
+      const newUser = {
+        id: `user_${Date.now()}`,
+        email,
+        name,
+        phone,
+        // Set position to "Invoicing Associate" as default if not specified
+        position: position || 'Invoicing Associate',
+        password, // In a real app, you'd hash this password
+        role: 'user',
+        createdAt: new Date().toISOString()
+      };
+      
+      users.push(newUser);
+      localStorage.setItem('users', JSON.stringify(users));
+      
+      // Auto-login after registration
+      setTimeout(() => {
+        // Pass the finalized position value and role
+        onLogin(email, newUser.id, newUser.name, phone, newUser.position, newUser.role);
+        setIsLoading(false);
+      }, 1000);
+      
+    } else {
+      // Handle login
+      if (!email || !password) {
+        setError('Please enter both email and password');
+        return;
+      }
+      
+      setIsLoading(true);
+      
+      // Get users from localStorage
+      const users = JSON.parse(localStorage.getItem('users')) || [];
+      
+      // Check credentials
+      const user = users.find(u => u.email === email && u.password === password);
+      
+      if (user) {
+        setTimeout(() => {
+          // Save user info to localStorage for context sync
+          localStorage.setItem('userId', user.id);
+          localStorage.setItem('userEmail', user.email);
+          localStorage.setItem('userPosition', user.position || '');
+          localStorage.setItem('userRole', user.role || 'user');
+          // Dispatch login event so UserRoleContext updates immediately
+          window.dispatchEvent(new Event('login'));
+          // Pass the user role along with other user info to ensure position is set correctly
+          onLogin(email, user.id, user.name, user.phone || '', user.position || '', user.role || 'user');
+          setIsLoading(false);
+        }, 1000);
+      } else {
+        setError('Invalid email or password');
+        setIsLoading(false);
+      }
     }
   };
-
+  
   const toggleMode = (e) => {
-    if (e) e.preventDefault(); 
+    if (e) e.preventDefault(); // Prevent default if called from an event (e.g., <a> tag click)
 
     const newIsRegistering = !isRegistering;
     
+    // Update component state first
     setIsRegistering(newIsRegistering);
     setError('');
-    setForgotPasswordMessage(''); // Clear forgot password message
     setShowPassword(false);
     setShowConfirmPassword(false);
-    setFormAnimation(true); 
+    setFormAnimation(true); // Trigger animation
     setTimeout(() => setFormAnimation(false), 500);
 
+
+    // Then update browser history
     if (newIsRegistering) {
       window.history.pushState({ isRegistering: true }, 'Create Account', '#register');
     } else {
+      // Going back to login, remove #register from URL
+      // Check current hash to avoid pushing same state if already on login page without hash
       if (window.location.hash === '#register') {
         window.history.pushState({ isRegistering: false }, 'Sign In', window.location.pathname);
       } else {
+        // If already on login page (no hash), replace state to ensure it's correct
         window.history.replaceState({ isRegistering: false}, 'Sign In', window.location.pathname);
       }
     }
   };
 
-  // ... existing JSX structure ...
-  // Modify the form part to include "Forgot Password" link
-  // and ensure loading state disables relevant elements.
-
   return (
     <div className={`login-page-light-mode ${fadeIn ? 'fade-in' : ''} ${darkMode ? 'dark-mode' : ''}`}>
       <div className="theme-switch-wrapper login-theme-switch">
-        {/* ... theme switch jsx ... */}
         <label className="theme-switch">
           <input type="checkbox" checked={darkMode} onChange={toggleDarkMode} />
           <span className="slider">
@@ -191,8 +198,8 @@ const LoginPage = ({ darkMode, toggleDarkMode }) => { // Removed onLogin prop
       </div>
       <div className="login-container">
         <div className={`login-card ${formAnimation ? 'form-change' : ''}`}>
+          {/* Left Content */}
           <div className="login-content">
-            {/* ... brand and title jsx ... */}
             <div className="brand">
               <div className="brand-logo">
                 <div className="brand-dots">
@@ -204,7 +211,7 @@ const LoginPage = ({ darkMode, toggleDarkMode }) => { // Removed onLogin prop
               <span className="brand-name">Sama Tributa Solutions</span>
             </div>
             
-            <h1 className="login-title">{isRegistering ? 'Create Account' : 'Sign In'}</h1>
+            <h1 className="login-title">{isRegistering ? 'Create Account' : 'Welcome Back'}</h1>
             <p className="login-subtitle">
               {isRegistering 
                 ? 'Register to access our invoice generation system' 
@@ -212,61 +219,25 @@ const LoginPage = ({ darkMode, toggleDarkMode }) => { // Removed onLogin prop
             </p>
             
             {error && <div className="error-message">{error}</div>}
-            {authError && <div className="error-message">{authError.message}</div>}
-            {forgotPasswordMessage && <div className="success-message">{forgotPasswordMessage}</div>}
             
             <form onSubmit={handleSubmit} className="login-form">
               {isRegistering && (
-                <>
-                  <div className="form-group">
-                    <label className="form-label" htmlFor="name">
-                      <FiUser className="input-icon" />
-                      Full Name *
-                    </label>
-                    <input
-                      type="text"
-                      id="name"
-                      ref={nameRef}
-                      placeholder="Enter your full name"
-                      className="form-input"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      required
-                      disabled={loading}
-                    />
-                  </div>
-                  {/* Email field is common, shown below */}
-                  <div className="form-group">
-                    <label className="form-label" htmlFor="phone">
-                      <FiPhone className="input-icon" />
-                      Phone Number
-                    </label>
-                    <input
-                      type="tel"
-                      id="phone"
-                      placeholder="Enter your phone number"
-                      className="form-input"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      disabled={loading}
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label" htmlFor="position">
-                      <FiBriefcase className="input-icon" />
-                      Position / Role
-                    </label>
-                    <input
-                      type="text"
-                      id="position"
-                      placeholder="Enter your position or role"
-                      className="form-input"
-                      value={position}
-                      onChange={(e) => setPosition(e.target.value)}
-                      disabled={loading}
-                    />
-                  </div>
-                </>
+                <div className="form-group">
+                  <label className="form-label" htmlFor="name">
+                    <FiUser className="input-icon" />
+                    Full Name *
+                  </label>
+                  <input
+                    type="text"
+                    id="name"
+                    ref={nameRef}
+                    placeholder="Enter your full name"
+                    className="form-input"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    required
+                  />
+                </div>
               )}
               
               <div className="form-group">
@@ -283,18 +254,51 @@ const LoginPage = ({ darkMode, toggleDarkMode }) => { // Removed onLogin prop
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  disabled={loading}
                 />
               </div>
+              
+              {isRegistering && (
+                <>
+                  <div className="form-group">
+                    <label className="form-label" htmlFor="phone">
+                      <FiPhone className="input-icon" />
+                      Phone Number
+                    </label>
+                    <input
+                      type="tel"
+                      id="phone"
+                      placeholder="Enter your phone number"
+                      className="form-input"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                    />
+                  </div>
+                  
+                  <div className="form-group">
+                    <label className="form-label" htmlFor="position">
+                      <FiBriefcase className="input-icon" />
+                      Position/Title
+                    </label>
+                    <input
+                      type="text"
+                      id="position"
+                      placeholder="Enter your job title"
+                      className="form-input"
+                      value={position}
+                      onChange={(e) => setPosition(e.target.value)}
+                    />
+                  </div>
+                </>
+              )}
               
               <div className="form-group">
                 <label className="form-label" htmlFor="password">
                   <FiLock className="input-icon" />
                   Password *
                 </label>
-                <div className="password-wrapper">
+                <div className="password-input-wrapper">
                   <input
-                    type={showPassword ? 'text' : 'password'}
+                    type={showPassword ? "text" : "password"}
                     id="password"
                     ref={passwordRef}
                     placeholder="Enter your password"
@@ -302,73 +306,101 @@ const LoginPage = ({ darkMode, toggleDarkMode }) => { // Removed onLogin prop
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
-                    disabled={loading}
                   />
-                  <span onClick={() => setShowPassword(!showPassword)} className="password-toggle">
+                  <button 
+                    type="button"
+                    className="password-toggle-btn"
+                    onClick={() => setShowPassword(!showPassword)}
+                    tabIndex="-1"
+                  >
                     {showPassword ? <FiEyeOff /> : <FiEye />}
-                  </span>
+                  </button>
                 </div>
               </div>
-
+              
               {isRegistering && (
                 <div className="form-group">
                   <label className="form-label" htmlFor="confirmPassword">
                     <FiLock className="input-icon" />
                     Confirm Password *
                   </label>
-                  <div className="password-wrapper">
+                  <div className="password-input-wrapper">
                     <input
-                      type={showConfirmPassword ? 'text' : 'password'}
+                      type={showConfirmPassword ? "text" : "password"}
                       id="confirmPassword"
                       placeholder="Confirm your password"
                       className="form-input"
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       required
-                      disabled={loading}
                     />
-                    <span onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="password-toggle">
+                    <button 
+                      type="button"
+                      className="password-toggle-btn"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      tabIndex="-1"
+                    >
                       {showConfirmPassword ? <FiEyeOff /> : <FiEye />}
-                    </span>
+                    </button>
                   </div>
                 </div>
               )}
               
-              {!isRegistering && (
-                <div className="form-options">
-                  {/* <label className="remember-me">
-                    <input type="checkbox" /> Remember me
-                  </label> */}
-                  <a href="#" onClick={(e) => { e.preventDefault(); handleForgotPassword(); }} className="forgot-password-link">
-                    Forgot Password?
+              <div className="form-actions">
+                {!isRegistering && (
+                  <div className="remember-forgot">
+                    <div className="remember-me">
+                      <input type="checkbox" id="rememberMe" />
+                      <label htmlFor="rememberMe">Remember me</label>
+                    </div>
+                    <a href="#" className="forgot-link">Forgot Password?</a>
+                  </div>
+                )}
+                
+                <button 
+                  type="submit" 
+                  className="login-button" 
+                  disabled={isLoading}
+                >
+                  <span className="button-text">
+                    {isLoading ? 'PROCESSING...' : (isRegistering ? 'CREATE ACCOUNT' : 'SIGN IN')}
+                  </span>
+                  {!isLoading && <FiArrowRight className="button-icon" />}
+                  <div className={`spinner ${isLoading ? 'active' : ''}`}></div>
+                </button>
+                
+                <div className="mode-toggle">
+                  {isRegistering ? 'Already have an account?' : "Don't have an account?"} 
+                  <a href="#" onClick={toggleMode} className="toggle-link">
+                    {isRegistering ? 'Sign in' : 'Create account'}
                   </a>
                 </div>
-              )}
-
-              <button type="submit" className="btn btn-primary btn-block" disabled={loading}>
-                {loading ? (isRegistering ? 'Creating Account...' : 'Signing In...') : (isRegistering ? 'Create Account' : 'Sign In')}
-                {!loading && <FiArrowRight className="icon-arrow" />}
-              </button>
+              </div>
             </form>
-            
-            <div className="form-footer">
-              {isRegistering ? (
-                <p>Already have an account? <a href="#" onClick={toggleMode}>Sign In <FiArrowLeft className="icon-arrow-left"/></a></p>
-              ) : (
-                <p>Don't have an account? <a href="#" onClick={toggleMode}>Create Account <FiUserPlus className="icon-plus"/></a></p>
-              )}
-            </div>
           </div>
-          {/* Right Image/Illustration Part - No changes needed here */}
-          <div className="login-illustration">
-            <div className="illustration-overlay"></div>
-            {/* You can add an image or illustration here */}
-            {/* For example: <img src="/path-to-your-illustration.svg" alt="Illustration" /> */}
-            <div className="illustration-text">
-                <h2>Streamline Your Invoicing</h2>
-                <p>Efficient, reliable, and integrated with modern solutions.</p>
+          
+          {/* Right Image */}
+          <div className="login-image">
+            <div className="image-overlay">
+              <h2 className="overlay-title">
+                {isRegistering ? 'Join the Platform' : 'Invoice Generator'}
+              </h2>
+              <p className="overlay-text">
+                {isRegistering 
+                  ? 'Create invoices, manage clients, and grow business using this platform.' 
+                  : 'Now generate professional invoices within minutes with our easy-to-use platform.'}
+              </p>
             </div>
+            <img 
+              src="https://v3.fal.media/files/koala/mCAx4qKIsxgRSmqzm7th4.png" 
+              alt="Person using laptop" 
+              className="illustration"
+            />
           </div>
+        </div>
+        
+        <div className="login-footer">
+          <p>&copy; {new Date().getFullYear()} Sama Tributa Solutions. All rights reserved.</p>
         </div>
       </div>
     </div>
@@ -376,17 +408,3 @@ const LoginPage = ({ darkMode, toggleDarkMode }) => { // Removed onLogin prop
 };
 
 export default LoginPage;
-
-// Ensure LoginPage.css has styles for .success-message if it doesn't exist
-/* Example for .success-message in LoginPage.css:
-.success-message {
-  background-color: #d4edda;
-  color: #155724;
-  border: 1px solid #c3e6cb;
-  padding: 10px 15px;
-  border-radius: 4px;
-  margin-bottom: 15px;
-  font-size: 0.9em;
-  text-align: center;
-}
-*/

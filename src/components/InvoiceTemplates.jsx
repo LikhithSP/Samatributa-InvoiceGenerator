@@ -1,16 +1,7 @@
 import React from 'react';
 
 // Classic Template (current default style)
-export const ClassicTemplate = ({ invoiceData, formatDate, defaultLogo, exchangeRate }) => {
-  const items = invoiceData.items || [];
-  const company = invoiceData.company || {};
-  const client = invoiceData.client || {};
-
-  const subtotal = parseFloat(invoiceData.subtotal) || 0;
-  const total = parseFloat(invoiceData.total) || 0;
-  const taxAmount = total - subtotal;
-  const taxRateToDisplay = subtotal > 0 ? (taxAmount / subtotal * 100) : 0;
-
+export const ClassicTemplate = ({ invoiceData, normalizedItems, formatDate, defaultLogo, exchangeRate }) => {
   return (
     <div className="classic-template">
       {/* 1. Top Header Section with Company Logo and Invoice Title */}
@@ -18,11 +9,11 @@ export const ClassicTemplate = ({ invoiceData, formatDate, defaultLogo, exchange
         <div className="company-info">
           <img 
             className="preview-logo" 
-            src={invoiceData.logo_url || company.logo_url || defaultLogo} 
+            src={invoiceData.logoUrl || defaultLogo} 
             alt="Company Logo" 
           />
           <div className="company-name-header">
-            <h1>{company.name || 'Your Company'}</h1>
+            <h1>{invoiceData.senderName || 'Your Company'}</h1>
           </div>
         </div>
         <div className="invoice-title">
@@ -33,15 +24,15 @@ export const ClassicTemplate = ({ invoiceData, formatDate, defaultLogo, exchange
       {/* 2. Company and Invoice Details Section */}
       <div className="details-section">
         <div className="company-details">
-          <p>{company.address || 'Company Address'}</p>
-          <p>GSTIN: {company.gstin || 'N/A'}</p> {/* Assuming company has gstin */}
+          <p>{invoiceData.senderAddress || 'Company Address'}</p>
+          <p>GSTIN: 29AEFFS0261N1ZN</p>
         </div>
         <div className="invoice-details">
           <div className="invoice-number">
-            <p><strong>Invoice #:</strong> {invoiceData.invoice_number}</p>
+            <p><strong>Invoice #:</strong> {invoiceData.invoiceNumber}</p>
           </div>
           <div className="invoice-date">
-            <p><strong>Date:</strong> {invoiceData.issue_date ? formatDate(invoiceData.issue_date) : 'N/A'}</p>
+            <p><strong>Date:</strong> {formatDate(invoiceData.invoiceDate)}</p>
           </div>
         </div>
       </div>
@@ -51,22 +42,22 @@ export const ClassicTemplate = ({ invoiceData, formatDate, defaultLogo, exchange
         <h3>Bill To:</h3>
         <div className="customer-info">
           <div className="info-row full-width">
-            <p><strong>{client.name || 'Client Name'}</strong></p>
+            <p><strong>{invoiceData.recipientName || 'Client Name'}</strong></p>
           </div>
           <div className="info-row full-width">
-            <p>{client.address || 'Client Address'}</p>
+            <p>{invoiceData.recipientAddress || 'Client Address'}</p>
           </div>
           <div className="info-row half-width">
-            <p><strong>Phone:</strong> {client.phone || 'N/A'}</p>
+            <p><strong>Phone:</strong> {invoiceData.recipientPhone || 'N/A'}</p>
           </div>
           <div className="info-row half-width">
-            <p><strong>Email:</strong> {client.email || 'N/A'}</p>
+            <p><strong>Email:</strong> {invoiceData.recipientEmail || 'N/A'}</p>
           </div>
           <div className="info-row half-width">
-            <p><strong>GSTIN:</strong> {client.gstin || 'N/A'}</p>
+            <p><strong>GSTIN:</strong> {invoiceData.recipientGSTIN || 'N/A'}</p>
           </div>
           <div className="info-row half-width">
-            <p><strong>PAN:</strong> {client.pan || 'N/A'}</p> {/* Assuming client has pan */}
+            <p><strong>PAN:</strong> {invoiceData.recipientPAN || 'N/A'}</p>
           </div>
         </div>
       </div>
@@ -74,8 +65,8 @@ export const ClassicTemplate = ({ invoiceData, formatDate, defaultLogo, exchange
       {/* 4. Invoice Rate Information */}
       <div className="invoice-summary">
         <div className="rate-info">
-          {invoiceData.currency === 'USD' && exchangeRate && <p><strong>USD to INR Rate:</strong> {exchangeRate}</p>}
-          <p><strong>GST Rate:</strong> {taxRateToDisplay.toFixed(2)}%</p>
+          <p><strong>USD to INR Rate:</strong> {exchangeRate}</p>
+          <p><strong>GST Rate:</strong> {invoiceData.taxRate || 5}%</p>
         </div>
       </div>
       
@@ -85,26 +76,55 @@ export const ClassicTemplate = ({ invoiceData, formatDate, defaultLogo, exchange
           <thead>
             <tr>
               <th style={{ width: '70%' }}>Description</th>
-              {/* Dynamic headers based on currency */}
-              <th style={{ width: '15%' }}>Amount ({invoiceData.currency || 'CUR'})</th>
-              {invoiceData.currency === 'USD' && exchangeRate && <th style={{ width: '15%' }}>Amount (INR)</th>}
+              <th style={{ width: '15%' }}>Amount (USD)</th>
+              <th style={{ width: '15%' }}>Amount (INR)</th>
             </tr>
           </thead>
           <tbody>
-            {items.map((item, index) => {
-              const itemTotal = (parseFloat(item.quantity) || 0) * (parseFloat(item.unit_price) || 0);
-              const itemTotalInr = invoiceData.currency === 'USD' && exchangeRate ? itemTotal * exchangeRate : 0;
-              return (
-                <tr key={index}>
-                  <td>
-                    <strong>{item.description || 'Service'}</strong>
-                    {/* If item has further details, display them here. For now, just description. */}
-                  </td>
-                  <td className="text-right">{itemTotal.toFixed(2)}</td>
-                  {invoiceData.currency === 'USD' && exchangeRate && <td className="text-right">{itemTotalInr.toFixed(2)}</td>}
-                </tr>
-              );
-            })}
+            {normalizedItems.map((item, index) => (
+              <React.Fragment key={index}>
+                {/* Main Service Row */}
+                {item.type === 'main' ? (
+                  // Main service with possible sub-services
+                  <>
+                    <tr className="main-service-row" style={{ backgroundColor: '#f5f5f5' }}>
+                      <td colSpan="3">
+                        <strong style={{ fontSize: '1.1rem' }}>{item.name || 'Service'}</strong>
+                      </td>
+                    </tr>
+                    {/* Render sub-services */}
+                    {item.subServices && Array.isArray(item.subServices) && item.subServices.length > 0 ? (
+                      item.subServices.map((subService, subIndex) => (
+                        <tr key={`${index}-sub-${subIndex}`} className="sub-service-row">
+                          <td style={{ paddingLeft: '20px' }}>
+                            <strong>{subService.name || 'Sub-service'}</strong>
+                            {subService.description && <p>{subService.description}</p>}
+                          </td>
+                          <td className="text-right">${parseFloat(subService.amountUSD || 0).toFixed(2)}</td>
+                          <td className="text-right">₹{parseFloat(subService.amountINR || 0).toFixed(2)}</td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan="3" style={{ paddingLeft: '20px', color: '#666' }}>
+                          No sub-services available
+                        </td>
+                      </tr>
+                    )}
+                  </>
+                ) : (
+                  // Regular service item (backwards compatibility)
+                  <tr>
+                    <td>
+                      <strong>{item.name || 'Service'}</strong>
+                      <p>{item.description || ''}</p>
+                    </td>
+                    <td className="text-right">${parseFloat(item.amountUSD || 0).toFixed(2)}</td>
+                    <td className="text-right">₹{parseFloat(item.amountINR || 0).toFixed(2)}</td>
+                  </tr>
+                )}
+              </React.Fragment>
+            ))}
           </tbody>
         </table>
       </div>
@@ -116,22 +136,22 @@ export const ClassicTemplate = ({ invoiceData, formatDate, defaultLogo, exchange
             <tr>
               <td>Subtotal:</td>
               <td className="text-right">
-                {subtotal.toFixed(2)} {invoiceData.currency}
-                {invoiceData.currency === 'USD' && exchangeRate && ` / ₹${(subtotal * exchangeRate).toFixed(2)}`}
+                ${invoiceData.subtotalUSD.toFixed(2)} / 
+                ₹{invoiceData.subtotalINR.toFixed(2)}
               </td>
             </tr>
             <tr>
-              <td>GST ({taxRateToDisplay.toFixed(2)}%):</td>
+              <td>GST ({invoiceData.taxRate}%):</td>
               <td className="text-right">
-                {taxAmount.toFixed(2)} {invoiceData.currency}
-                {invoiceData.currency === 'USD' && exchangeRate && ` / ₹${(taxAmount * exchangeRate).toFixed(2)}`}
+                ${invoiceData.taxAmountUSD.toFixed(2)} / 
+                ₹{invoiceData.taxAmountINR.toFixed(2)}
               </td>
             </tr>
             <tr className="grand-total">
               <td>Grand Total:</td>
               <td className="text-right">
-                {total.toFixed(2)} {invoiceData.currency}
-                {invoiceData.currency === 'USD' && exchangeRate && ` / ₹${(total * exchangeRate).toFixed(2)}`}
+                ${invoiceData.totalUSD.toFixed(2)} / 
+                ₹{invoiceData.totalINR.toFixed(2)}
               </td>
             </tr>
           </tbody>
@@ -143,16 +163,16 @@ export const ClassicTemplate = ({ invoiceData, formatDate, defaultLogo, exchange
         <h3>Beneficiary Account Details</h3>
         <div className="account-info">
           <div className="info-row full-width">
-            <p><strong>Account Name:</strong> {company.account_name || extractAccountName(invoiceData.notes)}</p>
+            <p><strong>Account Name:</strong> {invoiceData.accountName || extractAccountName(invoiceData.notes)}</p>
           </div>
           <div className="info-row full-width">
-            <p><strong>Bank Name:</strong> {company.bank_name || extractBankName(invoiceData.notes)}</p>
+            <p><strong>Bank Name:</strong> {invoiceData.bankName || extractBankName(invoiceData.notes)}</p>
           </div>
           <div className="info-row half-width">
-            <p><strong>Account Number:</strong> {company.account_number || extractAccountNumber(invoiceData.notes)}</p>
+            <p><strong>Account Number:</strong> {invoiceData.accountNumber || extractAccountNumber(invoiceData.notes)}</p>
           </div>
           <div className="info-row half-width">
-            <p><strong>IFSC Code:</strong> {company.ifsc_code || extractIFSCCode(invoiceData.notes)}</p>
+            <p><strong>IFSC Code:</strong> {invoiceData.ifscCode || extractIFSCCode(invoiceData.notes)}</p>
           </div>
         </div>
       </div>
@@ -166,16 +186,7 @@ export const ClassicTemplate = ({ invoiceData, formatDate, defaultLogo, exchange
 };
 
 // Modern Template - more minimalist with a different color scheme and font
-export const ModernTemplate = ({ invoiceData, formatDate, defaultLogo, exchangeRate }) => {
-  const items = invoiceData.items || [];
-  const company = invoiceData.company || {};
-  const client = invoiceData.client || {};
-
-  const subtotal = parseFloat(invoiceData.subtotal) || 0;
-  const total = parseFloat(invoiceData.total) || 0;
-  const taxAmount = total - subtotal;
-  const taxRateToDisplay = subtotal > 0 ? (taxAmount / subtotal * 100) : 0;
-
+export const ModernTemplate = ({ invoiceData, normalizedItems, formatDate, defaultLogo, exchangeRate }) => {
   return (
     <div className="modern-template" style={{ fontFamily: "'Poppins', sans-serif", color: '#333', background: 'linear-gradient(135deg, #f5f7fa 0%, #ffffff 100%)' }}>
       {/* Header with Gradient Banner */}
@@ -190,13 +201,13 @@ export const ModernTemplate = ({ invoiceData, formatDate, defaultLogo, exchangeR
       }}>
         <div style={{ display: 'flex', alignItems: 'center', background: 'white', padding: '15px', borderRadius: '10px' }}>
           <img 
-            src={invoiceData.logo_url || company.logo_url || defaultLogo} 
+            src={invoiceData.logoUrl || defaultLogo} 
             alt="Company Logo"
             style={{ width: '70px', height: 'auto', marginRight: '15px' }}
           />
           <div>
-            <h1 style={{ fontSize: '22px', margin: 0, color: '#333' }}>{company.name || 'Your Company'}</h1>
-            <p style={{ fontSize: '13px', margin: '5px 0 0 0', color: '#666' }}>{company.address || 'Company Address'}</p>
+            <h1 style={{ fontSize: '22px', margin: 0, color: '#333' }}>{invoiceData.senderName || 'Your Company'}</h1>
+            <p style={{ fontSize: '13px', margin: '5px 0 0 0', color: '#666' }}>{invoiceData.senderAddress || 'Company Address'}</p>
           </div>
         </div>
         <div style={{ 
@@ -207,8 +218,8 @@ export const ModernTemplate = ({ invoiceData, formatDate, defaultLogo, exchangeR
           minWidth: '140px'
         }}>
           <h2 style={{ color: '#0052D4', fontSize: '28px', margin: '0', fontWeight: '600', letterSpacing: '1px' }}>INVOICE</h2>
-          <p style={{ margin: '8px 0 0 0', fontSize: '14px', color: '#333' }}>#{invoiceData.invoice_number}</p>
-          <p style={{ margin: '5px 0 0 0', fontSize: '13px', color: '#666' }}>Date: {invoiceData.issue_date ? formatDate(invoiceData.issue_date) : 'N/A'}</p>
+          <p style={{ margin: '8px 0 0 0', fontSize: '14px', color: '#333' }}>#{invoiceData.invoiceNumber}</p>
+          <p style={{ margin: '5px 0 0 0', fontSize: '13px', color: '#666' }}>Date: {formatDate(invoiceData.invoiceDate)}</p>
         </div>
       </div>
 
@@ -232,13 +243,13 @@ export const ModernTemplate = ({ invoiceData, formatDate, defaultLogo, exchangeR
             borderBottom: '2px solid #e6f2ff',
             paddingBottom: '10px'
           }}>Bill To</h3>
-          <p style={{ margin: '12px 0 5px 0', fontWeight: 'bold', fontSize: '16px' }}>{client.name || 'Client Name'}</p>
-          <p style={{ margin: '8px 0', fontSize: '14px', color: '#555' }}>{client.address || 'Client Address'}</p>
+          <p style={{ margin: '12px 0 5px 0', fontWeight: 'bold', fontSize: '16px' }}>{invoiceData.recipientName || 'Client Name'}</p>
+          <p style={{ margin: '8px 0', fontSize: '14px', color: '#555' }}>{invoiceData.recipientAddress || 'Client Address'}</p>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '13px', color: '#666', marginTop: '10px' }}>
-            <p style={{ margin: '5px 0' }}><strong>Phone:</strong> {client.phone || 'N/A'}</p>
-            <p style={{ margin: '5px 0' }}><strong>Email:</strong> {client.email || 'N/A'}</p>
-            <p style={{ margin: '5px 0' }}><strong>GSTIN:</strong> {client.gstin || 'N/A'}</p>
-            <p style={{ margin: '5px 0' }}><strong>PAN:</strong> {client.pan || 'N/A'}</p>
+            <p style={{ margin: '5px 0' }}><strong>Phone:</strong> {invoiceData.recipientPhone || 'N/A'}</p>
+            <p style={{ margin: '5px 0' }}><strong>Email:</strong> {invoiceData.recipientEmail || 'N/A'}</p>
+            <p style={{ margin: '5px 0' }}><strong>GSTIN:</strong> {invoiceData.recipientGSTIN || 'N/A'}</p>
+            <p style={{ margin: '5px 0' }}><strong>PAN:</strong> {invoiceData.recipientPAN || 'N/A'}</p>
           </div>
         </div>
         
@@ -255,19 +266,16 @@ export const ModernTemplate = ({ invoiceData, formatDate, defaultLogo, exchangeR
             borderBottom: '2px solid #e6f2ff',
             paddingBottom: '10px'
           }}>Payment Information</h3>
-          {invoiceData.currency === 'USD' && exchangeRate && (
-            <div style={{ display: 'flex', justifyContent: 'space-between', margin: '15px 0', padding: '10px', background: '#f7faff', borderRadius: '8px' }}>
-              <span style={{ fontWeight: '600' }}>USD to INR Rate:</span> 
-              <span style={{ color: '#0052D4', fontWeight: '600' }}>{exchangeRate}</span>
-            </div>
-          )}
+          <div style={{ display: 'flex', justifyContent: 'space-between', margin: '15px 0', padding: '10px', background: '#f7faff', borderRadius: '8px' }}>
+            <span style={{ fontWeight: '600' }}>USD to INR Rate:</span> 
+            <span style={{ color: '#0052D4', fontWeight: '600' }}>{exchangeRate}</span>
+          </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', margin: '15px 0', padding: '10px', background: '#f7faff', borderRadius: '8px' }}>
             <span style={{ fontWeight: '600' }}>GST Rate:</span> 
-            <span style={{ color: '#0052D4', fontWeight: '600' }}>{taxRateToDisplay.toFixed(2)}%</span>
+            <span style={{ color: '#0052D4', fontWeight: '600' }}>{invoiceData.taxRate || 5}%</span>
           </div>
           <div style={{ fontSize: '13px', marginTop: '8px', color: '#666', fontStyle: 'italic' }}>
-            <p>Invoice issued on {invoiceData.issue_date ? formatDate(invoiceData.issue_date) : 'N/A'}</p>
-            {invoiceData.due_date && <p>Payment due on {formatDate(invoiceData.due_date)}</p>}
+            <p>Invoice issued on {formatDate(invoiceData.invoiceDate)}</p>
           </div>
         </div>
       </div>
@@ -286,26 +294,54 @@ export const ModernTemplate = ({ invoiceData, formatDate, defaultLogo, exchangeR
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ borderBottom: '2px solid #e6f2ff' }}>
-                <th style={{ padding: '15px', textAlign: 'left', fontSize: '15px', color: '#0052D4', width: invoiceData.currency === 'USD' && exchangeRate ? '60%' : '70%' }}>Description</th>
-                <th style={{ padding: '15px', textAlign: 'right', fontSize: '15px', color: '#0052D4', width: '20%' }}>{invoiceData.currency || 'CUR'}</th>
-                {invoiceData.currency === 'USD' && exchangeRate && <th style={{ padding: '15px', textAlign: 'right', fontSize: '15px', color: '#0052D4', width: '20%' }}>INR</th>}
+                <th style={{ padding: '15px', textAlign: 'left', fontSize: '15px', color: '#0052D4', width: '70%' }}>Description</th>
+                <th style={{ padding: '15px', textAlign: 'right', fontSize: '15px', color: '#0052D4', width: '15%' }}>USD</th>
+                <th style={{ padding: '15px', textAlign: 'right', fontSize: '15px', color: '#0052D4', width: '15%' }}>INR</th>
               </tr>
             </thead>
             <tbody>
-              {items.map((item, index) => {
-                const itemTotal = (parseFloat(item.quantity) || 0) * (parseFloat(item.unit_price) || 0);
-                const itemTotalInr = invoiceData.currency === 'USD' && exchangeRate ? itemTotal * exchangeRate : 0;
-                return (
-                  <tr key={index} style={{ borderBottom: '1px solid #f0f0f0' }}>
-                    <td style={{ padding: '15px' }}>
-                      <strong style={{ color: '#444', fontSize: '15px' }}>{item.description || 'Service'}</strong>
-                      {/* Optional: item sub-description if available */}
-                    </td>
-                    <td style={{ padding: '15px', textAlign: 'right', color: '#444' }}>{itemTotal.toFixed(2)}</td>
-                    {invoiceData.currency === 'USD' && exchangeRate && <td style={{ padding: '15px', textAlign: 'right', color: '#444' }}>{itemTotalInr.toFixed(2)}</td>}
-                  </tr>
-                );
-              })}
+              {normalizedItems.map((item, index) => (
+                <React.Fragment key={index}>
+                  {item.type === 'main' ? (
+                    <>
+                      <tr style={{ backgroundColor: '#f7faff' }}>
+                        <td colSpan="3" style={{ padding: '15px', fontWeight: '600', color: '#0052D4', fontSize: '16px', borderLeft: '4px solid #65c7f7' }}>
+                          {item.name || 'Service'}
+                        </td>
+                      </tr>
+                      {item.subServices && Array.isArray(item.subServices) && item.subServices.length > 0 ? (
+                        item.subServices.map((subService, subIndex) => (
+                          <tr key={`${index}-sub-${subIndex}`} style={{ borderBottom: '1px solid #f0f0f0' }}>
+                            <td style={{ padding: '12px 15px 12px 30px' }}>
+                              <strong style={{ color: '#444', fontSize: '15px' }}>{subService.name || 'Sub-service'}</strong>
+                              {subService.description && (
+                                <p style={{ margin: '5px 0 0 0', color: '#666', fontSize: '13px' }}>{subService.description}</p>
+                              )}
+                            </td>
+                            <td style={{ padding: '12px 15px', textAlign: 'right', color: '#444' }}>${parseFloat(subService.amountUSD || 0).toFixed(2)}</td>
+                            <td style={{ padding: '12px 15px', textAlign: 'right', color: '#444' }}>₹{parseFloat(subService.amountINR || 0).toFixed(2)}</td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan="3" style={{ padding: '12px 15px 12px 30px', color: '#888', fontSize: '14px', fontStyle: 'italic' }}>
+                            No sub-services available
+                          </td>
+                        </tr>
+                      )}
+                    </>
+                  ) : (
+                    <tr style={{ borderBottom: '1px solid #f0f0f0' }}>
+                      <td style={{ padding: '15px' }}>
+                        <strong style={{ color: '#444', fontSize: '15px' }}>{item.name || 'Service'}</strong>
+                        <p style={{ margin: '5px 0 0 0', color: '#666', fontSize: '13px' }}>{item.description || ''}</p>
+                      </td>
+                      <td style={{ padding: '15px', textAlign: 'right', color: '#444' }}>${parseFloat(item.amountUSD || 0).toFixed(2)}</td>
+                      <td style={{ padding: '15px', textAlign: 'right', color: '#444' }}>₹{parseFloat(item.amountINR || 0).toFixed(2)}</td>
+                    </tr>
+                  )}
+                </React.Fragment>
+              ))}
             </tbody>
           </table>
         </div>
@@ -322,17 +358,11 @@ export const ModernTemplate = ({ invoiceData, formatDate, defaultLogo, exchangeR
           <div style={{ padding: '15px 20px', background: 'white' }}>
             <div style={{ padding: '10px', display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f0f0f0' }}>
               <span style={{ color: '#555' }}>Subtotal:</span>
-              <span style={{ color: '#555', fontWeight: '500' }}>
-                {subtotal.toFixed(2)} {invoiceData.currency}
-                {invoiceData.currency === 'USD' && exchangeRate && ` / ₹${(subtotal * exchangeRate).toFixed(2)}`}
-              </span>
+              <span style={{ color: '#555', fontWeight: '500' }}>${invoiceData.subtotalUSD.toFixed(2)} / ₹{invoiceData.subtotalINR.toFixed(2)}</span>
             </div>
             <div style={{ padding: '10px', display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f0f0f0' }}>
-              <span style={{ color: '#555' }}>GST ({taxRateToDisplay.toFixed(2)}%):</span>
-              <span style={{ color: '#555', fontWeight: '500' }}>
-                {taxAmount.toFixed(2)} {invoiceData.currency}
-                {invoiceData.currency === 'USD' && exchangeRate && ` / ₹${(taxAmount * exchangeRate).toFixed(2)}`}
-              </span>
+              <span style={{ color: '#555' }}>GST ({invoiceData.taxRate}%):</span>
+              <span style={{ color: '#555', fontWeight: '500' }}>${invoiceData.taxAmountUSD.toFixed(2)} / ₹{invoiceData.taxAmountINR.toFixed(2)}</span>
             </div>
           </div>
           <div style={{ 
@@ -343,10 +373,7 @@ export const ModernTemplate = ({ invoiceData, formatDate, defaultLogo, exchangeR
             color: 'white',
           }}>
             <span style={{ fontWeight: 'bold' }}>Grand Total:</span>
-            <span style={{ fontWeight: 'bold' }}>
-              {total.toFixed(2)} {invoiceData.currency}
-              {invoiceData.currency === 'USD' && exchangeRate && ` / ₹${(total * exchangeRate).toFixed(2)}`}
-            </span>
+            <span style={{ fontWeight: 'bold' }}>${invoiceData.totalUSD.toFixed(2)} / ₹{invoiceData.totalINR.toFixed(2)}</span>
           </div>
         </div>
       </div>
@@ -373,21 +400,49 @@ export const ModernTemplate = ({ invoiceData, formatDate, defaultLogo, exchangeR
           Beneficiary Account Details
         </h3>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', fontSize: '14px', paddingLeft: '15px' }}>
-          <div style={{ padding: '10px 15px', background: '#f7faff', borderRadius: '8px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
+          <div style={{ 
+            padding: '10px 15px', 
+            background: '#f7faff', 
+            borderRadius: '8px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '5px'
+          }}>
             <p style={{ margin: 0, fontSize: '13px', color: '#888' }}>Account Name</p>
-            <p style={{ margin: 0, fontWeight: '600', color: '#333' }}>{company.account_name || extractAccountName(invoiceData.notes) || 'N/A'}</p>
+            <p style={{ margin: 0, fontWeight: '600', color: '#333' }}>{invoiceData.accountName || extractAccountName(invoiceData.notes) || 'N/A'}</p>
           </div>
-          <div style={{ padding: '10px 15px', background: '#f7faff', borderRadius: '8px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
+          <div style={{ 
+            padding: '10px 15px', 
+            background: '#f7faff', 
+            borderRadius: '8px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '5px'
+          }}>
             <p style={{ margin: 0, fontSize: '13px', color: '#888' }}>Bank Name</p>
-            <p style={{ margin: 0, fontWeight: '600', color: '#333' }}>{company.bank_name || extractBankName(invoiceData.notes) || 'N/A'}</p>
+            <p style={{ margin: 0, fontWeight: '600', color: '#333' }}>{invoiceData.bankName || extractBankName(invoiceData.notes) || 'N/A'}</p>
           </div>
-          <div style={{ padding: '10px 15px', background: '#f7faff', borderRadius: '8px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
+          <div style={{ 
+            padding: '10px 15px', 
+            background: '#f7faff', 
+            borderRadius: '8px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '5px'
+          }}>
             <p style={{ margin: 0, fontSize: '13px', color: '#888' }}>Account Number</p>
-            <p style={{ margin: 0, fontWeight: '600', color: '#333' }}>{company.account_number || extractAccountNumber(invoiceData.notes) || 'N/A'}</p>
+            <p style={{ margin: 0, fontWeight: '600', color: '#333' }}>{invoiceData.accountNumber || extractAccountNumber(invoiceData.notes) || 'N/A'}</p>
           </div>
-          <div style={{ padding: '10px 15px', background: '#f7faff', borderRadius: '8px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
+          <div style={{ 
+            padding: '10px 15px', 
+            background: '#f7faff', 
+            borderRadius: '8px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '5px'
+          }}>
             <p style={{ margin: 0, fontSize: '13px', color: '#888' }}>IFSC Code</p>
-            <p style={{ margin: 0, fontWeight: '600', color: '#333' }}>{company.ifsc_code || extractIFSCCode(invoiceData.notes) || 'N/A'}</p>
+            <p style={{ margin: 0, fontWeight: '600', color: '#333' }}>{invoiceData.ifscCode || extractIFSCCode(invoiceData.notes) || 'N/A'}</p>
           </div>
         </div>
       </div>
@@ -403,23 +458,14 @@ export const ModernTemplate = ({ invoiceData, formatDate, defaultLogo, exchangeR
         <div style={{ fontSize: '18px', fontWeight: '600', color: '#0052D4', marginBottom: '10px' }}>
           Thank you for your business!
         </div>
-        <p style={{ margin: 0, fontSize: '13px', color: '#888' }}>Invoice generated on {invoiceData.issue_date ? formatDate(invoiceData.issue_date) : 'N/A'}</p>
+        <p style={{ margin: 0, fontSize: '13px', color: '#888' }}>Invoice generated on {formatDate(invoiceData.invoiceDate)}</p>
       </div>
     </div>
   );
 };
 
 // Professional Template - elegant design with light colors and modern layout
-export const ProfessionalTemplate = ({ invoiceData, formatDate, defaultLogo, exchangeRate }) => {
-  const items = invoiceData.items || [];
-  const company = invoiceData.company || {};
-  const client = invoiceData.client || {};
-
-  const subtotal = parseFloat(invoiceData.subtotal) || 0;
-  const total = parseFloat(invoiceData.total) || 0;
-  const taxAmount = total - subtotal;
-  const taxRateToDisplay = subtotal > 0 ? (taxAmount / subtotal * 100) : 0;
-
+export const ProfessionalTemplate = ({ invoiceData, normalizedItems, formatDate, defaultLogo, exchangeRate }) => {
   return (
     <div className="professional-template" style={{ fontFamily: "'Playfair Display', serif", color: '#444', background: '#fafafa' }}>
       {/* Header with elegant gold and cream colors */}
@@ -433,15 +479,15 @@ export const ProfessionalTemplate = ({ invoiceData, formatDate, defaultLogo, exc
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div style={{ display: 'flex', alignItems: 'center', maxWidth: '60%' }}>
             <img 
-              src={invoiceData.logo_url || company.logo_url || defaultLogo} 
+              src={invoiceData.logoUrl || defaultLogo} 
               alt="Company Logo"
               style={{ width: '80px', height: 'auto', marginRight: '25px', padding: '5px', border: '1px solid #d4b483', borderRadius: '4px' }}
             />
             <div>
               <h1 style={{ fontSize: '28px', margin: '0', color: '#54352d', fontWeight: '700' }}>
-                {company.name || 'Your Company'}
+                {invoiceData.senderName || 'Your Company'}
               </h1>
-              <p style={{ margin: '8px 0 0 0', color: '#777', fontSize: '15px', maxWidth: '300px' }}>{company.address || 'Company Address'}</p>
+              <p style={{ margin: '8px 0 0 0', color: '#777', fontSize: '15px', maxWidth: '300px' }}>{invoiceData.senderAddress || 'Company Address'}</p>
             </div>
           </div>
           
@@ -472,8 +518,8 @@ export const ProfessionalTemplate = ({ invoiceData, formatDate, defaultLogo, exc
                 background: 'linear-gradient(90deg, #d4b483, #e3d3b3)'
               }}></div>
             </div>
-            <p style={{ margin: '15px 0 0 0', fontSize: '15px', color: '#777' }}>Invoice #: <span style={{ fontWeight: '600', color: '#54352d' }}>{invoiceData.invoice_number}</span></p>
-            <p style={{ margin: '5px 0 0 0', fontSize: '15px', color: '#777' }}>Date: <span style={{ fontWeight: '600', color: '#54352d' }}>{invoiceData.issue_date ? formatDate(invoiceData.issue_date) : 'N/A'}</span></p>
+            <p style={{ margin: '15px 0 0 0', fontSize: '15px', color: '#777' }}>Invoice #: <span style={{ fontWeight: '600', color: '#54352d' }}>{invoiceData.invoiceNumber}</span></p>
+            <p style={{ margin: '5px 0 0 0', fontSize: '15px', color: '#777' }}>Date: <span style={{ fontWeight: '600', color: '#54352d' }}>{formatDate(invoiceData.invoiceDate)}</span></p>
           </div>
         </div>
         
@@ -523,25 +569,25 @@ export const ProfessionalTemplate = ({ invoiceData, formatDate, defaultLogo, exc
               }}></span>
             </h3>
             <div style={{ background: '#fff', padding: '20px', borderLeft: '3px solid #d4b483', boxShadow: '0 3px 10px rgba(0,0,0,0.03)' }}>
-              <p style={{ margin: '0 0 10px 0', fontWeight: '700', fontSize: '17px', color: '#54352d' }}>{client.name || 'Client Name'}</p>
-              <p style={{ margin: '0 0 15px 0', fontSize: '15px', color: '#666', lineHeight: '1.4' }}>{client.address || 'Client Address'}</p>
+              <p style={{ margin: '0 0 10px 0', fontWeight: '700', fontSize: '17px', color: '#54352d' }}>{invoiceData.recipientName || 'Client Name'}</p>
+              <p style={{ margin: '0 0 15px 0', fontSize: '15px', color: '#666', lineHeight: '1.4' }}>{invoiceData.recipientAddress || 'Client Address'}</p>
               
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', fontSize: '14px' }}>
                 <div>
                   <p style={{ margin: '0', color: '#888' }}>Phone</p>
-                  <p style={{ margin: '3px 0 8px 0', color: '#444', fontWeight: '500' }}>{client.phone || 'N/A'}</p>
+                  <p style={{ margin: '3px 0 8px 0', color: '#444', fontWeight: '500' }}>{invoiceData.recipientPhone || 'N/A'}</p>
                 </div>
                 <div>
                   <p style={{ margin: '0', color: '#888' }}>Email</p>
-                  <p style={{ margin: '3px 0 8px 0', color: '#444', fontWeight: '500' }}>{client.email || 'N/A'}</p>
+                  <p style={{ margin: '3px 0 8px 0', color: '#444', fontWeight: '500' }}>{invoiceData.recipientEmail || 'N/A'}</p>
                 </div>
                 <div>
                   <p style={{ margin: '0', color: '#888' }}>GSTIN</p>
-                  <p style={{ margin: '3px 0 8px 0', color: '#444', fontWeight: '500' }}>{client.gstin || 'N/A'}</p>
+                  <p style={{ margin: '3px 0 8px 0', color: '#444', fontWeight: '500' }}>{invoiceData.recipientGSTIN || 'N/A'}</p>
                 </div>
                 <div>
                   <p style={{ margin: '0', color: '#888' }}>PAN</p>
-                  <p style={{ margin: '3px 0 8px 0', color: '#444', fontWeight: '500' }}>{client.pan || 'N/A'}</p>
+                  <p style={{ margin: '3px 0 8px 0', color: '#444', fontWeight: '500' }}>{invoiceData.recipientPAN || 'N/A'}</p>
                 </div>
               </div>
             </div>
@@ -575,11 +621,11 @@ export const ProfessionalTemplate = ({ invoiceData, formatDate, defaultLogo, exc
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', padding: '8px 0', borderBottom: '1px dashed #eee' }}>
                 <span style={{ fontSize: '15px', color: '#666' }}>GST Rate:</span>
-                <span style={{ fontSize: '16px', color: '#54352d', fontWeight: '600' }}>{taxRateToDisplay.toFixed(2)}%</span>
+                <span style={{ fontSize: '16px', color: '#54352d', fontWeight: '600' }}>{invoiceData.taxRate || 5}%</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0' }}>
                 <span style={{ fontSize: '15px', color: '#666' }}>Invoice Date:</span>
-                <span style={{ fontSize: '16px', color: '#54352d', fontWeight: '600' }}>{invoiceData.issue_date ? formatDate(invoiceData.issue_date) : 'N/A'}</span>
+                <span style={{ fontSize: '16px', color: '#54352d', fontWeight: '600' }}>{formatDate(invoiceData.invoiceDate)}</span>
               </div>
 
               <div style={{ 
@@ -648,7 +694,7 @@ export const ProfessionalTemplate = ({ invoiceData, formatDate, defaultLogo, exc
                 </tr>
               </thead>
               <tbody>
-                {items.map((item, index) => (
+                {normalizedItems.map((item, index) => (
                   <React.Fragment key={index}>
                     {item.type === 'main' ? (
                       <>
@@ -762,19 +808,19 @@ export const ProfessionalTemplate = ({ invoiceData, formatDate, defaultLogo, exc
           }}>
             <div>
               <p style={{ margin: '0 0 5px 0', color: '#999', fontSize: '13px' }}>Account Name</p>
-              <p style={{ margin: '0', fontWeight: '600', fontSize: '15px', color: '#444' }}>{company.account_name || extractAccountName(invoiceData.notes) || 'N/A'}</p>
+              <p style={{ margin: '0', fontWeight: '600', fontSize: '15px', color: '#444' }}>{invoiceData.accountName || extractAccountName(invoiceData.notes) || 'N/A'}</p>
             </div>
             <div>
               <p style={{ margin: '0 0 5px 0', color: '#999', fontSize: '13px' }}>Bank Name</p>
-              <p style={{ margin: '0', fontWeight: '600', fontSize: '15px', color: '#444' }}>{company.bank_name || extractBankName(invoiceData.notes) || 'N/A'}</p>
+              <p style={{ margin: '0', fontWeight: '600', fontSize: '15px', color: '#444' }}>{invoiceData.bankName || extractBankName(invoiceData.notes) || 'N/A'}</p>
             </div>
             <div>
               <p style={{ margin: '0 0 5px 0', color: '#999', fontSize: '13px' }}>Account Number</p>
-              <p style={{ margin: '0', fontWeight: '600', fontSize: '15px', color: '#444' }}>{company.account_number || extractAccountNumber(invoiceData.notes) || 'N/A'}</p>
+              <p style={{ margin: '0', fontWeight: '600', fontSize: '15px', color: '#444' }}>{invoiceData.accountNumber || extractAccountNumber(invoiceData.notes) || 'N/A'}</p>
             </div>
             <div>
               <p style={{ margin: '0 0 5px 0', color: '#999', fontSize: '13px' }}>IFSC Code</p>
-              <p style={{ margin: '0', fontWeight: '600', fontSize: '15px', color: '#444' }}>{company.ifsc_code || extractIFSCCode(invoiceData.notes) || 'N/A'}</p>
+              <p style={{ margin: '0', fontWeight: '600', fontSize: '15px', color: '#444' }}>{invoiceData.ifscCode || extractIFSCCode(invoiceData.notes) || 'N/A'}</p>
             </div>
             
             <div style={{ 

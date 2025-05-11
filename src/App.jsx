@@ -1,158 +1,327 @@
-import React, { useState, useEffect } from 'react'; // Removed useCallback and useNavigate as they are not directly used here
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { DndProvider } from 'react-dnd';
-import { HTML5Backend } from 'react-dnd-html5-backend';
-import { ErrorProvider } from './context/ErrorContext';
-import { NotificationProvider } from './context/NotificationContext';
-import { UserNotificationsProvider } from './context/UserNotificationsContext';
-import { UserRoleProvider } from './context/UserRoleContext'; // Consider if this is still needed or if role comes from useAuth().profile
-import useAuth from './hooks/useAuth';
+import { useState, useEffect } from 'react'
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
+import './App.css'
+import LoginPage from './pages/LoginPage'
+import InvoicePage from './pages/InvoicePage'
+import DashboardPage from './pages/DashboardPage'
+import ProfilePage from './pages/ProfilePage'
+import NotFoundPage from './pages/NotFoundPage'
+import DiagnosticPage from './pages/DiagnosticPage'
+import DebugPage from './pages/DebugPage'
+import DemoPage from './pages/DemoPage'
+import CompanyPage from './pages/CompanyPage'
+import ClientPage from './pages/ClientPage'
+import BinPage from './pages/BinPage'
+import DescriptionPage from './pages/DescriptionPage'
+import NotificationDisplay from './components/ErrorDisplay'
+import Modal from './components/Modal'
+import { useNotification } from './context/ErrorContext'
+import MessageInbox from './pages/MessageInbox'
 
-import LoginPage from './pages/LoginPage';
-import DashboardPage from './pages/DashboardPage';
-import ProfilePage from './pages/ProfilePage';
-import ClientPage from './pages/ClientPage';
-import CompanyPage from './pages/CompanyPage';
-import InvoicePage from './pages/InvoicePage';
-import BinPage from './pages/BinPage';
-import DescriptionPage from './pages/DescriptionPage';
-import DemoPage from './pages/DemoPage';
-import NotFoundPage from './pages/NotFoundPage';
-import DebugPage from './pages/DebugPage';
-import DiagnosticPage from './pages/DiagnosticPage';
-import MessageInbox from './pages/MessageInbox';
-import UpdatePasswordPage from './pages/UpdatePasswordPage'; // Import the new page
-
-import './App.css';
-
-// Route component to handle authentication checks
-const ProtectedRoute = ({ children }) => {
-  const { user, loading } = useAuth();
-
-  if (loading) {
-    return <div>Loading...</div>; // Or a more sophisticated loading spinner
-  }
-
-  if (!user) {
-    return <Navigate to="/login" replace />;
-  }
-
-  return children;
-};
+// Session timeout in milliseconds (30 minutes)
+const SESSION_TIMEOUT = 30 * 60 * 1000;
 
 function App() {
-  const { user, profile, loading: authLoading } = useAuth(); // Added profile from useAuth
-  const [darkMode, setDarkMode] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [darkMode, setDarkMode] = useState(false)
+  const [sessionTimer, setSessionTimer] = useState(null)
+  const [showLogoutModal, setShowLogoutModal] = useState(false)
+  const { notification, setNotification, clearNotification } = useNotification()
+  const navigate = useNavigate()
+  const location = useLocation()
 
+  // Check authentication and dark mode on initial load
   useEffect(() => {
-    // Potential: Set dark mode based on user profile preferences if stored
-    // if (profile && typeof profile.darkModePreference !== 'undefined') {
-    //   setDarkMode(profile.darkModePreference);
-    // } else {
-    //   // Fallback to OS preference or default
-    //   const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-    //   setDarkMode(prefersDark);
-    // }
-  }, [profile]); // Re-run if profile changes
+    const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true'
+    setIsAuthenticated(isLoggedIn)
+    
+    // Check dark mode preference, default to true if not set
+    const darkModeInStorage = localStorage.getItem('darkMode')
+    const savedDarkMode = darkModeInStorage === null ? true : darkModeInStorage === 'true'
+    setDarkMode(savedDarkMode)
+    if (savedDarkMode) {
+      document.body.classList.add('dark-mode')
+    }
 
+    // Update all users with position "client" to "Invoicing Associate"
+    updateUserPositions();
+
+    // Setup global error handler
+    window.addEventListener('error', handleGlobalError)
+    return () => {
+      window.removeEventListener('error', handleGlobalError)
+    }
+  }, [])
+
+  // Function to update user positions from "client" to "Invoicing Associate"
+  const updateUserPositions = () => {
+    // Get all users from localStorage
+    const users = JSON.parse(localStorage.getItem('users')) || [];
+    let updated = false;
+
+    // Update any user with position "client" to "Invoicing Associate" (if they're not admin)
+    const updatedUsers = users.map(user => {
+      if (user.position && user.position.toLowerCase() === 'client' && user.role !== 'admin') {
+        updated = true;
+        return {
+          ...user,
+          position: 'Invoicing Associate'
+        };
+      }
+      return user;
+    });
+
+    // Save back to localStorage if any user was updated
+    if (updated) {
+      localStorage.setItem('users', JSON.stringify(updatedUsers));
+      console.log('Updated users with position "client" to "Invoicing Associate"');
+    }
+
+    // Also update current user if needed
+    const currentUserId = localStorage.getItem('userId');
+    const currentUserPosition = localStorage.getItem('userPosition');
+    const currentUserRole = localStorage.getItem('userRole');
+    
+    if (currentUserId && 
+        currentUserPosition && 
+        currentUserPosition.toLowerCase() === 'client' &&
+        currentUserRole !== 'admin') {
+      localStorage.setItem('userPosition', 'Invoicing Associate');
+    }
+  };
+
+  // Handle global errors
+  const handleGlobalError = (event) => {
+    console.error('Global error:', event.error)
+    const errorMessage = event.error ? event.error.message : 'Unknown error'
+    setNotification(`Error: ${errorMessage}`, 'error')
+  }
+
+  // Update body class when dark mode changes
   useEffect(() => {
     if (darkMode) {
-      document.body.classList.add('dark-mode');
+      document.body.classList.add('dark-mode')
     } else {
-      document.body.classList.remove('dark-mode');
+      document.body.classList.remove('dark-mode')
     }
-  }, [darkMode]);
+    localStorage.setItem('darkMode', darkMode)
+  }, [darkMode])
 
-  const toggleDarkMode = () => setDarkMode(!darkMode);
+  // Setup session timeout
+  useEffect(() => {
+    if (isAuthenticated) {
+      // Clear any existing timer
+      if (sessionTimer) clearTimeout(sessionTimer)
+      
+      // Start new timer
+      const timer = setTimeout(() => {
+        // Get last active time from local storage
+        const lastActivity = localStorage.getItem('lastActivity')
+        const now = new Date().getTime()
+        
+        // If it's been too long since the last activity, log the user out
+        if (lastActivity && now - parseInt(lastActivity) > SESSION_TIMEOUT) {
+          handleLogout()
+          setNotification('Your session has expired. Please log in again.', 'warning')
+        }
+      }, SESSION_TIMEOUT)
+      
+      setSessionTimer(timer)
+      
+      // Update last activity time
+      localStorage.setItem('lastActivity', new Date().getTime().toString())
+    }
+    
+    return () => {
+      if (sessionTimer) clearTimeout(sessionTimer)
+    }
+  }, [isAuthenticated, location])
 
-  if (authLoading) {
-    return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', fontSize: '1.2rem' }}>Loading application...</div>;
+  // Redirect based on authentication status
+  useEffect(() => {
+    // Only redirect for main app routes that require authentication
+    if (isAuthenticated && location.pathname === '/login') {
+      navigate('/dashboard')
+    } else if (isAuthenticated && location.pathname === '/') {
+      navigate('/dashboard')
+    } else if (!isAuthenticated && 
+              location.pathname !== '/login' && 
+              location.pathname !== '/demo' && 
+              location.pathname !== '/debug' && 
+              location.pathname !== '/diagnostic') {
+      navigate('/login')
+    }
+  }, [isAuthenticated, location.pathname, navigate])
+
+  const handleLogin = (email, userId, userName, phone, position, role) => {
+    // Store role in localStorage
+    localStorage.setItem('userRole', role || 'user');
+    
+    // Set default position based on role
+    let finalPosition = position;
+    
+    // If position is not provided, set default based on role
+    if (!finalPosition || finalPosition === '') {
+      if (role === 'admin') {
+        finalPosition = 'Admin';
+      } else {
+        finalPosition = 'Invoicing Associate';
+      }
+    }
+    
+    localStorage.setItem('isLoggedIn', 'true')
+    localStorage.setItem('userEmail', email)
+    localStorage.setItem('userId', userId || 'demo_user')
+    localStorage.setItem('userName', userName || email.split('@')[0])
+    localStorage.setItem('userPhone', phone || '')
+    localStorage.setItem('userPosition', finalPosition)
+    localStorage.setItem('lastLogin', new Date().toString())
+    localStorage.setItem('lastActivity', new Date().getTime().toString())
+    setIsAuthenticated(true)
+    navigate('/')
+  }
+
+  const handleLogout = () => {
+    setShowLogoutModal(true);
+  };
+
+  const confirmLogout = () => {
+    localStorage.removeItem('isLoggedIn');
+    localStorage.removeItem('userEmail');
+    setIsAuthenticated(false);
+    setShowLogoutModal(false);
+    navigate('/login');
+  };
+
+  const toggleDarkMode = () => {
+    setDarkMode(prevMode => !prevMode)
   }
 
   return (
-    <DndProvider backend={HTML5Backend}>
-      <ErrorProvider>
-        <NotificationProvider>
-          {/* Pass Supabase user ID. If user is null, userId will be undefined, which is fine. */}
-          <UserNotificationsProvider userId={user?.id}> 
-            {/* UserRoleProvider might need to be adapted or use profile from useAuth directly */}
-            {/* If roles are in profile, UserRoleContext might consume useAuth().profile */}
-            <UserRoleProvider>
-              <Router>
-                <div className={`app-container ${darkMode ? 'dark-mode' : ''}`}>
-                  {/* 
-                    Consider a global Navbar component here that could receive 
-                    user, profile, logout, darkMode, toggleDarkMode 
-                  */}
-                  {/* Example: 
-                  {user && <Navbar user={user} profile={profile} logout={logout} darkMode={darkMode} toggleDarkMode={toggleDarkMode} />} 
-                  */}
-                  
-                  <Routes>
-                    <Route 
-                      path="/login" 
-                      element={!user ? <LoginPage darkMode={darkMode} toggleDarkMode={toggleDarkMode} /> : <Navigate to="/dashboard" replace />}
-                    />
-                    <Route path="/update-password" element={<UpdatePasswordPage />} /> {/* Add route for password update */}
-                    
-                    {/* Publicly accessible informative pages */}
-                    <Route path="/description" element={<DescriptionPage />} />
-                    <Route path="/demo" element={<DemoPage />} />
+    <div className="App">
+      {notification && (
+        <NotificationDisplay 
+          notification={notification} 
+          onClose={() => clearNotification()} 
+          duration={5000} 
+        />
+      )}
+      
+      <Modal 
+        isOpen={showLogoutModal} 
+        onClose={() => setShowLogoutModal(false)} 
+        title="Confirm Logout"
+        actions={
+          <>
+            <button className="btn btn-secondary" onClick={() => setShowLogoutModal(false)}>
+              Cancel
+            </button>
+            <button className="btn" onClick={confirmLogout}>
+              Logout
+            </button>
+          </>
+        }
+      >
+        <p>Are you sure you want to sign out? Any unsaved changes will be lost.</p>
+      </Modal>
+      
+      <Routes>
+        <Route path="/login" element={
+          isAuthenticated ? 
+            <Navigate to="/dashboard" replace /> : 
+            <LoginPage onLogin={handleLogin} darkMode={darkMode} toggleDarkMode={toggleDarkMode} />
+        } />
+        
+        <Route path="/dashboard" element={
+          isAuthenticated ? 
+            <DashboardPage 
+              onLogout={handleLogout} 
+              darkMode={darkMode} 
+              toggleDarkMode={toggleDarkMode}
+            /> : 
+            <Navigate to="/login" replace />
+        } />
+        
+        <Route path="/invoice/:id" element={
+          isAuthenticated ? 
+            <InvoicePage 
+              onLogout={handleLogout} 
+              darkMode={darkMode} 
+              toggleDarkMode={toggleDarkMode}
+            /> : 
+            <Navigate to="/login" replace />
+        } />
+        
+        <Route path="/invoice/new" element={
+          isAuthenticated ? 
+            <InvoicePage 
+              onLogout={handleLogout} 
+              darkMode={darkMode} 
+              toggleDarkMode={toggleDarkMode}
+            /> : 
+            <Navigate to="/login" replace />
+        } />
+        
+        <Route path="/profile" element={
+          isAuthenticated ? 
+            <ProfilePage /> : 
+            <Navigate to="/login" replace />
+        } />
+        
+        <Route path="/company" element={
+          isAuthenticated ? 
+            <CompanyPage 
+              darkMode={darkMode} 
+              toggleDarkMode={toggleDarkMode}
+            /> : 
+            <Navigate to="/login" replace />
+        } />
+        
+        <Route path="/bin" element={
+          isAuthenticated ? 
+            <BinPage 
+              onLogout={handleLogout} 
+              darkMode={darkMode} 
+              toggleDarkMode={toggleDarkMode}
+            /> : 
+            <Navigate to="/login" replace />
+        } />
 
-                    {/* Protected Routes using the ProtectedRoute component */}
-                    <Route 
-                      path="/dashboard" 
-                      element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} 
-                    />
-                    <Route 
-                      path="/profile" 
-                      element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} 
-                    />
-                    <Route 
-                      path="/clients" 
-                      element={<ProtectedRoute><ClientPage /></ProtectedRoute>} 
-                    />
-                    <Route 
-                      path="/company" 
-                      element={<ProtectedRoute><CompanyPage /></ProtectedRoute>} 
-                    />
-                    <Route 
-                      path="/invoices" 
-                      element={<ProtectedRoute><InvoicePage /></ProtectedRoute>} 
-                    />
-                    <Route 
-                      path="/bin" 
-                      element={<ProtectedRoute><BinPage /></ProtectedRoute>} 
-                    />
-                    <Route 
-                      path="/debug" 
-                      element={<ProtectedRoute><DebugPage /></ProtectedRoute>} 
-                    />
-                     <Route 
-                      path="/diagnostic" 
-                      element={<ProtectedRoute><DiagnosticPage /></ProtectedRoute>} 
-                    />
-                     <Route 
-                      path="/messages" 
-                      element={<ProtectedRoute><MessageInbox /></ProtectedRoute>} 
-                    />
-                    
-                    {/* Fallback: if logged in, go to dashboard, else to login */}
-                    <Route 
-                      path="/" 
-                      element={user ? <Navigate to="/dashboard" replace /> : <Navigate to="/login" replace />}
-                    />
-                    {/* Catch-all for unmatched routes */}
-                    <Route path="*" element={<NotFoundPage />} />
-                  </Routes>
-                </div>
-              </Router>
-            </UserRoleProvider>
-          </UserNotificationsProvider>
-        </NotificationProvider>
-      </ErrorProvider>
-    </DndProvider>
-  );
+        <Route path="/client" element={
+          isAuthenticated ? 
+            <ClientPage 
+              onLogout={handleLogout} 
+              darkMode={darkMode} 
+              toggleDarkMode={toggleDarkMode}
+            /> : 
+            <Navigate to="/login" replace />
+        } />
+
+        <Route path="/description" element={
+          isAuthenticated ? 
+            <DescriptionPage 
+              onLogout={handleLogout} 
+              darkMode={darkMode} 
+              toggleDarkMode={toggleDarkMode}
+            /> : 
+            <Navigate to="/login" replace />
+        } />
+
+        <Route path="/inbox" element={
+          isAuthenticated ? 
+            <MessageInbox /> : 
+            <Navigate to="/login" replace />
+        } />
+
+        {/* Debug and diagnostic routes - no auth required */}
+        <Route path="/debug" element={<DebugPage />} />
+        <Route path="/diagnostic" element={<DiagnosticPage />} />
+        <Route path="/demo" element={<DemoPage />} />
+        
+        <Route path="*" element={<NotFoundPage />} />
+      </Routes>
+    </div>
+  )
 }
 
-export default App;
+export default App

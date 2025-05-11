@@ -1,187 +1,320 @@
-import React, { useState, useEffect, useContext } from 'react';
-import { supabase } from '../services/supabaseClient'; // Direct Supabase client for potential specific needs
-import { getClients, addClient, updateClient, deleteClient } from '../services/database'; // Specific client functions
-import useAuth from '../hooks/useAuth';
-import { NotificationContext } from '../context/NotificationContext';
-import './ClientPage.css'; // Ensure styles are appropriate
+// ClientPage.jsx - Dedicated page for client management
+import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { FiArrowLeft, FiSave, FiUpload, FiTrash2, FiPlus, FiSun, FiMoon } from 'react-icons/fi';
+import './ClientPage.css';
 
-// Modal component (basic example, replace with your actual Modal component if different)
-const Modal = ({ isOpen, onClose, children }) => {
-  if (!isOpen) return null;
-  return (
-    <div className="modal-overlay">
-      <div className="modal-content">
-        {children}
-        <button onClick={onClose} className="modal-close-button">Close</button>
-      </div>
-    </div>
-  );
-};
-
-const ClientPage = () => {
-  const { user } = useAuth();
-  const { addNotification } = useContext(NotificationContext);
-  const [clients, setClients] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [currentClient, setCurrentClient] = useState(null); // For editing
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    address: '',
-    // user_id will be set automatically if your RLS/database policies require it based on auth
+const ClientPage = ({ darkMode, toggleDarkMode }) => {
+  // Add a ref to track if we're dispatching our own events
+  const isSelfDispatch = React.useRef(false);
+  
+  // Get clients from localStorage or use sample data
+  const [clients, setClients] = useState(() => {
+    const savedClients = localStorage.getItem('userClients');
+    if (savedClients) {
+      return JSON.parse(savedClients);
+    }
+    // Default sample clients if none exist - REMOVED
+    return []; // Initialize with an empty array
   });
 
-  const fetchClients = async () => {
-    if (!user) return;
-    setIsLoading(true);
-    try {
-      const data = await getClients(user.id); // Pass user.id if clients are user-specific
-      setClients(data);
-    } catch (error) {
-      addNotification('Failed to fetch clients: ' + error.message, 'error');
-    } finally {
-      setIsLoading(false);
+  const [activeClientId, setActiveClientId] = useState(null);
+  const [newClient, setNewClient] = useState({
+    name: '',
+    address: '',
+    phone: '',
+    email: '',
+    website: '',
+    gstin: '',
+    pan: ''
+  });
+  const [isAddingClient, setIsAddingClient] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  
+  const handleClientChange = (e) => {
+    const { name, value } = e.target;
+    setNewClient({
+      ...newClient,
+      [name]: value
+    });
+  };
+  
+  const handleEditClient = (id) => {
+    setActiveClientId(id);
+    const clientToEdit = clients.find(client => client.id === id);
+    setNewClient(clientToEdit);
+    setIsAddingClient(true);
+  };
+  
+  const handleDeleteClient = (id) => {
+    if (window.confirm('Are you sure you want to delete this client?')) {
+      // Update the clients list
+      const updatedClients = clients.filter(client => client.id !== id);
+      setClients(updatedClients);
+      localStorage.setItem('userClients', JSON.stringify(updatedClients));
+      
+      // Dispatch event to notify other components about the client changes
+      window.dispatchEvent(new Event('clientsUpdated'));
     }
+  };
+  
+  const handleAddClient = () => {
+    setIsAddingClient(true);
+    setActiveClientId(null);
+    setNewClient({
+      name: '',
+      address: '',
+      phone: '',
+      email: '',
+      website: '',
+      gstin: '',
+      pan: ''
+    });
+  };
+  
+  const handleSaveClient = () => {
+    if (!newClient.name) {
+      alert('Client name is required');
+      return;
+    }
+    
+    let updatedClients;
+    const isEditing = activeClientId !== null;
+    
+    if (isEditing) {
+      // Edit existing client
+      updatedClients = clients.map(client => 
+        client.id === activeClientId ? { ...newClient, id: activeClientId } : client
+      );
+    } else {
+      // Add new client
+      const newId = Math.max(0, ...clients.map(c => c.id)) + 1;
+      updatedClients = [...clients, { ...newClient, id: newId }];
+    }
+    
+    setClients(updatedClients);
+    localStorage.setItem('userClients', JSON.stringify(updatedClients));
+    
+    // Set the flag to indicate we're dispatching our own event
+    isSelfDispatch.current = true;
+    
+    // Dispatch a custom event with updated client data
+    const updatedClient = isEditing 
+      ? { ...newClient, id: activeClientId } 
+      : { ...newClient, id: Math.max(0, ...clients.map(c => c.id)) + 1 };
+    
+    window.dispatchEvent(new CustomEvent('clientUpdated', {
+      detail: { client: updatedClient, action: isEditing ? 'edit' : 'add' }
+    }));
+    
+    // Reset the flag after a short delay to ensure the event handler has time to check it
+    setTimeout(() => {
+      isSelfDispatch.current = false;
+    }, 100);
+    
+    setIsAddingClient(false);
+    
+    // Show success message
+    setSaveSuccess(true);
+    setTimeout(() => {
+      setSaveSuccess(false);
+    }, 3000);
+  };
+  
+  const handleCancelClientEdit = () => {
+    setIsAddingClient(false);
   };
 
   useEffect(() => {
-    if (user) {
-      fetchClients();
-    }
-  }, [user]); // Refetch if user changes
-
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
-
-  const resetFormData = () => {
-    setFormData({ name: '', email: '', phone: '', address: '' });
-    setCurrentClient(null);
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!user) {
-      addNotification('You must be logged in to manage clients.', 'error');
-      return;
-    }
-    setIsLoading(true);
-    try {
-      const clientData = { ...formData };
-      // If your Supabase table for clients has a user_id column and RLS policies
-      // that require it, ensure your 'addClient' and 'updateClient' functions
-      // or Supabase policies handle associating the client with the user.id.
-      // For example, you might pass user.id to addClient:
-      // await addClient({ ...clientData, user_id: user.id });
-      // Or, rely on RLS policies and database defaults: `auth.uid()`
-
-      if (currentClient) { // Editing existing client
-        await updateClient(currentClient.id, clientData);
-        addNotification('Client updated successfully!', 'success');
-      } else { // Adding new client
-        // Pass user.id if your addClient function or Supabase policies expect it for associating the client with the user
-        await addClient(clientData, user.id); 
-        addNotification('Client added successfully!', 'success');
-      }
-      fetchClients(); // Refresh list
-      setIsModalOpen(false);
-      resetFormData();
-    } catch (error) {
-      addNotification('Error saving client: ' + error.message, 'error');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleEdit = (client) => {
-    setCurrentClient(client);
-    setFormData({
-      name: client.name || '',
-      email: client.email || '',
-      phone: client.phone || '',
-      address: client.address || '',
-    });
-    setIsModalOpen(true);
-  };
-
-  const handleDelete = async (clientId) => {
-    if (!window.confirm('Are you sure you want to delete this client?')) return;
-    setIsLoading(true);
-    try {
-      await deleteClient(clientId);
-      addNotification('Client deleted successfully!', 'success');
-      fetchClients(); // Refresh list
-    } catch (error) {
-      addNotification('Error deleting client: ' + error.message, 'error');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const openAddModal = () => {
-    resetFormData();
-    setIsModalOpen(true);
-  };
-
-  if (isLoading && clients.length === 0) { // Show loading only on initial load
-    return <div className="loading-indicator">Loading clients...</div>;
-  }
-
-  return (
-    <div className="client-page-container">
-      <h2>Manage Clients</h2>
-      <button onClick={openAddModal} className="add-client-button" disabled={isLoading}>
-        Add New Client
-      </button>
-
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)}>
-        <h3>{currentClient ? 'Edit Client' : 'Add New Client'}</h3>
-        <form onSubmit={handleSubmit} className="client-form">
-          <div className="form-group">
-            <label htmlFor="name">Name:</label>
-            <input type="text" id="name" name="name" value={formData.name} onChange={handleInputChange} required />
-          </div>
-          <div className="form-group">
-            <label htmlFor="email">Email:</label>
-            <input type="email" id="email" name="email" value={formData.email} onChange={handleInputChange} />
-          </div>
-          <div className="form-group">
-            <label htmlFor="phone">Phone:</label>
-            <input type="tel" id="phone" name="phone" value={formData.phone} onChange={handleInputChange} />
-          </div>
-          <div className="form-group">
-            <label htmlFor="address">Address:</label>
-            <textarea id="address" name="address" value={formData.address} onChange={handleInputChange}></textarea>
-          </div>
-          <button type="submit" className="submit-button" disabled={isLoading}>
-            {isLoading ? 'Saving...' : (currentClient ? 'Update Client' : 'Add Client')}
-          </button>
-        </form>
-      </Modal>
-
-      {isLoading && clients.length > 0 && <p>Updating client list...</p>} {/* Show this if loading but clients are already there */}
+    // Listen for client updates from other components/tabs
+    const handleClientUpdated = (event) => {
+      // Make sure we're only responding to clientUpdated events
+      if (event.type !== 'clientUpdated') return;
       
-      {!isLoading && clients.length === 0 && (
-        <p>No clients found. Add one to get started!</p>
-      )}
-
-      <div className="clients-list">
-        {clients.map(client => (
-          <div key={client.id} className="client-card">
-            <h4>{client.name}</h4>
-            <p>{client.email}</p>
-            <p>{client.phone}</p>
-            <p>{client.address}</p>
-            <div className="client-actions">
-              <button onClick={() => handleEdit(client)} disabled={isLoading}>Edit</button>
-              <button onClick={() => handleDelete(client.id)} disabled={isLoading} className="delete-button">Delete</button>
+      // Skip processing if we dispatched this event ourselves
+      if (isSelfDispatch.current) return;
+      
+      if (event.detail && event.detail.client) {
+        const { client, action } = event.detail;
+        
+        if (action === 'add') {
+          setClients(prev => [...prev, client]);
+        } else if (action === 'edit') {
+          setClients(prev => prev.map(c => c.id === client.id ? client : c));
+        }
+      }
+    };
+    
+    window.addEventListener('clientUpdated', handleClientUpdated);
+    
+    return () => {
+      window.removeEventListener('clientUpdated', handleClientUpdated);
+    };
+  }, []);
+  
+  return (
+    <div className="client-container">
+      <Link to="/dashboard" className="client-back-btn">
+        <FiArrowLeft /> Back to Dashboard
+      </Link>
+      
+      <div className="client-header">
+        <h1>Client Management</h1>
+        <p>Manage your clients for invoicing</p>
+      </div>
+      
+      <button className="btn-toggle-theme" onClick={toggleDarkMode} title="Toggle Dark Mode">
+        {darkMode ? <FiSun /> : <FiMoon />}
+      </button>
+      
+      {!isAddingClient ? (
+        <div className="clients-section">
+          <div className="section-header">
+            <h3>My Clients</h3>
+            <button className="btn-add" onClick={handleAddClient}>
+              <FiPlus /> Add Client
+            </button>
+          </div>
+          
+          <div className="clients-list">
+            {clients.map(client => (
+              <div key={client.id} className="client-card">
+                <div className="client-card-header">
+                  <div className="client-info">
+                    <h4>{client.name}</h4>
+                    {client.gstin && <p className="client-gstin">GSTIN: {client.gstin}</p>}
+                  </div>
+                </div>
+                <div className="client-details">
+                  {client.address && <p><strong>Address:</strong> {client.address}</p>}
+                  {client.phone && <p><strong>Phone:</strong> {client.phone}</p>}
+                  {client.email && <p><strong>Email:</strong> {client.email}</p>}
+                  {client.website && <p><strong>Website:</strong> {client.website}</p>}
+                  {client.pan && <p><strong>PAN:</strong> {client.pan}</p>}
+                </div>
+                <div className="client-actions">
+                  <button className="btn-icon" onClick={() => handleEditClient(client.id)} title="Edit">
+                    <FiSave />
+                  </button>
+                  <button className="btn-icon danger" onClick={() => handleDeleteClient(client.id)} title="Delete">
+                    <FiTrash2 />
+                  </button>
+                </div>
+              </div>
+            ))}
+            
+            {clients.length === 0 && (
+              <div className="no-clients">
+                <p>You haven't added any clients yet.</p>
+                <button className="btn" onClick={handleAddClient}>
+                  <FiPlus /> Add Your First Client
+                </button>
+              </div>
+            )}
+          </div>
+          
+          {saveSuccess && (
+            <div className="success-message">
+              Client information updated successfully!
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="client-form">
+          <h3>{activeClientId !== null ? 'Edit Client' : 'Add New Client'}</h3>
+          
+          <div className="form-group">
+            <label htmlFor="clientName">Client Name*</label>
+            <input
+              type="text"
+              id="clientName"
+              name="name"
+              value={newClient.name}
+              onChange={handleClientChange}
+              required
+            />
+          </div>
+          
+          <div className="form-group">
+            <label htmlFor="clientAddress">Address</label>
+            <textarea
+              id="clientAddress"
+              name="address"
+              value={newClient.address}
+              onChange={handleClientChange}
+              rows={3}
+            ></textarea>
+          </div>
+          
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="clientPhone">Phone Number</label>
+              <input
+                type="text"
+                id="clientPhone"
+                name="phone"
+                value={newClient.phone}
+                onChange={handleClientChange}
+              />
+            </div>
+            
+            <div className="form-group">
+              <label htmlFor="clientEmail">Email</label>
+              <input
+                type="email"
+                id="clientEmail"
+                name="email"
+                value={newClient.email}
+                onChange={handleClientChange}
+              />
             </div>
           </div>
-        ))}
-      </div>
+          
+          <div className="form-group">
+            <label htmlFor="clientWebsite">Website</label>
+            <input
+              type="text"
+              id="clientWebsite"
+              name="website"
+              value={newClient.website}
+              onChange={handleClientChange}
+            />
+          </div>
+          
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="clientGstin">GSTIN</label>
+              <input
+                type="text"
+                id="clientGstin"
+                name="gstin"
+                value={newClient.gstin}
+                onChange={handleClientChange}
+              />
+            </div>
+            
+            <div className="form-group">
+              <label htmlFor="clientPan">PAN</label>
+              <input
+                type="text"
+                id="clientPan"
+                name="pan"
+                value={newClient.pan}
+                onChange={handleClientChange}
+              />
+            </div>
+          </div>
+          
+          <div className="client-form-actions">
+            <button type="button" className="btn btn-secondary" onClick={handleCancelClientEdit}>
+              Cancel
+            </button>
+            <button type="button" className="btn" onClick={handleSaveClient}>
+              {activeClientId !== null ? 'Update Client' : 'Add Client'}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

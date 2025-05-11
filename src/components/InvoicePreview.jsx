@@ -14,6 +14,32 @@ const InvoicePreview = ({ invoiceData, formatDate, onClose }) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationStatus, setGenerationStatus] = useState('');
   
+  // Normalize invoice data to ensure proper structure for rendering
+  const [normalizedItems, setNormalizedItems] = useState([]);
+
+  // Normalize the invoice items to ensure consistent structure
+  useEffect(() => {
+    if (invoiceData && invoiceData.items) {
+      const normalized = invoiceData.items.map(item => {
+        // If the item doesn't have a type property, assume it's a main service
+        if (!item.type) {
+          return {
+            ...item,
+            type: 'main',
+            // Convert nestedRows to subServices if needed
+            subServices: item.subServices || item.nestedRows || []
+          };
+        }
+        // If it already has a type, just ensure subServices exists
+        return {
+          ...item,
+          subServices: item.subServices || []
+        };
+      });
+      setNormalizedItems(normalized);
+    }
+  }, [invoiceData]);
+
   // Extract exchange rate from the invoiceData or use default
   const exchangeRate = invoiceData.exchangeRate || 82;
 
@@ -81,7 +107,7 @@ const InvoicePreview = ({ invoiceData, formatDate, onClose }) => {
       pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
       
       // Use template name in filename
-      pdf.save(`Invoice_${invoiceData.invoice_number}_${selectedTemplate.charAt(0).toUpperCase() + selectedTemplate.slice(1)}.pdf`);
+      pdf.save(`Invoice_${invoiceData.invoiceNumber}_${selectedTemplate.charAt(0).toUpperCase() + selectedTemplate.slice(1)}.pdf`);
       setGenerationStatus('PDF generated successfully!');
     } catch (error) {
       console.error('Error generating PDF:', error);
@@ -97,6 +123,7 @@ const InvoicePreview = ({ invoiceData, formatDate, onClose }) => {
   const renderTemplate = () => {
     const templateProps = {
       invoiceData,
+      normalizedItems, 
       formatDate,
       defaultLogo,
       exchangeRate
