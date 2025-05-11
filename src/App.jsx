@@ -177,6 +177,19 @@ function App() {
     localStorage.setItem('userPosition', finalPosition)
     localStorage.setItem('lastLogin', new Date().toString())
     localStorage.setItem('lastActivity', new Date().getTime().toString())
+
+    // --- Ensure default descriptions are saved after login ---
+    if (!localStorage.getItem('serviceDescriptions')) {
+      const defaultDescriptions = [
+        { id: 1, text: 'US Federal Corporation Income Tax Return (Form 1120)' },
+        { id: 2, text: 'Foreign related party disclosure form with respect to a foreign subsidiary (Form 5417)' },
+        { id: 3, text: 'Foreign related party disclosure form with respect to a foreign shareholders (Form 5472)' },
+        { id: 4, text: 'Application for Automatic Extension of Time To File Business Income Tax (Form 7004)' }
+      ];
+      localStorage.setItem('serviceDescriptions', JSON.stringify(defaultDescriptions));
+    }
+    // --------------------------------------------------------
+
     setIsAuthenticated(true)
     navigate('/')
   }
