@@ -25,7 +25,7 @@ import UpdatePasswordPage from './pages/UpdatePasswordPage'; // Import the new p
 
 import './App.css';
 
-// ProtectedRoute component to handle authentication checks
+// Route component to handle authentication checks
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
 
