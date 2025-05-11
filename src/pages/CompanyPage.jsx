@@ -1,384 +1,274 @@
-// CompanyPage.jsx - Dedicated page for company management
-import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { FiArrowLeft, FiSave, FiUpload, FiTrash2, FiPlus, FiSun, FiMoon } from 'react-icons/fi';
-import { defaultLogo } from '../assets/logoData';
-import './CompanyPage.css';
+import React, { useState, useEffect, useContext } from 'react';
+import { supabase } from '../services/supabaseClient'; // Direct Supabase client
+import { getCompanies, addCompany, updateCompany, deleteCompany } from '../services/database';
+import useAuth from '../hooks/useAuth';
+import { NotificationContext } from '../context/NotificationContext';
+import './CompanyPage.css'; // Ensure styles are appropriate
 
-const CompanyPage = ({ darkMode, toggleDarkMode }) => {
-  // Get companies from localStorage or use sample data
-  const [companies, setCompanies] = useState(() => {
-    const savedCompanies = localStorage.getItem('userCompanies');
-    if (savedCompanies) {
-      return JSON.parse(savedCompanies);
-    }
-    // Default sample companies if none exist
-    return [
-      { 
-        id: 1, 
-        name: 'Acme Corporation', 
-        logo: './images/default-logo.png',
-        address: '123 Corporate Ave, Business District',
-        gstin: 'GST1234567890ABC',
-        bankDetails: {
-          accountName: 'Acme Corp Ltd.',
-          bankName: 'First National Bank',
-          accountNumber: '1234567890',
-          ifscCode: 'FNBK0001234'
-        }
-      },
-      { 
-        id: 2, 
-        name: 'Globex Industries', 
-        logo: './images/c-logo.png',
-        address: '456 Tech Park, Innovation Valley',
-        gstin: 'GST9876543210XYZ',
-        bankDetails: {
-          accountName: 'Globex Industries Inc.',
-          bankName: 'Global Banking Corp',
-          accountNumber: '9876543210',
-          ifscCode: 'GBCI0005678'
-        }
-      }
-    ];
-  });
+// Basic Modal component (replace with your actual Modal component if different)
+const Modal = ({ isOpen, onClose, children }) => {
+  if (!isOpen) return null;
+  return (
+    <div className="modal-overlay">
+      <div className="modal-content">
+        {children}
+        <button onClick={onClose} className="modal-close-button">Close</button>
+      </div>
+    </div>
+  );
+};
 
-  const [activeCompanyId, setActiveCompanyId] = useState(null);
-  const [newCompany, setNewCompany] = useState({
+const CompanyPage = () => {
+  const { user } = useAuth();
+  const { addNotification } = useContext(NotificationContext);
+  const [companies, setCompanies] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [currentCompany, setCurrentCompany] = useState(null); // For editing
+  const [formData, setFormData] = useState({
     name: '',
-    logo: defaultLogo,
     address: '',
-    gstin: '',
-    bankDetails: {
-      accountName: '',
-      bankName: '',
-      accountNumber: '',
-      ifscCode: ''
-    }
+    phone: '',
+    email: '',
+    logo_url: '', // For Supabase Storage URL
+    // user_id will be handled by RLS or explicitly if needed
   });
-  const [isAddingCompany, setIsAddingCompany] = useState(false);
-  const [saveSuccess, setSaveSuccess] = useState(false);
-  
-  const handleCompanyChange = (e) => {
-    const { name, value } = e.target;
-    
-    if (name.startsWith('bankDetails.')) {
-      const bankField = name.split('.')[1];
-      setNewCompany({
-        ...newCompany,
-        bankDetails: {
-          ...newCompany.bankDetails,
-          [bankField]: value
-        }
-      });
-    } else {
-      setNewCompany({
-        ...newCompany,
-        [name]: value
-      });
-    }
-  };
-  
-  const handleEditCompany = (id) => {
-    setActiveCompanyId(id);
-    const companyToEdit = companies.find(company => company.id === id);
-    setNewCompany(companyToEdit);
-    setIsAddingCompany(true);
-  };
-  
-  const handleDeleteCompany = (id) => {
-    if (window.confirm('Are you sure you want to delete this company? All invoices associated with this company will also be deleted.')) {
-      // Update the companies list
-      const updatedCompanies = companies.filter(company => company.id !== id);
-      setCompanies(updatedCompanies);
-      localStorage.setItem('userCompanies', JSON.stringify(updatedCompanies));
-      
-      // Delete all invoices associated with this company
-      const savedInvoices = JSON.parse(localStorage.getItem('savedInvoices')) || [];
-      const filteredInvoices = savedInvoices.filter(invoice => invoice.companyId !== id);
-      localStorage.setItem('savedInvoices', JSON.stringify(filteredInvoices));
-      
-      // Dispatch event to notify other components about the invoice changes
-      window.dispatchEvent(new Event('invoicesUpdated'));
-      
-      // If the deleted company was selected in localStorage, clear it
-      const selectedCompany = localStorage.getItem('selectedCompany');
-      if (selectedCompany) {
-        const parsed = JSON.parse(selectedCompany);
-        if (parsed.id === id) {
-          localStorage.removeItem('selectedCompany');
-        }
-      }
-    }
-  };
-  
-  // New function to handle file uploads
-  const handleFileUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        setNewCompany({
-          ...newCompany,
-          logo: event.target.result
-        });
-      };
-      reader.readAsDataURL(file);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+
+
+  const fetchCompanies = async () => {
+    if (!user) return;
+    setIsLoading(true);
+    try {
+      // Assuming getCompanies might take userId if companies are user-specific
+      const data = await getCompanies(user.id); 
+      setCompanies(data);
+    } catch (error) {
+      addNotification('Failed to fetch companies: ' + error.message, 'error');
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleAddCompany = () => {
-    setIsAddingCompany(true);
-    setActiveCompanyId(null);
-    setNewCompany({
-      name: '',
-      logo: defaultLogo,
-      address: '',
-      gstin: '',
-      bankDetails: {
-        accountName: '',
-        bankName: '',
-        accountNumber: '',
-        ifscCode: ''
-      }
-    });
+  useEffect(() => {
+    if (user) {
+      fetchCompanies();
+    }
+  }, [user]);
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
   };
-  
-  const handleSaveCompany = () => {
-    if (!newCompany.name) {
-      alert('Company name is required');
+
+  const resetFormData = () => {
+    setFormData({ name: '', address: '', phone: '', email: '', logo_url: '' });
+    setCurrentCompany(null);
+    setUploadingLogo(false);
+  };
+
+  const handleLogoUpload = async (event) => {
+    if (!event.target.files || event.target.files.length === 0) return;
+    if (!user) {
+        addNotification('User not found for logo upload.', 'error');
+        return;
+    }
+
+    const file = event.target.files[0];
+    const fileExt = file.name.split('.').pop();
+    // Unique filename: company_logo_user_<user_id>_timestamp
+    const fileName = `company_logo_user_${user.id}_${Date.now()}.${fileExt}`;
+    const filePath = `company-logos/${fileName}`; // Define a folder in your bucket
+
+    setUploadingLogo(true);
+    try {
+      // Check if there's an old logo URL and if it's a Supabase storage URL
+      if (currentCompany && currentCompany.logo_url && currentCompany.logo_url.includes(supabase.storage.url)) {
+        const oldLogoPath = currentCompany.logo_url.substring(currentCompany.logo_url.lastIndexOf('company-logos/'));
+        if (oldLogoPath && oldLogoPath !== filePath) { // Don't remove if it's the same path (upsert handles this)
+            await supabase.storage.from('company-assets').remove([oldLogoPath]);
+        }
+      }
+
+      const { error: uploadError } = await supabase.storage
+        .from('company-assets') // Bucket for company logos, ensure it exists and has policies
+        .upload(filePath, file, { upsert: true }); // upsert:true will overwrite if file with same path exists
+
+      if (uploadError) throw uploadError;
+
+      const { data } = supabase.storage.from('company-assets').getPublicUrl(filePath);
+      if (!data.publicUrl) throw new Error("Could not get public URL for logo.");
+      
+      setFormData(prev => ({ ...prev, logo_url: data.publicUrl }));
+      addNotification('Logo uploaded successfully!', 'success');
+
+    } catch (error) {
+      addNotification('Error uploading logo: ' + error.message, 'error');
+      console.error("Logo upload error:", error);
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!user) {
+      addNotification('You must be logged in.', 'error');
       return;
     }
-    
-    let updatedCompanies;
-    const isEditing = activeCompanyId !== null;
-    
-    if (isEditing) {
-      // Edit existing company
-      updatedCompanies = companies.map(company => 
-        company.id === activeCompanyId ? { ...newCompany, id: activeCompanyId } : company
-      );
-    } else {
-      // Add new company
-      const newId = Math.max(0, ...companies.map(c => c.id)) + 1;
-      updatedCompanies = [...companies, { ...newCompany, id: newId }];
-    }
-    
-    setCompanies(updatedCompanies);
-    localStorage.setItem('userCompanies', JSON.stringify(updatedCompanies));
-    
-    // Dispatch a custom event with updated company data
-    const updatedCompany = isEditing 
-      ? { ...newCompany, id: activeCompanyId } 
-      : { ...newCompany, id: Math.max(0, ...companies.map(c => c.id)) + 1 };
-    
-    window.dispatchEvent(new CustomEvent('companyUpdated', {
-      detail: { company: updatedCompany, action: isEditing ? 'edit' : 'add' }
-    }));
-    
-    // Update selected company if needed
-    const selectedCompany = localStorage.getItem('selectedCompany');
-    if (selectedCompany) {
-      const parsedCompany = JSON.parse(selectedCompany);
-      if (parsedCompany.id === updatedCompany.id) {
-        localStorage.setItem('selectedCompany', JSON.stringify(updatedCompany));
+    setIsLoading(true);
+    try {
+      const companyData = { ...formData };
+      // Ensure user_id is associated if your RLS/database policies require it.
+      // Example: const dataToSave = { ...companyData, user_id: user.id };
+
+      if (currentCompany) {
+        await updateCompany(currentCompany.id, companyData);
+        addNotification('Company updated successfully!', 'success');
+      } else {
+        // If logo_url is part of the companyData, it's saved here.
+        // Pass user.id if your addCompany function or Supabase policies expect it
+        await addCompany(companyData, user.id); 
+        addNotification('Company added successfully!', 'success');
       }
+      fetchCompanies();
+      setIsModalOpen(false);
+      resetFormData();
+    } catch (error) {
+      addNotification('Error saving company: ' + error.message, 'error');
+    } finally {
+      setIsLoading(false);
     }
+  };
+
+  const handleEdit = (company) => {
+    setCurrentCompany(company);
+    setFormData({
+      name: company.name || '',
+      address: company.address || '',
+      phone: company.phone || '',
+      email: company.email || '',
+      logo_url: company.logo_url || '',
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleDelete = async (companyId) => {
+    if (!window.confirm('Are you sure you want to delete this company? This might affect associated invoices.')) return;
     
-    setIsAddingCompany(false);
-    
-    // Show success message
-    setSaveSuccess(true);
-    setTimeout(() => {
-      setSaveSuccess(false);
-    }, 3000);
+    const companyToDelete = companies.find(c => c.id === companyId);
+    setIsLoading(true);
+    try {
+      // Delete company record from database
+      await deleteCompany(companyId);
+
+      // If company had a logo, delete it from Supabase Storage
+      if (companyToDelete && companyToDelete.logo_url && companyToDelete.logo_url.includes(supabase.storage.url)) {
+        // Extract the path from the public URL. This needs to be robust.
+        // Example: publicUrl = "https://<project-ref>.supabase.co/storage/v1/object/public/company-assets/company-logos/some-file.png"
+        // path = "company-logos/some-file.png"
+        const urlParts = companyToDelete.logo_url.split('/company-assets/');
+        if (urlParts.length > 1) {
+            const logoPath = 'company-logos/' + urlParts[1].substring(urlParts[1].indexOf('company-logos/') + 'company-logos/'.length);
+            if(logoPath && logoPath.startsWith('company-logos/')) { // Basic check
+                await supabase.storage.from('company-assets').remove([logoPath]);
+                addNotification('Company logo deleted from storage.', 'info');
+            }
+        } else {
+            console.warn('Could not determine logo path for deletion:', companyToDelete.logo_url);
+        }
+      }
+
+      addNotification('Company deleted successfully!', 'success');
+      fetchCompanies();
+    } catch (error) {
+      addNotification('Error deleting company: ' + error.message, 'error');
+      console.error("Delete company error:", error);
+    } finally {
+      setIsLoading(false);
+    }
   };
   
-  const handleCancelCompanyEdit = () => {
-    setIsAddingCompany(false);
+  const openAddModal = () => {
+    resetFormData();
+    setIsModalOpen(true);
   };
-  
+
+
+  if (isLoading && companies.length === 0) {
+    return <div className="loading-indicator">Loading companies...</div>;
+  }
+
   return (
-    <div className="company-container">
-      <Link to="/dashboard" className="company-back-btn">
-        <FiArrowLeft /> Back to Dashboard
-      </Link>
-      
-      <div className="company-header">
-        <h1>Company Management</h1>
-        <p>Manage your companies for invoicing</p>
-      </div>
-      
-      <button className="btn-toggle-theme" onClick={toggleDarkMode} title="Toggle Dark Mode">
-        {darkMode ? <FiSun /> : <FiMoon />}
+    <div className="company-page-container">
+      <h2>Manage Companies</h2>
+      <button onClick={openAddModal} className="add-company-button" disabled={isLoading || uploadingLogo}>
+        Add New Company
       </button>
-      
-      {!isAddingCompany ? (
-        <div className="companies-section">
-          <div className="section-header">
-            <h3>My Companies</h3>
-            <button className="btn-add" onClick={handleAddCompany}>
-              <FiPlus /> Add Company
-            </button>
+
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)}>
+        <h3>{currentCompany ? 'Edit Company' : 'Add New Company'}</h3>
+        <form onSubmit={handleSubmit} className="company-form">
+          <div className="form-group">
+            <label htmlFor="name">Company Name:</label>
+            <input type="text" id="name" name="name" value={formData.name} onChange={handleInputChange} required />
           </div>
-          
-          <div className="companies-list">
-            {companies.map(company => (
-              <div key={company.id} className="company-card">
-                <div className="company-card-header">
-                  <img src={company.logo} alt={company.name} className="company-logo" />
-                  <div className="company-info">
-                    <h4>{company.name}</h4>
-                    <p className="company-gstin">{company.gstin}</p>
-                  </div>
-                </div>
-                <div className="company-address">
-                  <p>{company.address}</p>
-                </div>
-                <div className="company-actions">
-                  <button className="btn-icon" onClick={() => handleEditCompany(company.id)} title="Edit">
-                    <FiSave />
-                  </button>
-                  <button className="btn-icon danger" onClick={() => handleDeleteCompany(company.id)} title="Delete">
-                    <FiTrash2 />
-                  </button>
-                </div>
-              </div>
-            ))}
-            
-            {companies.length === 0 && (
-              <div className="no-companies">
-                <p>You haven't added any companies yet.</p>
-                <button className="btn" onClick={handleAddCompany}>
-                  <FiPlus /> Add Your First Company
-                </button>
+          <div className="form-group">
+            <label htmlFor="email">Email:</label>
+            <input type="email" id="email" name="email" value={formData.email} onChange={handleInputChange} />
+          </div>
+          <div className="form-group">
+            <label htmlFor="phone">Phone:</label>
+            <input type="tel" id="phone" name="phone" value={formData.phone} onChange={handleInputChange} />
+          </div>
+          <div className="form-group">
+            <label htmlFor="address">Address:</label>
+            <textarea id="address" name="address" value={formData.address} onChange={handleInputChange}></textarea>
+          </div>
+          <div className="form-group">
+            <label htmlFor="logo-upload">Logo:</label>
+            <input 
+              type="file" 
+              id="logo-upload" 
+              accept="image/*" 
+              onChange={handleLogoUpload} 
+              disabled={uploadingLogo || isLoading}
+            />
+            {uploadingLogo && <p>Uploading logo...</p>}
+            {formData.logo_url && (
+              <div className="logo-preview-container">
+                <p>Current Logo:</p>
+                <img src={formData.logo_url} alt="Company Logo" style={{ maxWidth: '100px', maxHeight: '100px', marginTop: '10px' }} />
               </div>
             )}
           </div>
-          
-          {saveSuccess && (
-            <div className="success-message">
-              Company information updated successfully!
-            </div>
-          )}
-        </div>
-      ) : (
-        <div className="company-form">
-          <h3>{activeCompanyId !== null ? 'Edit Company' : 'Add New Company'}</h3>
-          
-          <div className="logo-upload-section">
-            <img src={newCompany.logo} alt="Company Logo" className="company-logo-preview" />
-            <div className="logo-upload-actions">
-              <div className="file-upload-container">
-                <label htmlFor="logoUpload" className="btn-upload">
-                  <FiUpload /> Upload Custom Logo
-                </label>
-                <input 
-                  type="file" 
-                  id="logoUpload" 
-                  accept="image/*" 
-                  style={{ display: 'none' }} 
-                  onChange={handleFileUpload} 
-                />
-              </div>
-            </div>
-            <small>(Upload your company logo)</small>
-          </div>
-          
-          <div className="form-group">
-            <label htmlFor="companyName">Company Name*</label>
-            <input
-              type="text"
-              id="companyName"
-              name="name"
-              value={newCompany.name}
-              onChange={handleCompanyChange}
-              required
-            />
-          </div>
-          
-          <div className="form-group">
-            <label htmlFor="companyAddress">Address</label>
-            <textarea
-              id="companyAddress"
-              name="address"
-              value={newCompany.address}
-              onChange={handleCompanyChange}
-              rows={3}
-            ></textarea>
-          </div>
-          
-          <div className="form-group">
-            <label htmlFor="companyGstin">GSTIN</label>
-            <input
-              type="text"
-              id="companyGstin"
-              name="gstin"
-              value={newCompany.gstin}
-              onChange={handleCompanyChange}
-            />
-          </div>
-          
-          <div className="company-bank-details">
-            <h4>Bank Details</h4>
-            
-            <div className="form-group">
-              <label htmlFor="bankName">Bank Name</label>
-              <input
-                type="text"
-                id="bankName"
-                name="bankDetails.bankName"
-                value={newCompany.bankDetails.bankName}
-                onChange={handleCompanyChange}
-              />
-            </div>
-            
-            <div className="form-group">
-              <label htmlFor="accountName">Account Name</label>
-              <input
-                type="text"
-                id="accountName"
-                name="bankDetails.accountName"
-                value={newCompany.bankDetails.accountName}
-                onChange={handleCompanyChange}
-              />
-            </div>
-            
-            <div className="form-row">
-              <div className="form-group">
-                <label htmlFor="accountNumber">Account Number</label>
-                <input
-                  type="text"
-                  id="accountNumber"
-                  name="bankDetails.accountNumber"
-                  value={newCompany.bankDetails.accountNumber}
-                  onChange={handleCompanyChange}
-                />
-              </div>
-              
-              <div className="form-group">
-                <label htmlFor="ifscCode">IFSC Code</label>
-                <input
-                  type="text"
-                  id="ifscCode"
-                  name="bankDetails.ifscCode"
-                  value={newCompany.bankDetails.ifscCode}
-                  onChange={handleCompanyChange}
-                />
-              </div>
-            </div>
-          </div>
-          
-          <div className="company-form-actions">
-            <button type="button" className="btn btn-secondary" onClick={handleCancelCompanyEdit}>
-              Cancel
-            </button>
-            <button type="button" className="btn" onClick={handleSaveCompany}>
-              {activeCompanyId !== null ? 'Update Company' : 'Add Company'}
-            </button>
-          </div>
-        </div>
+          <button type="submit" className="submit-button" disabled={isLoading || uploadingLogo}>
+            {isLoading ? 'Saving...' : (currentCompany ? 'Update Company' : 'Add Company')}
+          </button>
+        </form>
+      </Modal>
+
+      {isLoading && companies.length > 0 && <p>Updating company list...</p>}
+      {!isLoading && companies.length === 0 && (
+        <p>No companies found. Add one to get started!</p>
       )}
+
+      <div className="companies-list">
+        {companies.map(company => (
+          <div key={company.id} className="company-card">
+            {company.logo_url && <img src={company.logo_url} alt={`${company.name} logo`} className="company-logo-thumbnail" />}
+            <h4>{company.name}</h4>
+            <p>{company.email}</p>
+            <p>{company.phone}</p>
+            <p>{company.address}</p>
+            <div className="company-actions">
+              <button onClick={() => handleEdit(company)} disabled={isLoading || uploadingLogo}>Edit</button>
+              <button onClick={() => handleDelete(company.id)} disabled={isLoading || uploadingLogo} className="delete-button">Delete</button>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 };

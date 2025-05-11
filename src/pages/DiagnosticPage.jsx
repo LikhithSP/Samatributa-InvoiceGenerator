@@ -3,11 +3,13 @@ import { Link } from 'react-router-dom';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import emailjs from '@emailjs/browser';
+import { useAuth } from '../hooks/useAuth'; // Import useAuth
 
 const DiagnosticPage = () => {
   const [basicChecks, setBasicChecks] = useState('');
   const [libraryTests, setLibraryTests] = useState('');
   const [storageTests, setStorageTests] = useState('');
+  const { user, session } = useAuth(); // Get user and session from useAuth
 
   useEffect(() => {
     runBasicChecks();
@@ -40,16 +42,15 @@ const DiagnosticPage = () => {
       html += `<p class="error">✗ LocalStorage error: ${e.message}</p>`;
     }
     
-    // Check login status
+    // Check login status using useAuth
     try {
-      const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
-      html += `<p>Login status: ${isLoggedIn ? 'Logged in' : 'Not logged in'}</p>`;
-      if (isLoggedIn) {
-        const email = localStorage.getItem('userEmail');
-        html += `<p>User email: ${email || 'Not set'}</p>`;
+      const isLoggedIn = !!session;
+      html += `<p>Login status: ${isLoggedIn ? 'Logged in (Supabase)' : 'Not logged in (Supabase)'}</p>`;
+      if (isLoggedIn && user) {
+        html += `<p>User email: ${user.email || 'Not available'}</p>`;
       }
     } catch (e) {
-      html += `<p class="error">✗ Error checking login: ${e.message}</p>`;
+      html += `<p class="error">✗ Error checking Supabase auth status: ${e.message}</p>`;
     }
     
     setBasicChecks(html);
@@ -90,36 +91,25 @@ const DiagnosticPage = () => {
     
     try {
       // Show current localStorage content
-      html += `<h3>Current LocalStorage Content:</h3>`;
-      if (localStorage.length === 0) {
-        html += `<p>LocalStorage is empty</p>`;
-      } else {
-        let contentHtml = '<pre>';
-        for (let i = 0; i < localStorage.length; i++) {
-          const key = localStorage.key(i);
-          const value = localStorage.getItem(key);
-          contentHtml += `${key}: ${value}\n`;
+      html += `<h3>Current LocalStorage Content (for debugging purposes):</h3>`;
+      if (typeof window !== 'undefined' && window.localStorage) {
+        if (localStorage.length === 0) {
+          html += `<p>LocalStorage is empty</p>`;
+        } else {
+          let contentHtml = '<pre>';
+          for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            const value = localStorage.getItem(key);
+            contentHtml += `${key}: ${value}\n`;
+          }
+          contentHtml += '</pre>';
+          html += contentHtml;
         }
-        contentHtml += '</pre>';
-        html += contentHtml;
-      }
-      
-      // Test setting and getting a value
-      const testValue = 'test-' + Date.now();
-      localStorage.setItem('diagnosticTest', testValue);
-      const readValue = localStorage.getItem('diagnosticTest');
-      
-      if (readValue === testValue) {
-        html += `<p class="success">✓ LocalStorage write and read successful</p>`;
       } else {
-        html += `<p class="error">✗ LocalStorage read/write mismatch: wrote "${testValue}", read "${readValue}"</p>`;
+        html += `<p class="error">✗ LocalStorage API not available.</p>`;
       }
-      
-      // Clean up
-      localStorage.removeItem('diagnosticTest');
-      
     } catch (e) {
-      html += `<p class="error">✗ LocalStorage error: ${e.message}</p>`;
+      html += `<p class="error">✗ Error accessing LocalStorage: ${e.message}</p>`;
     }
     
     setStorageTests(html);

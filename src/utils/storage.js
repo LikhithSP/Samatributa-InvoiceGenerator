@@ -1,61 +1,7 @@
-import { APP_CONFIG } from '../config/appConfig';
+// This file can be deleted or repurposed for Supabase specific storage utilities if needed.
+// For now, we will empty it as all localStorage logic is being removed.
 
-const { storagePrefix } = APP_CONFIG.auth;
+// If you have other utility functions in this file not related to localStorage,
+// they should be preserved. Otherwise, this file might no longer be necessary.
 
-/**
- * Storage utility for handling localStorage with prefixed keys
- */
-export const storage = {
-  /**
-   * Get an item from localStorage
-   * @param {string} key - The key to retrieve
-   * @param {any} defaultValue - Default value if key doesn't exist
-   * @returns {any} The stored value or defaultValue
-   */
-  get: (key, defaultValue = null) => {
-    const value = localStorage.getItem(`${storagePrefix}${key}`);
-    if (value === null) return defaultValue;
-    
-    try {
-      return JSON.parse(value);
-    } catch (error) {
-      return value;
-    }
-  },
-
-  /**
-   * Set an item in localStorage
-   * @param {string} key - The key to set
-   * @param {any} value - The value to store
-   */
-  set: (key, value) => {
-    const valueToStore = typeof value === 'object' ? JSON.stringify(value) : value;
-    localStorage.setItem(`${storagePrefix}${key}`, valueToStore);
-  },
-
-  /**
-   * Remove an item from localStorage
-   * @param {string} key - The key to remove
-   */
-  remove: (key) => {
-    localStorage.removeItem(`${storagePrefix}${key}`);
-  },
-
-  /**
-   * Clear all items from localStorage that match the prefix
-   */
-  clearAll: () => {
-    Object.keys(localStorage)
-      .filter(key => key.startsWith(storagePrefix))
-      .forEach(key => localStorage.removeItem(key));
-  },
-
-  /**
-   * Update the last activity timestamp
-   */
-  updateLastActivity: () => {
-    storage.set('lastActivity', new Date().getTime());
-  }
-};
-
-export default storage;
+export {}; // Ensures the file is treated as a module if empty, can be removed if file is deleted.
