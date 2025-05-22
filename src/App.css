@@ -1141,8 +1141,8 @@ body:not(.dark-mode) .btn-logout {
 }
 
 body.dark-mode .btn-logout {
-  background-color: #927d05;
-  border-color: #927d05;
+  background-color: rgb(160, 124, 7);
+  border-color: rgb(160, 124, 7);
   color: #fff;
 }
 
