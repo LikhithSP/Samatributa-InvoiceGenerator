@@ -3,21 +3,14 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { FiArrowLeft, FiSave, FiUpload, FiTrash2, FiPlus, FiSun, FiMoon } from 'react-icons/fi';
 import './ClientPage.css';
+import { supabase } from '../config/supabaseClient';
 
 const ClientPage = ({ darkMode, toggleDarkMode }) => {
   // Add a ref to track if we're dispatching our own events
   const isSelfDispatch = React.useRef(false);
   
-  // Get clients from localStorage or use sample data
-  const [clients, setClients] = useState(() => {
-    const savedClients = localStorage.getItem('userClients');
-    if (savedClients) {
-      return JSON.parse(savedClients);
-    }
-    // Default sample clients if none exist - REMOVED
-    return []; // Initialize with an empty array
-  });
-
+  // Get clients from Supabase
+  const [clients, setClients] = useState([]);
   const [activeClientId, setActiveClientId] = useState(null);
   const [newClient, setNewClient] = useState({
     name: '',
@@ -31,6 +24,15 @@ const ClientPage = ({ darkMode, toggleDarkMode }) => {
   const [isAddingClient, setIsAddingClient] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   
+  // Fetch clients from Supabase
+  useEffect(() => {
+    const fetchClients = async () => {
+      const { data, error } = await supabase.from('clients').select('*');
+      if (!error) setClients(data || []);
+    };
+    fetchClients();
+  }, []);
+
   const handleClientChange = (e) => {
     const { name, value } = e.target;
     setNewClient({
@@ -46,15 +48,12 @@ const ClientPage = ({ darkMode, toggleDarkMode }) => {
     setIsAddingClient(true);
   };
   
-  const handleDeleteClient = (id) => {
+  const handleDeleteClient = async (id) => {
     if (window.confirm('Are you sure you want to delete this client?')) {
-      // Update the clients list
-      const updatedClients = clients.filter(client => client.id !== id);
-      setClients(updatedClients);
-      localStorage.setItem('userClients', JSON.stringify(updatedClients));
-      
-      // Dispatch event to notify other components about the client changes
-      window.dispatchEvent(new Event('clientsUpdated'));
+      await supabase.from('clients').delete().eq('id', id);
+      // Refresh clients
+      const { data } = await supabase.from('clients').select('*');
+      setClients(data || []);
     }
   };
   
@@ -72,53 +71,29 @@ const ClientPage = ({ darkMode, toggleDarkMode }) => {
     });
   };
   
-  const handleSaveClient = () => {
+  const handleSaveClient = async () => {
     if (!newClient.name) {
       alert('Client name is required');
       return;
     }
-    
-    let updatedClients;
-    const isEditing = activeClientId !== null;
-    
-    if (isEditing) {
-      // Edit existing client
-      updatedClients = clients.map(client => 
-        client.id === activeClientId ? { ...newClient, id: activeClientId } : client
-      );
+    let result;
+    if (activeClientId !== null) {
+      // Update existing client
+      result = await supabase.from('clients').update({ ...newClient }).eq('id', activeClientId);
     } else {
       // Add new client
-      const newId = Math.max(0, ...clients.map(c => c.id)) + 1;
-      updatedClients = [...clients, { ...newClient, id: newId }];
+      result = await supabase.from('clients').insert([{ ...newClient }]);
     }
-    
-    setClients(updatedClients);
-    localStorage.setItem('userClients', JSON.stringify(updatedClients));
-    
-    // Set the flag to indicate we're dispatching our own event
-    isSelfDispatch.current = true;
-    
-    // Dispatch a custom event with updated client data
-    const updatedClient = isEditing 
-      ? { ...newClient, id: activeClientId } 
-      : { ...newClient, id: Math.max(0, ...clients.map(c => c.id)) + 1 };
-    
-    window.dispatchEvent(new CustomEvent('clientUpdated', {
-      detail: { client: updatedClient, action: isEditing ? 'edit' : 'add' }
-    }));
-    
-    // Reset the flag after a short delay to ensure the event handler has time to check it
-    setTimeout(() => {
-      isSelfDispatch.current = false;
-    }, 100);
-    
+    if (result.error) {
+      alert(result.error.message);
+      return;
+    }
+    // Refresh clients
+    const { data } = await supabase.from('clients').select('*');
+    setClients(data || []);
     setIsAddingClient(false);
-    
-    // Show success message
     setSaveSuccess(true);
-    setTimeout(() => {
-      setSaveSuccess(false);
-    }, 3000);
+    setTimeout(() => setSaveSuccess(false), 3000);
   };
   
   const handleCancelClientEdit = () => {

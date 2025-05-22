@@ -7,6 +7,7 @@ import invoiceLogic from '../lib/invoiceLogic';
 import { defaultLogo, companyName } from '../assets/logoData';
 import { useUserRole } from '../context/UserRoleContext';
 import Modal from '../components/Modal';
+import { supabase } from '../config/supabaseClient';
 
 const InvoicePage = ({ onLogout, darkMode, toggleDarkMode }) => {
   const { id } = useParams();
@@ -83,152 +84,32 @@ const InvoicePage = ({ onLogout, darkMode, toggleDarkMode }) => {
   
   const [invoiceData, setInvoiceData] = useState(initialInvoiceData);
 
-  // Generate invoice number on load OR load existing invoice if id is provided
+  // Fetch invoice from Supabase
   useEffect(() => {
-    // Always consider new invoice creation as authorized
     if (!id || id === 'new') {
       setIsAuthorized(true);
       setIsLoading(false);
       return;
     }
-    
-    // For existing invoices, check authorization
-    const checkAuthorization = () => {
-      // Check if we're editing an existing invoice
-      if (id && id !== 'new') {
-        // Load the existing invoice data
-        const savedInvoices = JSON.parse(localStorage.getItem('savedInvoices')) || [];
-        
-        // Log for debugging purposes
-        console.log('Loading invoice with ID:', id);
-        
-        // Find invoice by unique ID (primary lookup method)
-        const existingInvoice = savedInvoices.find(invoice => invoice.id === id);
-        
-        if (!existingInvoice) {
-          console.log('Invoice not found with ID:', id);
-          alert('Invoice not found.');
-          navigate('/dashboard');
-          return;
-        }
-        
-        // Check if user is authorized to view this invoice
-        // Admins can access all invoices, normal users can only access invoices assigned to them
-        const isUserAuthorized = isAdmin || existingInvoice.assigneeId === currentUserId;
-        
-        if (!isUserAuthorized) {
-          alert("You don't have permission to view this invoice. Only the assigned client can access it.");
-          navigate('/dashboard');
-          return;
-        }
-        
-        // User is authorized - set the flag and continue loading the invoice
-        setIsAuthorized(true);
-        
-        // Process items to ensure they have the correct structure
-        const processedItems = (existingInvoice.items || []).map(item => {
-          // Determine which property to use for sub-services (standardize on subServices)
-          const sourceSubServices = item.subServices || item.nestedRows || [];
-          
-          // Process subServices recursively to ensure they have the correct structure
-          const processedSubServices = sourceSubServices.map(subService => {
-            return {
-              id: subService.id || `subitem-${Math.random().toString(36).substr(2, 9)}`,
-              name: subService.name || '',
-              description: subService.description || '',
-              amountUSD: parseFloat(subService.amountUSD) || 0,
-              amountINR: parseFloat(subService.amountINR) || 0
-            };
-          });
-          
-          // For backward compatibility, check if this is a main service or a direct service item
-          const isMainService = item.type === 'main' || Array.isArray(sourceSubServices);
-          
-          // Ensure all item properties exist
-          return {
-            id: item.id || `item-${Math.random().toString(36).substr(2, 9)}`,
-            name: item.name || '',
-            description: item.description || '',
-            amountUSD: parseFloat(item.amountUSD) || 0,
-            amountINR: parseFloat(item.amountINR) || 0,
-            // Always use the processed subServices and explicitly remove nestedRows to avoid confusion
-            subServices: isMainService ? processedSubServices : [],
-            // Ensure type is properly set
-            type: isMainService ? 'main' : (item.type || 'main')
-          };
-        });
-        
-        console.log('Processed invoice items:', processedItems);
-        
-        // If no items exist, add a default empty item
-        if (processedItems.length === 0) {
-          processedItems.push({
-            id: `item-${Math.random().toString(36).substr(2, 9)}`,
-            name: '',
-            description: '',
-            amountUSD: 0,
-            amountINR: 0,
-            subServices: [],
-            type: 'main'
-          });
-        }
-        
-        // Set loaded company if the invoice has a companyId
-        if (existingInvoice.companyId) {
-          const companies = JSON.parse(localStorage.getItem('userCompanies')) || [];
-          const invoiceCompany = companies.find(c => c.id === existingInvoice.companyId);
-          if (invoiceCompany && invoiceCompany.id !== selectedCompany?.id) {
-            setSelectedCompany(invoiceCompany);
-          }
-        }
-        
-        // Extract the stored calculation values and ensure they're numeric
-        const {
-          subtotalUSD = 0,
-          subtotalINR = 0,
-          taxAmountUSD = 0,
-          taxAmountINR = 0,
-          totalUSD = 0,
-          totalINR = 0,
-          exchangeRate = 82,
-          taxRate = 18
-        } = existingInvoice;
-        
-        // Create a deep copy of the existing invoice with all necessary properties
-        const loadedInvoice = {
-          // Set default values first to ensure all expected properties exist
-          ...initialInvoiceData,
-          // Then apply all existing invoice data
-          ...existingInvoice,
-          // Explicitly set the processed items to ensure proper structure
-          items: processedItems,
-          // Explicitly set the calculation values as numbers to ensure consistency
-          subtotalUSD: parseFloat(subtotalUSD) || 0,
-          subtotalINR: parseFloat(subtotalINR) || 0,
-          taxAmountUSD: parseFloat(taxAmountUSD) || 0,
-          taxAmountINR: parseFloat(taxAmountINR) || 0,
-          totalUSD: parseFloat(totalUSD) || 0,
-          totalINR: parseFloat(totalINR) || 0,
-          exchangeRate: parseFloat(exchangeRate) || 82,
-          taxRate: parseFloat(taxRate) || 18
-        };
-        
-        // Apply the loaded invoice to state
-        setInvoiceData(loadedInvoice);
-        setIsLoading(false);
-        
-        console.log('Loaded invoice with calculations:', {
-          subtotalUSD: loadedInvoice.subtotalUSD,
-          subtotalINR: loadedInvoice.subtotalINR,
-          taxAmountUSD: loadedInvoice.taxAmountUSD,
-          taxAmountINR: loadedInvoice.taxAmountINR,
-          totalUSD: loadedInvoice.totalUSD,
-          totalINR: loadedInvoice.totalINR
-        });
+    const fetchInvoice = async () => {
+      const { data, error } = await supabase.from('invoices').select('*').eq('id', id).single();
+      if (error || !data) {
+        alert('Invoice not found.');
+        navigate('/dashboard');
+        return;
       }
+      // Authorization logic (admin or assigned user)
+      const isUserAuthorized = isAdmin || data.assigneeId === currentUserId;
+      if (!isUserAuthorized) {
+        alert("You don't have permission to view this invoice. Only the assigned client can access it.");
+        navigate('/dashboard');
+        return;
+      }
+      setInvoiceData(data);
+      setIsAuthorized(true);
+      setIsLoading(false);
     };
-    
-    checkAuthorization();
+    fetchInvoice();
   // REMOVED initialInvoiceData and selectedCompany from dependencies
   }, [id, navigate, isAdmin, currentUserId]);
 
@@ -288,144 +169,32 @@ const InvoicePage = ({ onLogout, darkMode, toggleDarkMode }) => {
     setShowPreview(false);
   };
 
-  // Save invoice to localStorage
-  const saveInvoice = () => {
-    // Check if user is authorized to edit
+  // Save invoice to Supabase
+  const saveInvoice = async () => {
     if (!isAuthorized) {
       alert("You don't have permission to edit this invoice.");
       return;
     }
-    
-    // Check if invoice number is empty and needs to be generated
-    if (!invoiceData.invoiceNumber.trim()) {
-      // Generate a new invoice number using the recipient name (customer), but don't save the increment yet
-      const newInvoiceNumber = invoiceLogic.generateInvoiceNumber(invoiceData.recipientName, false);
-      
-      // Set the new invoice number
-      setInvoiceData(prevData => ({
-        ...prevData,
-        invoiceNumber: newInvoiceNumber
-      }));
-      
-      // Return early - we'll let the state update and then save
-      setTimeout(() => saveInvoice(), 100);
-      return;
-    }
-
-    // Validate invoice has required fields
     if (!invoiceData.invoiceNumber || !invoiceData.invoiceDate || !invoiceData.senderName) {
       alert('Please fill in required fields: Invoice Number, Date, and Company Name');
       return;
     }
-
     setIsLoading(true);
-
-    try {
-      // Get existing invoices from localStorage or initialize empty array
-      const savedInvoices = JSON.parse(localStorage.getItem('savedInvoices')) || [];
-      
-      // Now that we're actually saving, generate the final invoice number with increment
-      // Only regenerate if we're creating a new invoice (not editing an existing one)
-      let finalInvoiceNumber = invoiceData.invoiceNumber;
-      if (!invoiceData.id) {
-        finalInvoiceNumber = invoiceLogic.generateInvoiceNumber(invoiceData.recipientName, true);
-      }
-      
-      // Process the items to ensure correct structure before saving
-      const processedItems = invoiceData.items.map(item => {
-        // Make sure we're handling sub-services properly
-        const processedSubServices = (item.subServices || []).map(subService => ({
-          id: subService.id || `subitem-${Math.random().toString(36).substr(2, 9)}`,
-          name: subService.name || '',
-          description: subService.description || '',
-          amountUSD: parseFloat(subService.amountUSD) || 0,
-          amountINR: parseFloat(subService.amountINR) || 0
-        }));
-        
-        return {
-          id: item.id || `item-${Math.random().toString(36).substr(2, 9)}`,
-          name: item.name || '',
-          description: item.description || '',
-          amountUSD: parseFloat(item.amountUSD) || 0,
-          amountINR: parseFloat(item.amountINR) || 0,
-          // Always use subServices and not nestedRows to ensure consistency
-          subServices: processedSubServices,
-          type: item.type || 'main'
-        };
-      });
-      
-      // Auto-assign to current user if they are not admin (regardless of position)
-      let assigneeInfo = {};
-      if (invoiceData.assigneeId) {
-        assigneeInfo = {
-          assigneeId: invoiceData.assigneeId,
-          assigneeName: invoiceData.assigneeName,
-          assigneeRole: invoiceData.assigneeRole,
-          assigneePosition: invoiceData.assigneePosition
-        };
-      } else if (!isAdmin) {
-        assigneeInfo = {
-          assigneeId: currentUserId,
-          assigneeName: currentUserName,
-          assigneeRole: currentUserRole,
-          assigneePosition: currentUserPosition
-        };
-      }
-      
-      console.log('Saving invoice with auto-assignment:', isInvoicingAssociate, assigneeInfo);
-      
-      // Check if this invoice already has an ID (existing invoice)
-      let invoiceToSave = {
-        ...invoiceData,
-        // Use the final invoice number with increment
-        invoiceNumber: finalInvoiceNumber,
-        // Ensure processed items are used
-        items: processedItems,
-        // Ensure calculation values are numbers
-        subtotalUSD: parseFloat(invoiceData.subtotalUSD) || 0,
-        subtotalINR: parseFloat(invoiceData.subtotalINR) || 0,
-        taxAmountUSD: parseFloat(invoiceData.taxAmountUSD) || 0,
-        taxAmountINR: parseFloat(invoiceData.taxAmountINR) || 0,
-        totalUSD: parseFloat(invoiceData.totalUSD) || 0,
-        totalINR: parseFloat(invoiceData.totalINR) || 0,
-        // Ensure companyId is explicitly set from the selected company
-        companyId: selectedCompany?.id || invoiceData.companyId,
-        // Explicitly set assignee information
-        ...assigneeInfo,
-        timestamp: new Date().getTime(),
-        status: invoiceData.status || 'Pending' // Set default status if not already set
-      };
-      
-      // If no ID exists, generate one
-      if (!invoiceToSave.id) {
-        invoiceToSave.id = invoiceLogic.generateUniqueId();
-      }
-      
-      // Check if invoice with this ID already exists
-      const existingInvoiceIndex = savedInvoices.findIndex(
-        invoice => invoice.id === invoiceToSave.id
-      );
-      
-      // Either update existing invoice or add new one
-      if (existingInvoiceIndex >= 0) {
-        savedInvoices[existingInvoiceIndex] = invoiceToSave;
-      } else {
-        savedInvoices.push(invoiceToSave);
-      }
-      
-      // Save updated invoices array back to localStorage
-      localStorage.setItem('savedInvoices', JSON.stringify(savedInvoices));
-      
-      setIsLoading(false);
-      alert('Invoice saved successfully!');
-      
-      // Navigate back to dashboard 
-      navigate('/dashboard');
-    } catch (error) {
-      console.error('Error saving invoice:', error);
-      setIsLoading(false);
-      alert('Failed to save invoice. Please try again.');
+    let result;
+    if (invoiceData.id) {
+      // Update existing invoice
+      result = await supabase.from('invoices').update({ ...invoiceData }).eq('id', invoiceData.id);
+    } else {
+      // Add new invoice
+      result = await supabase.from('invoices').insert([{ ...invoiceData }]);
     }
+    setIsLoading(false);
+    if (result.error) {
+      alert(result.error.message);
+      return;
+    }
+    alert('Invoice saved successfully!');
+    navigate('/dashboard');
   };
 
   const resetForm = () => {
@@ -498,7 +267,7 @@ const InvoicePage = ({ onLogout, darkMode, toggleDarkMode }) => {
   };
 
   // Delete the current invoice
-  const deleteInvoice = () => {
+  const deleteInvoice = async () => {
     // Check if user is authorized to delete
     // Only admin or invoice creator can delete
     if (!isAdmin && invoiceData.assigneeId !== currentUserId) {
@@ -506,45 +275,9 @@ const InvoicePage = ({ onLogout, darkMode, toggleDarkMode }) => {
       return;
     }
     
-    if (window.confirm('Are you sure you want to delete this invoice? It will be moved to the Bin for 30 days before permanent removal.')) {
-      try {
-        // Get existing invoices from localStorage
-        const savedInvoices = JSON.parse(localStorage.getItem('savedInvoices')) || [];
-        
-        // Get the invoice to be deleted
-        const invoiceToDelete = savedInvoices.find(invoice => invoice.id === invoiceData.id);
-        
-        if (invoiceToDelete) {
-          // Add deletion timestamp and deletedBy, then move to bin
-          invoiceToDelete.deletedAt = new Date().getTime();
-          invoiceToDelete.deletedBy = currentUserId; // Track who deleted
-          
-          // Get existing bin or create new one
-          const bin = JSON.parse(localStorage.getItem('invoiceBin')) || [];
-          bin.push(invoiceToDelete);
-          
-          // Save updated bin back to localStorage
-          localStorage.setItem('invoiceBin', JSON.stringify(bin));
-          
-          // Filter out the current invoice using the unique ID
-          const updatedInvoices = savedInvoices.filter(
-            invoice => invoice.id !== invoiceData.id
-          );
-          
-          // Save updated invoices array back to localStorage
-          localStorage.setItem('savedInvoices', JSON.stringify(updatedInvoices));
-          
-          // Trigger a custom event to notify other components about the change
-          window.dispatchEvent(new Event('invoicesUpdated'));
-          window.dispatchEvent(new Event('invoiceBinUpdated'));
-          
-          // Navigate back to dashboard
-          navigate('/dashboard');
-        }
-      } catch (error) {
-        console.error('Error deleting invoice:', error);
-        alert('Failed to delete invoice. Please try again.');
-      }
+    if (window.confirm('Are you sure you want to delete this invoice?')) {
+      await supabase.from('invoices').delete().eq('id', invoiceData.id);
+      navigate('/dashboard');
     }
   };
 

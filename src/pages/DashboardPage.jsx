@@ -10,6 +10,7 @@ import NotificationBell from '../components/NotificationBell';
 import { useUserRole } from '../context/UserRoleContext';
 import { useUserNotifications } from '../context/UserNotificationsContext';
 import Modal from '../components/Modal';
+import { supabase } from '../config/supabaseClient';
 
 const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
   const navigate = useNavigate();
@@ -21,42 +22,18 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
   const [downloadProgress, setDownloadProgress] = useState({ current: 0, total: 0 });
   const [downloadStatus, setDownloadStatus] = useState('');
   
-  const [companies, setCompanies] = useState(() => {
-    const savedCompanies = localStorage.getItem('userCompanies');
-    return savedCompanies ? JSON.parse(savedCompanies) : [];
-  });
+  const [companies, setCompanies] = useState([]);
   
   // State for selected company and dashboard view
-  const [selectedCompany, setSelectedCompany] = useState(() => {
-    const savedCompany = localStorage.getItem('selectedCompany');
-    return savedCompany ? JSON.parse(savedCompany) : null;
-  });
+  const [selectedCompany, setSelectedCompany] = useState(null);
 
   // State for clients and selected client
-  const [clients, setClients] = useState(() => {
-    const savedClients = localStorage.getItem('userClients');
-    return savedClients ? JSON.parse(savedClients) : [];
-  });
+  const [clients, setClients] = useState([]);
   
   const [selectedClient, setSelectedClient] = useState(null);
   
   // State for users
-  const [users, setUsers] = useState(() => {
-    const savedUsers = JSON.parse(localStorage.getItem('users')) || [];
-    // If no users exist yet, create a demo user
-    if (savedUsers.length === 0) {
-      const demoUser = {
-        id: 'demo_user',
-        name: 'Demo User',
-        email: 'user@example.com',
-        role: 'admin',
-        position: 'CEO'
-      };
-      localStorage.setItem('users', JSON.stringify([demoUser]));
-      return [demoUser];
-    }
-    return savedUsers;
-  });
+  const [users, setUsers] = useState([]);
   
   const [showAllInvoices, setShowAllInvoices] = useState(true);
   const [selectedAssignee, setSelectedAssignee] = useState(null);
@@ -74,10 +51,7 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
   const [showSortOptions, setShowSortOptions] = useState(false);
   
   // State for saved invoices
-  const [savedInvoices, setSavedInvoices] = useState(() => {
-    const invoices = JSON.parse(localStorage.getItem('savedInvoices')) || [];
-    return invoices;
-  });
+  const [savedInvoices, setSavedInvoices] = useState([]);
   
   // Current user ID
   const currentUserId = localStorage.getItem('userId') || 'demo_user';
@@ -127,91 +101,37 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
     localStorage.setItem('invoiceStatuses', JSON.stringify(invoiceStatuses));
   }, [invoiceStatuses]);
   
-  // Listen for changes in the userCompanies localStorage item
+  // Fetch all data from Supabase on mount
   useEffect(() => {
-    const handleStorageChange = () => {
-      const savedCompanies = localStorage.getItem('userCompanies');
-      if (savedCompanies) {
-        setCompanies([...JSON.parse(savedCompanies)]);
-      } else {
-        setCompanies([]);
-      }
-
-      // Also refresh the saved invoices
-      const invoices = JSON.parse(localStorage.getItem('savedInvoices')) || [];
-      setSavedInvoices(invoices);
-      
-      // Refresh users list
-      const updatedUsers = JSON.parse(localStorage.getItem('users')) || [];
-      setUsers(updatedUsers);
+    const fetchAll = async () => {
+      const { data: companies } = await supabase.from('companies').select('*');
+      setCompanies(companies || []);
+      const { data: clients } = await supabase.from('clients').select('*');
+      setClients(clients || []);
+      const { data: users } = await supabase.from('users').select('*');
+      setUsers(users || []);
+      const { data: invoices } = await supabase.from('invoices').select('*');
+      setSavedInvoices(invoices || []);
     };
-    
-    // Listen for the custom invoicesUpdated event
-    const handleInvoicesUpdated = () => {
-      const invoices = JSON.parse(localStorage.getItem('savedInvoices')) || [];
-      setSavedInvoices(invoices);
-    };
-    
-    // Listen for client updates
-    const handleClientsUpdated = () => {
-      const savedClients = localStorage.getItem('userClients');
-      if (savedClients) {
-        setClients(JSON.parse(savedClients));
-      } else {
-        setClients([]);
-      }
-    };
-    
-    // Set up event listeners
-    window.addEventListener('storage', handleStorageChange);
-    window.addEventListener('invoicesUpdated', handleInvoicesUpdated);
-    window.addEventListener('clientsUpdated', handleClientsUpdated);
-    
-    // Clean up event listeners
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      window.removeEventListener('invoicesUpdated', handleInvoicesUpdated);
-      window.removeEventListener('clientsUpdated', handleClientsUpdated);
-    };
+    fetchAll();
   }, []);
   
-  // Need to manually refresh when returning from CompanyPage or InvoicePage
+  // Presave default service descriptions for all users on app load
   useEffect(() => {
-    // Check for updates to companies when the component mounts
-    const savedCompanies = localStorage.getItem('userCompanies');
-    if (savedCompanies) {
-      setCompanies([...JSON.parse(savedCompanies)]);
-    } else {
-      setCompanies([]);
+    const defaultDescriptions = [
+      { id: 1, text: 'US Federal Corporation Income Tax Return (Form 1120)' },
+      { id: 2, text: 'Foreign related party disclosure form with respect to a foreign subsidiary (Form 5417)' },
+      { id: 3, text: 'Foreign related party disclosure form with respect to a foreign shareholders (Form 5472)' },
+      { id: 4, text: 'Application for Automatic Extension of Time To File Business Income Tax (Form 7004)' }
+    ];
+    const savedDescriptions = localStorage.getItem('serviceDescriptions');
+    if (!savedDescriptions) {
+      localStorage.setItem('serviceDescriptions', JSON.stringify(defaultDescriptions));
     }
-
-    // Also refresh saved invoices
-    const invoices = JSON.parse(localStorage.getItem('savedInvoices')) || [];
-    setSavedInvoices(invoices);
-    
-    // Refresh users list
-    const updatedUsers = JSON.parse(localStorage.getItem('users')) || [];
-    setUsers(updatedUsers);
-    
-    // Add a focus event listener to refresh data when returning to this tab/window
-    const handleFocus = () => {
-      const refreshedInvoices = JSON.parse(localStorage.getItem('savedInvoices')) || [];
-      setSavedInvoices(refreshedInvoices);
-      
-      const refreshedCompanies = JSON.parse(localStorage.getItem('userCompanies')) || [];
-      setCompanies(refreshedCompanies);
-      
-      const refreshedUsers = JSON.parse(localStorage.getItem('users')) || [];
-      setUsers(refreshedUsers);
-    };
-    
-    window.addEventListener('focus', handleFocus);
-    
-    // Clean up event listener
-    return () => {
-      window.removeEventListener('focus', handleFocus);
-    };
   }, []);
+  
+  // Replace all localStorage CRUD for companies, clients, users, invoices with Supabase queries in all relevant handlers
+  // ...existing code...
 
   const handleCompanySelect = (company) => {
     setSelectedCompany(company);

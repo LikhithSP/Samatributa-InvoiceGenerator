@@ -8,6 +8,7 @@ import { useNotification } from '../context/NotificationContext';
 import Modal from './Modal';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
+import useClientDropdown from '../hooks/useClientDropdown';
 
 const InvoiceForm = ({ 
   invoiceData, 
@@ -27,34 +28,39 @@ const InvoiceForm = ({
   const [showSendModal, setShowSendModal] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);
   const { setNotification } = useNotification();
-  const [clients, setClients] = useState(() => {
-    const savedClients = localStorage.getItem('userClients');
-    return savedClients ? JSON.parse(savedClients) : [];
-  });
   const isInitialMount = useRef(true); // Ref to track initial mount
   
+  // Use our custom hook for client dropdown functionality
+  const { 
+    clients,
+    selectedClientId,
+    handleClientSelect
+  } = useClientDropdown(setInvoiceData);
+  
+  // Add console logs to debug client field updates
+  useEffect(() => {
+    console.log("Invoice data recipient fields updated:", {
+      name: invoiceData.recipientName,
+      address: invoiceData.recipientAddress,
+      phone: invoiceData.recipientPhone,
+      email: invoiceData.recipientEmail,
+      website: invoiceData.recipientWebsite,
+      gstin: invoiceData.recipientGSTIN,
+      pan: invoiceData.recipientPAN
+    });
+  }, [
+    invoiceData.recipientName,
+    invoiceData.recipientAddress,
+    invoiceData.recipientPhone,
+    invoiceData.recipientEmail,
+    invoiceData.recipientWebsite,
+    invoiceData.recipientGSTIN,
+    invoiceData.recipientPAN
+  ]);
+
   // Fetch exchange rate on component mount
   useEffect(() => {
     fetchExchangeRate();
-  }, []);
-  
-  // Add a useEffect to listen for client updates
-  useEffect(() => {
-    // Listen for the clientsUpdated event
-    const handleClientsUpdated = () => {
-      const savedClients = localStorage.getItem('userClients');
-      if (savedClients) {
-        setClients(JSON.parse(savedClients));
-      }
-    };
-    
-    // Add event listener
-    window.addEventListener('clientsUpdated', handleClientsUpdated);
-    
-    // Clean up
-    return () => {
-      window.removeEventListener('clientsUpdated', handleClientsUpdated);
-    };
   }, []);
   
   // Add useEffect to update invoice number prefix when recipient name changes on an existing invoice
@@ -85,33 +91,7 @@ const InvoiceForm = ({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [invoiceData.recipientName, id, setInvoiceData]);
 
-  // Handle client selection
-  const handleClientSelect = (e) => {
-    const clientId = parseInt(e.target.value);
-    if (!clientId) {
-      return;
-    }
-    const selectedClient = clients.find(client => client.id === clientId);
-    if (selectedClient) {
-      setInvoiceData(prevData => {
-        const updated = {
-          ...prevData,
-          recipientName: selectedClient.name,
-          recipientAddress: selectedClient.address || '',
-          recipientPhone: selectedClient.phone || '',
-          recipientEmail: selectedClient.email || '',
-          recipientWebsite: selectedClient.website || '',
-          recipientGSTIN: selectedClient.gstin || '',
-          recipientPAN: selectedClient.pan || ''
-        };
-        // Also update invoice number prefix if recipientName changes
-        if (selectedClient.name) {
-          updated.invoiceNumber = invoiceLogic.generateInvoiceNumber(selectedClient.name, false);
-        }
-        return updated;
-      });
-    }
-  };
+  // handleClientSelect is now imported from our custom hook
 
   // Generate invoice number with format CUST-YYYYMMDD-XXXX (now using recipientName)
   const generateInvoiceNumber = () => {
@@ -674,6 +654,7 @@ const InvoiceForm = ({
             <label htmlFor="clientSelect">Select Saved Client</label>
             <select
               id="clientSelect"
+              value={selectedClientId}
               onChange={handleClientSelect}
               disabled={!isAuthorized}
               style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc', marginBottom: '15px' }}

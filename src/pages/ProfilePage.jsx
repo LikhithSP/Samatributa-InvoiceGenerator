@@ -4,6 +4,7 @@ import { FiArrowLeft, FiUpload, FiCamera, FiTrash2 } from 'react-icons/fi';
 import { defaultLogo } from '../assets/logoData';
 import Modal from '../components/Modal';
 import { useUserRole } from '../context/UserRoleContext'; // Import the hook
+import { supabase } from '../config/supabaseClient';
 import './ProfilePage.css';
 
 const ProfilePage = () => {
@@ -41,6 +42,7 @@ const ProfilePage = () => {
   const [isHovering, setIsHovering] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [error, setError] = useState(null);
   
   // Initialize avatar from user object if available
   useEffect(() => {
@@ -78,91 +80,61 @@ const ProfilePage = () => {
     }
   };
   
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSaving(true);
-    
-    // Simulate API call delay
-    setTimeout(() => {
-      // Save user data to localStorage
-      localStorage.setItem('userName', formData.name);
-      localStorage.setItem('userEmail', formData.email);
-      localStorage.setItem('userPosition', formData.position);
-      localStorage.setItem('userPhone', formData.phone);
-      localStorage.setItem('userAvatar', formData.avatar);
-      
-      // Update this user in the users array
-      const userId = localStorage.getItem('userId');
-      const users = JSON.parse(localStorage.getItem('users')) || [];
-      const userIndex = users.findIndex(user => user.id === userId);
-      
-      if (userIndex !== -1) {
-        users[userIndex] = {
-          ...users[userIndex],
-          name: formData.name,
-          email: formData.email,
-          phone: formData.phone,
-          position: formData.position,
-          avatar: formData.avatar,
-          updatedAt: new Date().toISOString()
-        };
-        
-        localStorage.setItem('users', JSON.stringify(users));
-      }
-      
-      setIsSaving(false);
-      setSaveSuccess(true);
-      
-      // Dispatch event to notify other components about the user update
-      window.dispatchEvent(new CustomEvent('userUpdated'));
-      
-      // Reset success message after 3 seconds
-      setTimeout(() => {
+    setError(null);
+    try {
+      // Get current user (async)
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      if (userError || !userData?.user) {
+        setIsSaving(false);
         setSaveSuccess(false);
-      }, 3000);
-    }, 800);
+        setError('User not authenticated');
+        return;
+      }
+      const userId = userData.user.id;
+      // Update user profile in Supabase
+      const { error: updateError } = await supabase.from('users').update({
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        position: formData.position,
+        avatar: formData.avatar,
+        updated_at: new Date().toISOString(),
+      }).eq('id', userId);
+      setIsSaving(false);
+      if (updateError) {
+        setSaveSuccess(false);
+        setError(updateError.message);
+        return;
+      }
+      setSaveSuccess(true);
+      // Optionally, update localStorage for avatar and name for immediate UI feedback
+      localStorage.setItem('userName', formData.name);
+      localStorage.setItem('userAvatar', formData.avatar);
+      setTimeout(() => setSaveSuccess(false), 3000);
+    } catch (err) {
+      setIsSaving(false);
+      setSaveSuccess(false);
+      setError('An unexpected error occurred.');
+    }
   };
   
-  const handleDeleteAccount = () => {
+  const handleDeleteAccount = async () => {
     setIsDeleting(true);
-    
-    // Simulate a bit of processing time
-    setTimeout(() => {
-      const userId = localStorage.getItem('userId');
-      
-      // 1. Unassign all invoices assigned to this user
-      const savedInvoices = JSON.parse(localStorage.getItem('savedInvoices')) || [];
-      const updatedInvoices = savedInvoices.map(invoice => {
-        if (invoice.assigneeId === userId) {
-          return { ...invoice, assigneeId: '' }; // Unassign
-        }
-        return invoice;
-      });
-      localStorage.setItem('savedInvoices', JSON.stringify(updatedInvoices));
-      
-      // 2. Remove user from users array
-      const users = JSON.parse(localStorage.getItem('users')) || [];
-      const filteredUsers = users.filter(user => user.id !== userId);
-      localStorage.setItem('users', JSON.stringify(filteredUsers));
-      
-      // 3. Clear all user data from localStorage
-      localStorage.removeItem('isLoggedIn');
-      localStorage.removeItem('userEmail');
-      localStorage.removeItem('userId');
-      localStorage.removeItem('userName');
-      localStorage.removeItem('userPhone');
-      localStorage.removeItem('userPosition');
-      localStorage.removeItem('userAvatar');
-      localStorage.removeItem('lastLogin');
-      localStorage.removeItem('lastActivity');
-      localStorage.removeItem('selectedCompany');
-      
-      // 4. Dispatch event to notify other components
-      window.dispatchEvent(new Event('invoicesUpdated'));
-      
-      // 5. Navigate to login page
-      navigate('/login');
-    }, 1000);
+    const user = supabase.auth.user();
+    if (!user) {
+      setIsDeleting(false);
+      setError('User not authenticated');
+      return;
+    }
+    // Remove user from users table
+    await supabase.from('users').delete().eq('id', user.id);
+    // Remove user from auth
+    await supabase.auth.admin.deleteUser(user.id);
+    setIsDeleting(false);
+    navigate('/login');
   };
   
   return (
@@ -251,6 +223,12 @@ const ProfilePage = () => {
           {saveSuccess && (
             <div className="success-message">
               Profile updated successfully!
+            </div>
+          )}
+          
+          {error && (
+            <div className="error-message">
+              {error}
             </div>
           )}
           

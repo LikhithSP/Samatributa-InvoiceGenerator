@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { FiArrowRight, FiUserPlus, FiUser, FiMail, FiPhone, FiBriefcase, FiLock, FiEye, FiEyeOff, FiSun, FiMoon, FiArrowLeft } from 'react-icons/fi';
 import './LoginPage.css'; // Import the CSS file
+import { supabase } from '../config/supabaseClient';
 
 const LoginPage = ({ onLogin, darkMode, toggleDarkMode }) => {
   const [email, setEmail] = useState('');
@@ -70,89 +71,71 @@ const LoginPage = ({ onLogin, darkMode, toggleDarkMode }) => {
     }
   }, [formAnimation, isRegistering]);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    
+
     if (isRegistering) {
-      // Handle registration
       if (!email || !password || !confirmPassword || !name) {
         setError('Please fill in all required fields');
         return;
       }
-      
       if (password !== confirmPassword) {
         setError('Passwords do not match');
         return;
       }
-      
       setIsLoading(true);
-      
-      // Check if user already exists
-      const users = JSON.parse(localStorage.getItem('users')) || [];
-      const userExists = users.some(user => user.email === email);
-      
-      if (userExists) {
-        setError('User with this email already exists');
+      // Supabase sign up
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            name,
+            phone,
+            position: position || 'Invoicing Associate',
+            role: 'user',
+          },
+        },
+      });
+      if (signUpError) {
+        setError(signUpError.message);
         setIsLoading(false);
         return;
       }
-      
-      // Add new user with phone and position fields
-      const newUser = {
-        id: `user_${Date.now()}`,
+      // Insert user profile into users table
+      await supabase.from('users').insert({
+        id: data.user.id,
         email,
         name,
         phone,
-        // Set position to "Invoicing Associate" as default if not specified
         position: position || 'Invoicing Associate',
-        password, // In a real app, you'd hash this password
         role: 'user',
-        createdAt: new Date().toISOString()
-      };
-      
-      users.push(newUser);
-      localStorage.setItem('users', JSON.stringify(users));
-      
+        created_at: new Date().toISOString(),
+      });
       // Auto-login after registration
-      setTimeout(() => {
-        // Pass the finalized position value and role
-        onLogin(email, newUser.id, newUser.name, phone, newUser.position, newUser.role);
-        setIsLoading(false);
-      }, 1000);
-      
+      onLogin(email, data.user.id, name, phone, position || 'Invoicing Associate', 'user');
+      setIsLoading(false);
     } else {
-      // Handle login
+      // Login
       if (!email || !password) {
         setError('Please enter both email and password');
         return;
       }
-      
       setIsLoading(true);
-      
-      // Get users from localStorage
-      const users = JSON.parse(localStorage.getItem('users')) || [];
-      
-      // Check credentials
-      const user = users.find(u => u.email === email && u.password === password);
-      
-      if (user) {
-        setTimeout(() => {
-          // Save user info to localStorage for context sync
-          localStorage.setItem('userId', user.id);
-          localStorage.setItem('userEmail', user.email);
-          localStorage.setItem('userPosition', user.position || '');
-          localStorage.setItem('userRole', user.role || 'user');
-          // Dispatch login event so UserRoleContext updates immediately
-          window.dispatchEvent(new Event('login'));
-          // Pass the user role along with other user info to ensure position is set correctly
-          onLogin(email, user.id, user.name, user.phone || '', user.position || '', user.role || 'user');
-          setIsLoading(false);
-        }, 1000);
-      } else {
-        setError('Invalid email or password');
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      if (signInError) {
+        setError(signInError.message);
         setIsLoading(false);
+        return;
       }
+      // Fetch user profile from users table
+      const { data: userProfile } = await supabase.from('users').select('*').eq('id', data.user.id).single();
+      onLogin(email, data.user.id, userProfile?.name || '', userProfile?.phone || '', userProfile?.position || '', userProfile?.role || 'user');
+      setIsLoading(false);
     }
   };
   
