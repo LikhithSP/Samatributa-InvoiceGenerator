@@ -1138,13 +1138,17 @@ body.dark-mode .dashboard-container {
 
 body:not(.dark-mode) .btn-logout {
   background-color: #ffe86e; /* Updated background color for logout button in light mode */
-  /* ...existing code... */
 }
 
 body.dark-mode .btn-logout {
-  background-color: #a07c07;
-  border-color: #111827; /* Updated background color for logout button in dark mode */
-  /* ...existing code... */
+  background-color: #927d05;
+  border-color: #927d05;
+  color: #fff;
+}
+
+body.dark-mode .btn-logout:hover {
+  background-color: var(--primary-hover);
+  border-color: var(--primary-hover);
 }
 
 .dashboard-header {
