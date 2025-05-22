@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FiSearch, FiSettings, FiLogOut, FiUser, FiPlus, FiChevronDown, FiUsers, FiTrash2, FiDownload, FiMenu } from 'react-icons/fi';
-import { FiSun, FiMoon, FiArchive, FiList, FiMail } from 'react-icons/fi';
+import { FiSun, FiMoon, FiArchive, FiList } from 'react-icons/fi';
 import '../App.css';
 import { defaultLogo } from '../assets/logoData';
 import jsPDF from 'jspdf';
@@ -1053,15 +1053,6 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
                 <FiArchive className="company-icon" />
                 <span className="company-name" style={{ fontSize: '18px', color: 'white' }}>Recently Deleted</span>
               </div>
-              {/* Message Inbox button */}
-              <div
-                className="company-item"
-                style={{ marginTop: '10px', color: 'var(--light-text)' }}
-                onClick={() => navigate('/inbox')}
-              >
-                <FiMail className="company-icon" />
-                <span className="company-name" style={{ fontSize: '18px', color: 'white' }}>Message Inbox</span>
-              </div>
               {/* Invoicing Associates section header */}
               <div className="section-title" style={{ 
                 padding: '10px', 
@@ -1233,15 +1224,6 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
               >
                 <FiArchive className="company-icon" />
                 <span className="company-name" style={{ fontSize: '18px', color: 'white' }}>Recently Deleted</span>
-              </div>
-              {/* Message Inbox button */}
-              <div
-                className="company-item"
-                style={{ marginTop: '10px', color: 'var(--light-text)' }}
-                onClick={() => navigate('/inbox')}
-              >
-                <FiMail className="company-icon" />
-                <span className="company-name" style={{ fontSize: '18px', color: 'white' }}>Message Inbox</span>
               </div>
             </>
           )}
