@@ -8,7 +8,7 @@ import { useNotification } from '../context/NotificationContext';
 import Modal from './Modal';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
-import useClientDropdown from '../hooks/useClientDropdown';
+import { supabase } from '../config/supabaseClient';
 
 const InvoiceForm = ({ 
   invoiceData, 
@@ -28,39 +28,33 @@ const InvoiceForm = ({
   const [showSendModal, setShowSendModal] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);
   const { setNotification } = useNotification();
+  const [clients, setClients] = useState([]);
   const isInitialMount = useRef(true); // Ref to track initial mount
-  
-  // Use our custom hook for client dropdown functionality
-  const { 
-    clients,
-    selectedClientId,
-    handleClientSelect
-  } = useClientDropdown(setInvoiceData);
-  
-  // Add console logs to debug client field updates
+  // Track selected clientId for dropdown (controlled component)
+  const [selectedClientId, setSelectedClientId] = useState('');
+
+  // Sync selectedClientId with invoiceData.recipientName (for edit mode or after autofill)
   useEffect(() => {
-    console.log("Invoice data recipient fields updated:", {
-      name: invoiceData.recipientName,
-      address: invoiceData.recipientAddress,
-      phone: invoiceData.recipientPhone,
-      email: invoiceData.recipientEmail,
-      website: invoiceData.recipientWebsite,
-      gstin: invoiceData.recipientGSTIN,
-      pan: invoiceData.recipientPAN
-    });
-  }, [
-    invoiceData.recipientName,
-    invoiceData.recipientAddress,
-    invoiceData.recipientPhone,
-    invoiceData.recipientEmail,
-    invoiceData.recipientWebsite,
-    invoiceData.recipientGSTIN,
-    invoiceData.recipientPAN
-  ]);
+    if (!invoiceData.recipientName) {
+      setSelectedClientId('');
+      return;
+    }
+    const found = clients.find(c => c.name === invoiceData.recipientName);
+    if (found) setSelectedClientId(found.id.toString());
+  }, [invoiceData.recipientName, clients]);
 
   // Fetch exchange rate on component mount
   useEffect(() => {
     fetchExchangeRate();
+  }, []);
+  
+  // Fetch clients from Supabase on mount
+  useEffect(() => {
+    const fetchClients = async () => {
+      const { data, error } = await supabase.from('clients').select('*');
+      if (!error) setClients(data || []);
+    };
+    fetchClients();
   }, []);
   
   // Add useEffect to update invoice number prefix when recipient name changes on an existing invoice
@@ -91,7 +85,50 @@ const InvoiceForm = ({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [invoiceData.recipientName, id, setInvoiceData]);
 
-  // handleClientSelect is now imported from our custom hook
+  // Handle client selection (autofill all fields from Supabase client)
+  const handleClientSelect = (e) => {
+    const clientId = e.target.value ? String(e.target.value) : null;
+    setSelectedClientId(clientId || '');
+    if (!clientId) {
+      setInvoiceData(prevData => ({
+        ...prevData,
+        recipientName: '',
+        recipientAddress: '',
+        recipientPhone: '',
+        recipientEmail: '',
+        recipientWebsite: '',
+        recipientGSTIN: '',
+        recipientPAN: ''
+      }));
+      return;
+    }
+    const selectedClient = clients.find(client => String(client.id) === clientId);
+    if (!selectedClient) {
+      setNotification('Client not found. Please try again.', 'error');
+      setInvoiceData(prevData => ({
+        ...prevData,
+        recipientName: '',
+        recipientAddress: '',
+        recipientPhone: '',
+        recipientEmail: '',
+        recipientWebsite: '',
+        recipientGSTIN: '',
+        recipientPAN: ''
+      }));
+      return;
+    }
+    // Force update all fields, even if values are the same
+    setInvoiceData(prevData => ({
+      ...prevData,
+      recipientName: selectedClient.name || '',
+      recipientAddress: selectedClient.address || '',
+      recipientPhone: selectedClient.phone || '',
+      recipientEmail: selectedClient.email || '',
+      recipientWebsite: selectedClient.website || '',
+      recipientGSTIN: selectedClient.gstin || '',
+      recipientPAN: selectedClient.pan || ''
+    }));
+  };
 
   // Generate invoice number with format CUST-YYYYMMDD-XXXX (now using recipientName)
   const generateInvoiceNumber = () => {
