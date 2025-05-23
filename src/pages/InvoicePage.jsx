@@ -75,11 +75,11 @@ const InvoicePage = ({ onLogout, darkMode, toggleDarkMode }) => {
     bankName: 'Yes Bank Limited',
     accountNumber: '1111111',
     ifscCode: '11111',
-    // Assignee information - automatically assign to Invoicing Associate if they're creating the invoice
-    assigneeId: isInvoicingAssociate ? currentUserId : '',
-    assigneeName: isInvoicingAssociate ? currentUserName : '',
-    assigneeRole: isInvoicingAssociate ? currentUserRole : '',
-    assigneePosition: isInvoicingAssociate ? currentUserPosition : ''
+    // Assignee information - assign to admin or invoicing associate if creating the invoice
+    assigneeId: isAdmin ? currentUserId : (isInvoicingAssociate ? currentUserId : ''),
+    assigneeName: isAdmin ? currentUserName : (isInvoicingAssociate ? currentUserName : ''),
+    assigneeRole: isAdmin ? currentUserRole : (isInvoicingAssociate ? currentUserRole : ''),
+    assigneePosition: isAdmin ? currentUserPosition : (isInvoicingAssociate ? currentUserPosition : '')
   };
   
   const [invoiceData, setInvoiceData] = useState(initialInvoiceData);
@@ -206,22 +206,27 @@ const InvoicePage = ({ onLogout, darkMode, toggleDarkMode }) => {
     
     if (window.confirm('Are you sure you want to create a new invoice? All current data will be lost.')) {
       const today = new Date();
-      
-      // Determine if current user is an Invoicing Associate for auto-assignment
-      const assignmentInfo = isInvoicingAssociate ? 
-        {
-          assigneeId: currentUserId,
-          assigneeName: currentUserName,
-          assigneeRole: currentUserRole,
-          assigneePosition: currentUserPosition
-        } : 
-        {
-          assigneeId: '',
-          assigneeName: '',
-          assigneeRole: '',
-          assigneePosition: ''
-        };
-      
+      // Assign to admin or invoicing associate
+      const assignmentInfo = isAdmin
+        ? {
+            assigneeId: currentUserId,
+            assigneeName: currentUserName,
+            assigneeRole: currentUserRole,
+            assigneePosition: currentUserPosition
+          }
+        : isInvoicingAssociate
+        ? {
+            assigneeId: currentUserId,
+            assigneeName: currentUserName,
+            assigneeRole: currentUserRole,
+            assigneePosition: currentUserPosition
+          }
+        : {
+            assigneeId: '',
+            assigneeName: '',
+            assigneeRole: '',
+            assigneePosition: ''
+          };
       setInvoiceData({
         id: '', // Reset the unique ID
         invoiceNumber: '', // Leave empty for user to fill in or auto-generate on save

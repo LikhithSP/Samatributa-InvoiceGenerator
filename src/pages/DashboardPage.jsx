@@ -672,43 +672,40 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
   };
   
   // Function to assign an invoice to a user
-  const assignInvoice = (e, invoiceId, assigneeId) => {
+  const assignInvoice = async (e, invoiceId, assigneeId) => {
     e.stopPropagation(); // Prevent navigating to invoice detail page
-    
     // Check if user has permission to assign invoices
     if (!hasPermission('assign-invoice')) {
       alert('Only administrators can assign invoices to users.');
       return;
     }
-    
     // Get the previous assignee to check if this is a new assignment
     const invoice = savedInvoices.find(inv => inv.id === invoiceId);
     const previousAssigneeId = invoice?.assigneeId;
-    
-    // Update the invoice with the new assignee
+    const assigneeName = users.find(user => user.id === assigneeId)?.name || 'Unassigned';
+    // Update in Supabase
+    const { error } = await supabase.from('invoices').update({ assigneeId, assigneeName }).eq('id', invoiceId);
+    if (error) {
+      alert('Failed to assign invoice: ' + error.message);
+      return;
+    }
+    // Update the invoice with the new assignee in local state
     const updatedInvoices = savedInvoices.map(invoice => {
       if (invoice.id === invoiceId) {
         return {
           ...invoice,
           assigneeId,
-          assigneeName: users.find(user => user.id === assigneeId)?.name || 'Unassigned'
+          assigneeName
         };
       }
       return invoice;
     });
-    
-    // Save updated invoices to localStorage
-    localStorage.setItem('savedInvoices', JSON.stringify(updatedInvoices));
     setSavedInvoices(updatedInvoices);
-    
     // Send notification to the assignee if this is a new assignment
     if (assigneeId && assigneeId !== previousAssigneeId) {
-      // Get the invoice and user details
       const updatedInvoice = updatedInvoices.find(inv => inv.id === invoiceId);
       const assignee = users.find(user => user.id === assigneeId);
-      
       if (assignee) {
-        // Store notification in assignee's notifications
         const assigneeNotifications = JSON.parse(localStorage.getItem(`notifications_${assigneeId}`)) || [];
         const newNotification = {
           id: `notification_${Date.now()}`,
@@ -721,13 +718,10 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
             invoiceNumber: updatedInvoice.invoiceNumber
           }
         };
-        
         localStorage.setItem(`notifications_${assigneeId}`, JSON.stringify([
           newNotification,
           ...assigneeNotifications
         ]));
-        
-        // If the assignee is the current user, update their notifications
         if (assigneeId === currentUserId) {
           addNotification(`You have been assigned a new invoice: ${updatedInvoice.invoiceNumber}`, 'info', {
             invoiceId,
@@ -736,8 +730,6 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
         }
       }
     }
-    
-    // Dispatch event to notify other components about the change
     window.dispatchEvent(new Event('invoicesUpdated'));
   };
   
