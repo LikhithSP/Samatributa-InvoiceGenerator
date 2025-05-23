@@ -49,9 +49,11 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
   const [sortField, setSortField] = useState('date');
   const [sortDirection, setSortDirection] = useState('desc');
   const [showSortOptions, setShowSortOptions] = useState(false);
-  
-  // State for saved invoices
+    // State for saved invoices
   const [savedInvoices, setSavedInvoices] = useState([]);
+  
+  // Loading state for initial dashboard data fetch
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
   
   // Current user ID
   const currentUserId = localStorage.getItem('userId') || 'demo_user';
@@ -100,19 +102,25 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
   useEffect(() => {
     localStorage.setItem('invoiceStatuses', JSON.stringify(invoiceStatuses));
   }, [invoiceStatuses]);
-  
-  // Fetch all data from Supabase on mount
+    // Fetch all data from Supabase on mount
   useEffect(() => {
     const fetchAll = async () => {
-      const { data: companies } = await supabase.from('companies').select('*');
-      setCompanies(companies || []);
-      const { data: clients } = await supabase.from('clients').select('*');
-      setClients(clients || []);
-      const { data: users } = await supabase.from('users').select('*');
-      setUsers(users || []);
-      // Only fetch invoices that are NOT deleted
-      const { data: invoices } = await supabase.from('invoices').select('*').is('deletedAt', null);
-      setSavedInvoices(invoices || []);
+      try {
+        setIsInitialLoading(true);
+        const { data: companies } = await supabase.from('companies').select('*');
+        setCompanies(companies || []);
+        const { data: clients } = await supabase.from('clients').select('*');
+        setClients(clients || []);
+        const { data: users } = await supabase.from('users').select('*');
+        setUsers(users || []);
+        // Only fetch invoices that are NOT deleted
+        const { data: invoices } = await supabase.from('invoices').select('*').is('deletedAt', null);
+        setSavedInvoices(invoices || []);
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+      } finally {
+        setIsInitialLoading(false);
+      }
     };
     fetchAll();
   }, []);
@@ -347,9 +355,12 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
           color: #3b82f6;
           border-top: 2px solid #e5e7eb;
           font-size: 16px;
-        }
-        .text-right {
+        }        .text-right {
           text-align: right;
+        }
+        @keyframes pulse {
+          0% { opacity: 0.6; }
+          100% { opacity: 1; }
         }
       `;
       document.head.appendChild(style);
@@ -1456,9 +1467,56 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
             <p style={{ margin: '0', fontSize: '14px' }}>{downloadStatus}</p>
           </div>
         )}
-        
-        <div className="invoice-list" style={{ width: '100%' }}>
-          {savedInvoices.length > 0 ? (
+          <div className="invoice-list" style={{ width: '100%' }}>
+          {isInitialLoading ? (
+            // Loading skeleton
+            <div className="loading-skeleton">
+              {[...Array(3)].map((_, index) => (
+                <div key={index} className="invoice-card-skeleton" style={{
+                  background: darkMode ? '#232a36' : '#f8f9fa',
+                  borderRadius: '12px',
+                  padding: '20px',
+                  marginBottom: '16px',
+                  boxShadow: darkMode ? '0 1px 4px #10131a33' : '0 1px 4px #e0e7ef33',
+                  border: darkMode ? '1px solid #3a4252' : '1px solid #e5e7eb',
+                  animation: 'pulse 1.5s ease-in-out infinite alternate'
+                }}>
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'flex-start',
+                    marginBottom: '12px'
+                  }}>
+                    <div style={{
+                      height: '20px',
+                      width: '120px',
+                      background: darkMode ? '#3a4252' : '#e5e7eb',
+                      borderRadius: '4px'
+                    }} />
+                    <div style={{
+                      height: '24px',
+                      width: '80px',
+                      background: darkMode ? '#3a4252' : '#e5e7eb',
+                      borderRadius: '12px'
+                    }} />
+                  </div>
+                  <div style={{
+                    height: '16px',
+                    width: '200px',
+                    background: darkMode ? '#3a4252' : '#e5e7eb',
+                    borderRadius: '4px',
+                    marginBottom: '8px'
+                  }} />
+                  <div style={{
+                    height: '16px',
+                    width: '100px',
+                    background: darkMode ? '#3a4252' : '#e5e7eb',
+                    borderRadius: '4px'
+                  }} />
+                </div>
+              ))}
+            </div>
+          ) : savedInvoices.length > 0 ? (
             sortInvoices(savedInvoices)
               .filter(invoice => {
                 // If a company is selected, only show invoices for that company
