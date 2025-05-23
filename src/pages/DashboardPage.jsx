@@ -17,6 +17,9 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
   const { isAdmin, hasPermission } = useUserRole();
   const { addNotification } = useUserNotifications();
   
+  // Get current user name from localStorage for loading state
+  const currentUserName = localStorage.getItem('userName') || 'User';
+  
   // Add state for bulk download progress
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState({ current: 0, total: 0 });
@@ -1297,17 +1300,18 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
       
       {/* Main content area */}
       <main className="dashboard-main">
-        <header className="dashboard-header">
-          <h2>
-            {selectedAssignee
-              ? `Invoices Assigned to ${getAssigneeName(selectedAssignee)}`
-              : (showAllInvoices 
-                ? 'Invoice Tracker' 
-                : selectedCompany 
-                  ? `${selectedCompany.name} Invoices` 
-                  : selectedClient 
-                    ? `${selectedClient.name} Invoices`
-                    : 'Invoices')}
+        <header className="dashboard-header">          <h2>
+            {isInitialLoading 
+              ? (isAdmin ? 'Invoice Tracker' : `Invoices Assigned to ${currentUserName}`)
+              : (selectedAssignee
+                ? `Invoices Assigned to ${getAssigneeName(selectedAssignee)}`
+                : (showAllInvoices 
+                  ? (isAdmin ? 'Invoice Tracker' : `Invoices Assigned to ${currentUserName}`)
+                  : selectedCompany 
+                    ? `${selectedCompany.name} Invoices` 
+                    : selectedClient 
+                      ? `${selectedClient.name} Invoices`
+                      : 'Invoices'))}
           </h2>
           <div className="dashboard-controls">
             {/* Sort dropdown */}
