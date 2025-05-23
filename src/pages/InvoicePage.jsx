@@ -99,7 +99,8 @@ const InvoicePage = ({ onLogout, darkMode, toggleDarkMode }) => {
         return;
       }
       // Authorization logic (admin or assigned user)
-      const isUserAuthorized = isAdmin || data.assigneeId === currentUserId;
+      console.log('Admin check:', { isAdmin, currentUserId, assigneeId: data.assigneeId });
+      const isUserAuthorized = Boolean(isAdmin) || data.assigneeId === currentUserId;
       if (!isUserAuthorized) {
         alert("You don't have permission to view this invoice. Only the assigned client can access it.");
         navigate('/dashboard');
