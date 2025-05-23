@@ -122,65 +122,108 @@
   color: var(--subtitle-color);
 }
 
-/* Specific style for the theme toggle switch to be visible on dark background */
+/* Use the same styling as dashboard for theme toggle */
 .login-theme-switch .theme-switch .slider {
-  background-color: #ccc; /* Default light background for the slider track */
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #e2e8f0;
+  border-radius: 30px;
+  transition: 0.4s;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px;
 }
 
-.login-page-light-mode.dark-mode .login-theme-switch .theme-switch .slider {
-  background-color: #2A2F45; /* Darker track for dark mode, matching input background */
-}
-
-/* Slider knob color */
-.login-theme-switch .theme-switch .slider::before {
+.login-theme-switch .theme-switch .slider:before {
+  position: absolute;
+  content: "";
+  height: 22px;
+  width: 22px;
+  left: 4px;
+  bottom: 4px;
   background-color: white;
+  border-radius: 50%;
+  transition: 0.4s;
+  z-index: 2;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
 }
 
-.login-page-light-mode.dark-mode .login-theme-switch .theme-switch .slider::before {
-  background-color: #CBD5E0; /* Light gray knob for dark mode */
-}
-
-/* Active state of the toggle */
-.login-theme-switch .theme-switch input:checked + .slider {
-  background-color: var(--primary-color); /* Gold when active (dark mode on in light theme context - not ideal) */
-}
-
-.login-page-light-mode.dark-mode .login-theme-switch .theme-switch input:checked + .slider {
-  background-color: #4A5568; /* A contrasting dark color for the track when dark mode is on */
-}
-
-/* Ensure the sun/moon icons are visible and themed */
-.login-theme-switch .sun-icon,
-.login-theme-switch .moon-icon {
-  color: #111827; /* Dark icon color for light mode */
+.login-theme-switch .theme-switch .sun-icon,
+.login-theme-switch .theme-switch .moon-icon {
   display: flex;
   align-items: center;
   justify-content: center;
   height: 100%;
-  font-size: 12px; /* Adjust size as needed */
+  color: var(--text-color);
+  z-index: 1;
+  transition: 0.4s;
 }
 
+.login-theme-switch .theme-switch .sun-icon {
+  color: #f59e0b;
+  margin-left: 5px;
+}
+
+.login-theme-switch .theme-switch .moon-icon {
+  color: #6366f1;
+  margin-right: 5px;
+}
+
+.login-theme-switch input:checked + .slider {
+  background-color: #1e293b;
+}
+
+.login-theme-switch input:checked + .slider:before {
+  transform: translateX(30px);
+}
+
+/* Additional animation for the icons */
+.login-theme-switch input:not(:checked) + .slider .sun-icon {
+  opacity: 1;
+}
+
+.login-theme-switch input:not(:checked) + .slider .moon-icon {
+  opacity: 0.5;
+}
+
+.login-theme-switch input:checked + .slider .sun-icon {
+  opacity: 0.5;
+}
+
+.login-theme-switch input:checked + .slider .moon-icon {
+  opacity: 1;
+}
+
+/* Add a nice glow effect on hover */
+.login-theme-switch .theme-switch:hover .slider:before {
+  box-shadow: 0 0 8px var(--primary-color);
+}
+
+/* Ensure the sun/moon icons are visible and themed with correct positioning */
 .login-theme-switch .sun-icon {
-  margin-left: 4px; /* Position sun icon */
+  color: #f59e0b;
+  margin-left: 5px;
 }
 
 .login-theme-switch .moon-icon {
-  margin-right: 4px; /* Position moon icon */
+  color: #6366f1;
+  margin-right: 5px;
 }
 
 .login-page-light-mode.dark-mode .login-theme-switch .sun-icon {
-  color: #FDE047; /* Yellow sun for dark mode */
-}
-.login-page-light-mode.dark-mode .login-theme-switch .moon-icon {
-  color: #90CDF4; /* Light blue moon for dark mode */
+  opacity: 0.5;
 }
 
-/* Adjust remember me checkbox for dark mode */
-.login-page-light-mode.dark-mode .remember-me input[type="checkbox"] {
-  accent-color: var(--primary-color); /* Gold accent for checkbox */
-  background-color: var(--input-background); /* Match input background */
-  border: 1px solid var(--border-color);
+.login-page-light-mode.dark-mode .login-theme-switch .moon-icon {
+  opacity: 1;
 }
+
+/* Visibility state of icons is managed by these rules */
 
 .login-page-light-mode.dark-mode .remember-me label {
   color: var(--label-color);
@@ -724,50 +767,67 @@
   }
 }
 
-/* Theme switch styles for Login Page */
-.login-theme-switch { /* This class is on the wrapper div in LoginPage.jsx */
+.login-theme-switch {
   position: absolute;
-  top: 1.5rem;
-  right: 1.5rem; /* Adjusted to match image positioning more closely inside the card */
-  z-index: 1001; /* Ensure it's above other card content */
+  top: 20px;
+  right: 20px;
+  z-index: 10;
 }
 
+/* Theme switch styling to match dashboard exactly */
+.login-theme-switch .theme-switch {
+  position: relative;
+  display: inline-block;
+  width: 60px;
+  height: 30px;
+}
+
+.login-theme-switch .theme-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+/* Use the theme-switch styles from App.css to ensure consistency */
 .login-theme-switch .theme-switch .slider {
-  background-color: #ccc; /* Light mode track */
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #e2e8f0;
+  border-radius: 30px;
+  transition: 0.4s;
   display: flex;
   align-items: center;
-  justify-content: space-between; /* Icons at ends */
-  padding: 0 2px; /* Small padding for icons */
-  width: 40px; /* Adjust width */
-  height: 20px; /* Adjust height */
+  justify-content: space-between;
+  padding: 5px;
 }
 
-.login-theme-switch .theme-switch .slider::before { /* Knob */
+.login-theme-switch .theme-switch .slider:before {
+  position: absolute;
+  content: "";
+  height: 22px;
+  width: 22px;
+  left: 4px;
+  bottom: 4px;
   background-color: white;
-  height: 16px; /* Adjust knob size */
-  width: 16px; /* Adjust knob size */
-  left: 2px; /* Adjust knob position */
-  bottom: 2px; /* Adjust knob position */
-  box-shadow: 0 0 2px rgba(0,0,0,0.2);
-}
-
-.login-theme-switch .theme-switch input:checked + .slider::before {
-  transform: translateX(20px); /* Adjust knob travel distance */
+  border-radius: 50%;
+  transition: 0.4s;
+  z-index: 2;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
 }
 
 /* Dark mode specific styles for the toggle */
 .login-page-light-mode.dark-mode .login-theme-switch .theme-switch .slider {
-  background-color: #2A2F45; /* Dark track for dark mode (matches input bg) */
-}
-
-.login-page-light-mode.dark-mode .login-theme-switch .theme-switch .slider::before { /* Knob in dark mode */
-  background-color: #CBD5E0; /* Light gray knob */
+  background-color: #1e293b;
 }
 
 /* Icon styling within the toggle */
 .login-theme-switch .sun-icon,
 .login-theme-switch .moon-icon {
-  font-size: 12px; 
+  font-size: 16px; 
   display: flex;
   align-items: center;
   justify-content: center;
@@ -776,35 +836,4 @@
   transition: opacity 0.3s ease;
 }
 
-/* Light mode active: Sun visible, Moon hidden */
-.login-theme-switch .theme-switch input:not(:checked) + .slider .sun-icon {
-  color: #f39c12; /* Orange sun */
-  opacity: 1;
-  margin-left: 2px; /* Position sun icon to the left */
-}
-.login-theme-switch .theme-switch input:not(:checked) + .slider .moon-icon {
-  opacity: 0;
-  margin-right: 2px;
-}
-
-/* Dark mode active (checked): Sun visible (as per image), Moon hidden/styled */
-.login-page-light-mode.dark-mode .login-theme-switch .theme-switch input:checked + .slider .sun-icon {
-  color: #FDE047; /* Yellow sun for dark mode */
-  opacity: 1;
-   margin-left: 2px; /* Sun icon on the left */
-}
-.login-page-light-mode.dark-mode .login-theme-switch .theme-switch input:checked + .slider .moon-icon {
-  color: #90CDF4; /* Light blue moon */
-  opacity: 0; /* Moon icon on the right, hidden when knob is there */
-   margin-right: 2px;
-}
-
-/* If you want the moon to show when dark is selected and knob is on the right */
-/*
-.login-page-light-mode.dark-mode .login-theme-switch .theme-switch input:checked + .slider .sun-icon {
-  opacity: 0;
-}
-.login-page-light-mode.dark-mode .login-theme-switch .theme-switch input:checked + .slider .moon-icon {
-  opacity: 1;
-}
-*/
+/* This section has been updated to match the dashboard implementation */
