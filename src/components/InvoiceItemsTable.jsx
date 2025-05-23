@@ -11,14 +11,6 @@ const InvoiceItemsTable = ({ items, setItems, exchangeRate, currency, disabled =
       let { data, error } = await supabase.from('descriptions').select('*').order('id', { ascending: true });
       if (!error && data) {
         setDescriptions(data);
-        // Optionally update localStorage for legacy support
-        localStorage.setItem('serviceDescriptions', JSON.stringify(data));
-      } else {
-        // fallback to localStorage if Supabase fails
-        const savedDescriptions = localStorage.getItem('serviceDescriptions');
-        if (savedDescriptions) {
-          setDescriptions(JSON.parse(savedDescriptions));
-        }
       }
     };
     fetchDescriptions();

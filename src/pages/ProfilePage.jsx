@@ -11,30 +11,13 @@ const ProfilePage = () => {
   const navigate = useNavigate();
   const { isAdmin } = useUserRole(); // Get the isAdmin status
   
-  // Initialize state with data from localStorage or defaults
-  const [formData, setFormData] = useState(() => {
-    // Get the stored values
-    const storedName = localStorage.getItem('userName') || 'John Doe';
-    const storedEmail = localStorage.getItem('userEmail') || 'johndoe@example.com';
-    let storedPosition = localStorage.getItem('userPosition') || 'CEO';
-    const storedPhone = localStorage.getItem('userPhone') || '';
-    const storedAvatar = localStorage.getItem('userAvatar') || defaultLogo;
-    
-    // Update "client" position to "Invoicing Associate" if that's the current value
-    // but only for non-admin users
-    if (storedPosition && storedPosition.toLowerCase() === 'client' && !isAdmin) {
-      storedPosition = 'Invoicing Associate';
-      // Update it in localStorage right away
-      localStorage.setItem('userPosition', storedPosition);
-    }
-    
-    return {
-      name: storedName,
-      email: storedEmail,
-      position: storedPosition,
-      phone: storedPhone,
-      avatar: storedAvatar
-    };
+  // Initialize state with data from Supabase
+  const [formData, setFormData] = useState({
+    name: 'John Doe',
+    email: 'johndoe@example.com',
+    position: 'CEO',
+    phone: '',
+    avatar: defaultLogo
   });
   
   const [isSaving, setIsSaving] = useState(false);
@@ -44,18 +27,36 @@ const ProfilePage = () => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState(null);
   
-  // Initialize avatar from user object if available
+  // Fetch user data from Supabase on mount
   useEffect(() => {
-    const userId = localStorage.getItem('userId');
-    const users = JSON.parse(localStorage.getItem('users')) || [];
-    const currentUser = users.find(user => user.id === userId);
+    const fetchUserData = async () => {
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      if (userError || !userData?.user) {
+        setError('User not authenticated');
+        return;
+      }
+      const userId = userData.user.id;
+      const { data: profileData, error: profileError } = await supabase
+        .from('users')
+        .select('name, email, phone, position, avatar')
+        .eq('id', userId)
+        .single();
+      
+      if (profileError) {
+        setError('Error fetching profile data');
+        return;
+      }
+      
+      setFormData({
+        name: profileData.name,
+        email: profileData.email,
+        phone: profileData.phone,
+        position: profileData.position,
+        avatar: profileData.avatar || defaultLogo
+      });
+    };
     
-    if (currentUser && currentUser.avatar) {
-      setFormData(prev => ({
-        ...prev,
-        avatar: currentUser.avatar
-      }));
-    }
+    fetchUserData();
   }, []);
   
   const handleChange = (e) => {
@@ -110,9 +111,6 @@ const ProfilePage = () => {
         return;
       }
       setSaveSuccess(true);
-      // Optionally, update localStorage for avatar and name for immediate UI feedback
-      localStorage.setItem('userName', formData.name);
-      localStorage.setItem('userAvatar', formData.avatar);
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (err) {
       setIsSaving(false);

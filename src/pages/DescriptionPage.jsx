@@ -9,38 +9,8 @@ const DescriptionPage = ({ darkMode, toggleDarkMode }) => {
   // Add a ref to track if we're dispatching our own events
   const isSelfDispatch = React.useRef(false);
 
-  // Get descriptions from localStorage or use sample data
-  const [descriptions, setDescriptions] = useState(() => {
-    const savedDescriptions = localStorage.getItem('serviceDescriptions');
-    if (savedDescriptions) {
-      return JSON.parse(savedDescriptions);
-    }
-    // Default sample descriptions if none exist
-    const defaultDescriptions = [
-      { 
-        id: 1, 
-        text: 'US Federal Corporation Income Tax Return (Form 1120)' 
-      },
-      { 
-        id: 2, 
-        text: 'Foreign related party disclosure form with respect to a foreign subsidiary (Form 5417)' 
-      },
-      { 
-        id: 3,
-        text: 'Foreign related party disclosure form with respect to a foreign shareholders (Form 5472)'
-      },
-      {
-        id: 4,
-        text: 'Application for Automatic Extension of Time To File Business Income Tax (Form 7004)'
-      }
-    ];
-    
-    // Save the default descriptions to localStorage immediately
-    localStorage.setItem('serviceDescriptions', JSON.stringify(defaultDescriptions));
-    
-    return defaultDescriptions;
-  });
-
+  // Get descriptions from Supabase
+  const [descriptions, setDescriptions] = useState([]);
   const [activeDescriptionId, setActiveDescriptionId] = useState(null);
   const [newDescription, setNewDescription] = useState({
     text: ''
