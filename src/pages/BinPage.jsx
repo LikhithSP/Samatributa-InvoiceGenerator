@@ -37,7 +37,15 @@ const BinPage = ({ onLogout, darkMode, toggleDarkMode }) => {
   const restoreInvoice = async (invoiceId) => {
     setIsLoading(true);
     await supabase.from('invoices').update({ deletedAt: null, deletedBy: null }).eq('id', invoiceId);
-    await loadDeletedInvoices();
+    // After restore, also refresh dashboard invoices if possible
+    if (window.location.pathname !== '/dashboard') {
+      // If not on dashboard, just reload bin
+      await loadDeletedInvoices();
+    } else {
+      // If on dashboard, trigger a refresh event
+      window.dispatchEvent(new Event('invoicesUpdated'));
+      await loadDeletedInvoices();
+    }
     alert('Invoice has been restored successfully.');
   };
 

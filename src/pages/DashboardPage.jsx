@@ -110,7 +110,8 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
       setClients(clients || []);
       const { data: users } = await supabase.from('users').select('*');
       setUsers(users || []);
-      const { data: invoices } = await supabase.from('invoices').select('*');
+      // Only fetch invoices that are NOT deleted
+      const { data: invoices } = await supabase.from('invoices').select('*').is('deletedAt', null);
       setSavedInvoices(invoices || []);
     };
     fetchAll();
@@ -888,6 +889,17 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
     }
   }, [savedInvoices]);
 
+  // Listen for invoice bin/restore updates and refresh invoices
+  useEffect(() => {
+    const refreshInvoices = async () => {
+      const { data: invoices } = await supabase.from('invoices').select('*').is('deletedAt', null);
+      setSavedInvoices(invoices || []);
+    };
+    const handler = () => refreshInvoices();
+    window.addEventListener('invoicesUpdated', handler);
+    return () => window.removeEventListener('invoicesUpdated', handler);
+  }, []);
+  
   return (
     <div className="dashboard-container">
       {/* Mobile sidebar toggle button */}
@@ -1072,10 +1084,8 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    color: 'white',
-                    fontWeight: 'bold',
-                    fontSize: '12px',
-                    marginRight: '10px'
+                    color: 'var(--dark-text)',
+                    fontWeight: 'bold'
                   }}>
                     {currentUser?.name ? currentUser.name[0].toUpperCase() : 'U'}
                   </div>
