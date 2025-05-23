@@ -81,5 +81,7 @@ CREATE TABLE IF NOT EXISTS invoices (
     timestamp bigint,
     created_by uuid REFERENCES users(id),
     created_at timestamptz DEFAULT now(),
-    updated_at timestamptz
+    updated_at timestamptz,
+    deletedAt timestamptz,
+    deletedBy uuid REFERENCES users(id)
 );

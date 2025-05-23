@@ -272,17 +272,26 @@ const InvoicePage = ({ onLogout, darkMode, toggleDarkMode }) => {
     }
   };
 
-  // Delete the current invoice
+  // Delete the current invoice (move to bin)
   const deleteInvoice = async () => {
-    // Check if user is authorized to delete
-    // Only admin or invoice creator can delete
     if (!isAdmin && invoiceData.assigneeId !== currentUserId) {
       alert("You don't have permission to delete this invoice.");
       return;
     }
-    
     if (window.confirm('Are you sure you want to delete this invoice?')) {
-      await supabase.from('invoices').delete().eq('id', invoiceData.id);
+      const deletedAt = new Date().toISOString();
+      const deletedBy = currentUserId;
+      const { data, error } = await supabase.from('invoices').update({ deletedAt, deletedBy }).eq('id', invoiceData.id).select();
+      console.log('Delete invoice result:', { data, error, deletedAt, deletedBy, id: invoiceData.id });
+      if (error) {
+        alert('Failed to delete invoice: ' + error.message);
+        return;
+      }
+      if (!data || !data.length) {
+        alert('No invoice was updated. Please check if the invoice exists and try again.');
+        return;
+      }
+      alert('Invoice moved to bin.');
       navigate('/dashboard');
     }
   };
