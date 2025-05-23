@@ -98,7 +98,8 @@ const InvoiceForm = ({
         recipientEmail: '',
         recipientWebsite: '',
         recipientGSTIN: '',
-        recipientPAN: ''
+        recipientPAN: '',
+        invoiceNumber: invoiceLogic.generateInvoiceNumber('CUST', true) // Reset to default if no client
       }));
       return;
     }
@@ -113,11 +114,12 @@ const InvoiceForm = ({
         recipientEmail: '',
         recipientWebsite: '',
         recipientGSTIN: '',
-        recipientPAN: ''
+        recipientPAN: '',
+        invoiceNumber: invoiceLogic.generateInvoiceNumber('CUST', true)
       }));
       return;
     }
-    // Force update all fields, even if values are the same
+    // Force update all fields, even if values are the same, and update invoice number
     setInvoiceData(prevData => ({
       ...prevData,
       recipientName: selectedClient.name || '',
@@ -126,7 +128,8 @@ const InvoiceForm = ({
       recipientEmail: selectedClient.email || '',
       recipientWebsite: selectedClient.website || '',
       recipientGSTIN: selectedClient.gstin || '',
-      recipientPAN: selectedClient.pan || ''
+      recipientPAN: selectedClient.pan || '',
+      invoiceNumber: invoiceLogic.generateInvoiceNumber(selectedClient.name || 'CUST', true)
     }));
   };
 
