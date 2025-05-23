@@ -365,17 +365,9 @@ const LoginPage = ({ onLogin, darkMode, toggleDarkMode }) => {
           {/* Right Image */}
           <div className="login-image">
             <div className="image-overlay">
-              <h2 className="overlay-title">
-                {isRegistering ? 'Join the Platform' : 'Invoice Generator'}
-              </h2>
-              <p className="overlay-text">
-                {isRegistering 
-                  ? 'Create invoices, manage clients, and grow business using this platform.' 
-                  : 'Now generate professional invoices within minutes with our easy-to-use platform.'}
-              </p>
             </div>
             <img 
-              src="https://v3.fal.media/files/koala/mCAx4qKIsxgRSmqzm7th4.png" 
+              src="https://niceillustrations.com/wp-content/uploads/2023/02/cartoon-invoice-768x768.png" 
               alt="Person using laptop" 
               className="illustration"
             />

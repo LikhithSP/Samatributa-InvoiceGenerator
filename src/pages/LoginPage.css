@@ -13,11 +13,11 @@
   --link-color: #6b7280;
   --primary-color: #fde047; /* Light mode primary (yellow) */
   --primary-hover: #facc15;
-  --accent-color: #0ea5e9;
+  --accent-color: #e9c10e;
   --error-color: #ef4444;
   --success-color: #10b981;
   --button-text: #000; /* Light mode button text */
-  --border-color: #e5e7eb;
+  --border-color: #f4f4f5;
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
@@ -52,7 +52,7 @@
   --link-color: #9F7AEA;       /* Purple links from image */
   --primary-color: #D69E2E;    /* Gold button from image */
   --primary-hover: #ECC94B;    /* Lighter gold for hover */
-  --accent-color: #9F7AEA;      /* Purple for icons if used */
+  --accent-color: #f1dd69;      /* Purple for icons if used */
   --error-color: #F56565;
   --success-color: #48BB78;
   --button-text: #1A202C;       /* Dark text on gold button */
@@ -110,9 +110,7 @@
 }
 
 /* Adjust image overlay for dark mode if it's still displayed at some breakpoints */
-.login-page-light-mode.dark-mode .image-overlay {
-  background: linear-gradient(to bottom, rgba(63, 63, 209, 0.089) 0%, rgba(11, 15, 25, 0.89) 100%); /* Darker overlay */
-}
+
 
 .login-page-light-mode.dark-mode .overlay-title {
   color: var(--heading-color);
@@ -638,7 +636,6 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(to bottom, rgba(248, 248, 248, 0.233) 0%, rgba(0, 0, 0, 0.2) 100%);
   z-index: 2;
   padding: 2rem;
   display: flex;
@@ -647,7 +644,7 @@
 }
 
 .overlay-title {
-  color: white;
+  color: rgb(32, 31, 31);
   font-size: 1.8rem;
   font-weight: 700;
   margin-bottom: 1rem;
@@ -655,7 +652,7 @@
 }
 
 .overlay-text {
-  color: rgba(255, 255, 255, 0.9);
+  color: rgba(20, 20, 20, 0.9);
   font-size: 1rem;
   line-height: 1.6;
   max-width: 90%;
