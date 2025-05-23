@@ -722,6 +722,7 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
           newNotification,
           ...assigneeNotifications
         ]));
+        // Always trigger in-app notification for the assignee if they are the current user
         if (assigneeId === currentUserId) {
           addNotification(`You have been assigned a new invoice: ${updatedInvoice.invoiceNumber}`, 'info', {
             invoiceId,
@@ -729,6 +730,8 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
           });
         }
       }
+      // Show a success notification to the admin
+      addNotification('Invoice assigned successfully!', 'success');
     }
     window.dispatchEvent(new Event('invoicesUpdated'));
   };
