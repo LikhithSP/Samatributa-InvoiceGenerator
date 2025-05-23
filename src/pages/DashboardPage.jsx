@@ -644,31 +644,32 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
       </div>
     `;
   };
-  
-  // Function to toggle invoice status
-  const toggleInvoiceStatus = (e, invoiceId) => {
-    e.stopPropagation(); // Prevent navigating to invoice detail page
-    
-    setInvoiceStatuses(prevStatuses => {
-      const newStatuses = { ...prevStatuses };
-      const statusOptions = ['Paid', 'Pending', 'Draft', 'Cancelled'];
-      
-      if (newStatuses[invoiceId]) {
-        // Find current status in the cycle
-        const currentIndex = statusOptions.indexOf(newStatuses[invoiceId]);
-        // Move to next status (or back to first if at end)
-        const nextIndex = (currentIndex + 1) % statusOptions.length;
-        newStatuses[invoiceId] = statusOptions[nextIndex];
-      } else {
-        // If no saved status, set the next status after the default
-        const defaultStatus = parseInt(invoiceId.split('-')[1]) % 2 === 0 ? 'Paid' : 'Pending';
-        const defaultIndex = statusOptions.indexOf(defaultStatus);
-        const nextIndex = (defaultIndex + 1) % statusOptions.length;
-        newStatuses[invoiceId] = statusOptions[nextIndex];
-      }
-      
-      return newStatuses;
-    });
+    // Function to toggle invoice status
+  const toggleInvoiceStatus = async (e, invoiceId) => {
+    e.stopPropagation();
+    const invoice = savedInvoices.find(inv => inv.id === invoiceId);
+    if (!invoice) return;
+    const statusOptions = ['Paid', 'Pending', 'Draft', 'Cancelled'];
+    const currentStatus = invoice.status || invoiceStatuses[invoiceId] || 'Pending';
+    const currentIndex = statusOptions.indexOf(currentStatus);
+    const nextIndex = (currentIndex + 1) % statusOptions.length;
+    const newStatus = statusOptions[nextIndex];
+
+    // Update status in Supabase
+    const { error } = await supabase.from('invoices').update({ status: newStatus }).eq('id', invoiceId);
+    if (error) {
+      alert('Failed to update status: ' + error.message);
+      return;
+    }
+    // Update local state after successful update
+    const updatedInvoices = savedInvoices.map(inv =>
+      inv.id === invoiceId ? { ...inv, status: newStatus } : inv
+    );
+    setSavedInvoices(updatedInvoices);
+    setInvoiceStatuses(prevStatuses => ({
+      ...prevStatuses,
+      [invoiceId]: newStatus
+    }));
   };
   
   // Function to assign an invoice to a user
@@ -867,6 +868,25 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
     });
     filteredClients = clients.filter(client => userClientNames.has(client.name));
   }
+
+  // Sync invoice statuses with savedInvoices when they change
+  useEffect(() => {
+    // Update the invoiceStatuses state with status from each invoice
+    if (savedInvoices && savedInvoices.length > 0) {
+      setInvoiceStatuses(prevStatuses => {
+        const newStatuses = { ...prevStatuses };
+        
+        // Add/update statuses from savedInvoices
+        savedInvoices.forEach(invoice => {
+          if (invoice.status) {
+            newStatuses[invoice.id] = invoice.status;
+          }
+        });
+        
+        return newStatuses;
+      });
+    }
+  }, [savedInvoices]);
 
   return (
     <div className="dashboard-container">
@@ -1476,9 +1496,9 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
                 
                 // Format the invoice date for display
                 const invoiceDate = new Date(invoice.invoiceDate);
-                
-                // Get status for this invoice
-                const invoiceStatus = invoice.status || 'Pending';
+                  // Get status for this invoice - prioritize the status stored in the invoice object itself
+                // If not found, check invoiceStatuses, and finally default to 'Pending'
+                const invoiceStatus = invoice.status || invoiceStatuses[invoice.id] || 'Pending';
                 
                 // Check if current user can access this invoice (admin or assigned user)
                 const canAccessInvoice = isAdmin || invoice.assigneeId === currentUserId;
@@ -1546,8 +1566,7 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
                               const currentIndex = statusOptions.indexOf(invoiceStatus);
                               const nextIndex = (currentIndex + 1) % statusOptions.length;
                               const newStatus = statusOptions[nextIndex];
-                              
-                              // Update invoice status in local state
+                                // Update invoice status in local state
                               const updatedInvoices = savedInvoices.map(inv => 
                                 inv.id === invoice.id 
                                   ? {...inv, status: newStatus} 
@@ -1557,6 +1576,12 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
                               // Save to localStorage
                               localStorage.setItem('savedInvoices', JSON.stringify(updatedInvoices));
                               setSavedInvoices(updatedInvoices);
+
+                              // Also update the invoice status in the invoiceStatuses state
+                              setInvoiceStatuses(prevStatuses => ({
+                                ...prevStatuses,
+                                [invoice.id]: newStatus
+                              }));
                             } else {
                               // Show error message if user is not the assignee
                               alert(`Only ${getAssigneeName(invoice.assigneeId)} can change the status of this invoice.`);
