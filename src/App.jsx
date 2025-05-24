@@ -200,6 +200,8 @@ function App() {
   const confirmLogout = () => {
     localStorage.removeItem('isLoggedIn');
     localStorage.removeItem('userEmail');
+    localStorage.removeItem('userRole');
+    localStorage.removeItem('userPosition');
     setIsAuthenticated(false);
     setShowLogoutModal(false);
     navigate('/login');
