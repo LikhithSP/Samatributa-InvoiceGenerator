@@ -1147,8 +1147,8 @@ body.dark-mode .btn-logout {
 }
 
 body.dark-mode .btn-logout:hover {
-  background-color: var(--primary-hover);
-  border-color: var(--primary-hover);
+  background-color: rgb(148, 118, 18);
+  border-color: rgb(250, 248, 248);
 }
 
 .dashboard-header {

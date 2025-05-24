@@ -1620,39 +1620,17 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
                       </div>
                       <div className="invoice-status">
                         <span 
-                          className={`status ${!invoice.assigneeId ? 'draft' : invoiceStatus.toLowerCase()}`} 
+                          className={`status ${!invoice.assigneeId ? 'draft' : invoiceStatus.toLowerCase()}`}
                           onClick={(e) => {
                             e.stopPropagation();
-                            
                             // If invoice is not assigned, it should stay as draft and cannot be changed
                             if (!invoice.assigneeId) {
                               alert("This invoice needs to be assigned to a client before the status can be changed.");
                               return;
                             }
-                            
-                            // If assigned, only the assigned client can change status
+                            // Only the assigned client can change status
                             if (invoice.assigneeId === currentUserId) {
-                              // Toggle status for this invoice
-                              const statusOptions = ['Paid', 'Pending', 'Draft', 'Cancelled'];
-                              const currentIndex = statusOptions.indexOf(invoiceStatus);
-                              const nextIndex = (currentIndex + 1) % statusOptions.length;
-                              const newStatus = statusOptions[nextIndex];
-                                // Update invoice status in local state
-                              const updatedInvoices = savedInvoices.map(inv => 
-                                inv.id === invoice.id 
-                                  ? {...inv, status: newStatus} 
-                                  : inv
-                              );
-                              
-                              // Save to localStorage
-                              localStorage.setItem('savedInvoices', JSON.stringify(updatedInvoices));
-                              setSavedInvoices(updatedInvoices);
-
-                              // Also update the invoice status in the invoiceStatuses state
-                              setInvoiceStatuses(prevStatuses => ({
-                                ...prevStatuses,
-                                [invoice.id]: newStatus
-                              }));
+                              toggleInvoiceStatus(e, invoice.id);
                             } else {
                               // Show error message if user is not the assignee
                               alert(`Only ${getAssigneeName(invoice.assigneeId)} can change the status of this invoice.`);
