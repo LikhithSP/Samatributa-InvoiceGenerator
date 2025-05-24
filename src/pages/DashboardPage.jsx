@@ -1317,11 +1317,11 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
       <main className="dashboard-main">
         <header className="dashboard-header">          <h2>
             {isInitialLoading 
-              ? (isAdmin ? 'Invoice Tracker' : `Invoices Assigned to ${currentUserName}`)
+              ? (isAdmin ? 'Invoice Tracker' : 'Your Invoices')
               : (selectedAssignee
-                ? `Invoices Assigned to ${getAssigneeName(selectedAssignee)}`
+                ? (isAdmin ? `Invoices Assigned to ${getAssigneeName(selectedAssignee)}` : 'Your Invoices')
                 : (showAllInvoices 
-                  ? (isAdmin ? 'Invoice Tracker' : `Invoices Assigned to ${currentUserName}`)
+                  ? (isAdmin ? 'Invoice Tracker' : 'Your Invoices')
                   : selectedCompany 
                     ? `${selectedCompany.name} Invoices` 
                     : selectedClient 
@@ -1873,6 +1873,8 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
         
         {/* Download Options Modal */}
         <Modal
+
+         
 
           isOpen={showDownloadModal}
           onClose={() => setShowDownloadModal(false)}
