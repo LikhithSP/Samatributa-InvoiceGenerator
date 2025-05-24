@@ -276,7 +276,10 @@ function App() {
         
         <Route path="/profile" element={
           isAuthenticated ? 
-            <ProfilePage /> : 
+            <ProfilePage 
+              darkMode={darkMode} 
+              toggleDarkMode={toggleDarkMode}
+            /> : 
             <Navigate to="/login" replace />
         } />
         
