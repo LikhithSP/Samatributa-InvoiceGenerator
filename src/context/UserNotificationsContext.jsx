@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { supabase } from '../config/supabaseClient';
 
 // Create context
 const UserNotificationsContext = createContext();
@@ -34,13 +35,17 @@ export const UserNotificationsProvider = ({ children }) => {
   }, []);
   
   // Load notifications for current user
-  const loadUserNotifications = () => {
+  const loadUserNotifications = async () => {
     const userId = localStorage.getItem('userId');
-    
     if (userId) {
-      const userNotifications = JSON.parse(localStorage.getItem(`notifications_${userId}`)) || [];
+      // Load notifications from Supabase
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', userId)
+        .order('timestamp', { ascending: false });
+      const userNotifications = !error && data ? data : [];
       setNotifications(userNotifications);
-      
       // Count unread notifications
       const unread = userNotifications.filter(notification => !notification.read).length;
       setUnreadCount(unread);
@@ -142,15 +147,18 @@ export const UserNotificationsProvider = ({ children }) => {
   };
 
   // Remove a notification by id
-  const removeNotification = (notificationId) => {
+  const removeNotification = async (notificationId) => {
     const userId = localStorage.getItem('userId');
     if (!userId) return false;
+    // Remove from Supabase
+    await supabase.from('notifications').delete().eq('id', notificationId);
+    // Remove from local state
     const updatedNotifications = notifications.filter(n => n.id !== notificationId);
     setNotifications(updatedNotifications);
     // Update unread count
     const unread = updatedNotifications.filter(n => !n.read).length;
     setUnreadCount(unread);
-    // Update localStorage
+    // Update localStorage (optional, for offline support)
     localStorage.setItem(`notifications_${userId}`, JSON.stringify(updatedNotifications));
     return true;
   };

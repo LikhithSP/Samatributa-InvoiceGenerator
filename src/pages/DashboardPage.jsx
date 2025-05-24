@@ -721,22 +721,30 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
       const updatedInvoice = updatedInvoices.find(inv => inv.id === invoiceId);
       const assignee = users.find(user => user.id === assigneeId);
       if (assignee) {
-        const assigneeNotifications = JSON.parse(localStorage.getItem(`notifications_${assigneeId}`)) || [];
-        const newNotification = {
-          id: `notification_${Date.now()}`,
-          timestamp: new Date().toISOString(),
-          message: `You have been assigned a new invoice: ${updatedInvoice.invoiceNumber}`,
-          type: 'info',
-          read: false,
-          data: {
-            invoiceId,
-            invoiceNumber: updatedInvoice.invoiceNumber
+        // Save notification to Supabase
+        await supabase.from('notifications').insert([
+          {
+            user_id: assigneeId,
+            message: `You have been assigned a new invoice: ${updatedInvoice.invoiceNumber}`,
+            type: 'info',
+            read: false,
+            data: { invoiceId, invoiceNumber: updatedInvoice.invoiceNumber },
+            timestamp: new Date().toISOString()
           }
-        };
-        localStorage.setItem(`notifications_${assigneeId}`, JSON.stringify([
-          newNotification,
-          ...assigneeNotifications
-        ]));
+        ]);
+        // Save notification to Supabase for the admin (current user)
+        if (isCurrentUserAdmin) {
+          await supabase.from('notifications').insert([
+            {
+              user_id: currentUserId,
+              message: `Invoice has been assigned to ${assignee.name}`,
+              type: 'success',
+              read: false,
+              data: { invoiceId, invoiceNumber: updatedInvoice.invoiceNumber, assigneeName: assignee.name },
+              timestamp: new Date().toISOString()
+            }
+          ]);
+        }
         // Always trigger in-app notification for the assignee if they are the current user
         if (assigneeId === currentUserId) {
           addNotification(`You have been assigned a new invoice: ${updatedInvoice.invoiceNumber}`, 'info', {
@@ -744,9 +752,17 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
             invoiceNumber: updatedInvoice.invoiceNumber
           });
         }
+        // Show a success notification to the admin
+        if (isCurrentUserAdmin) {
+          addNotification(`Invoice has been assigned to ${assignee.name}`, 'success', {
+            invoiceId,
+            invoiceNumber: updatedInvoice.invoiceNumber,
+            assigneeName: assignee.name
+          });
+        } else {
+          addNotification('Invoice assigned successfully!', 'success');
+        }
       }
-      // Show a success notification to the admin
-      addNotification('Invoice assigned successfully!', 'success');
     }
     window.dispatchEvent(new Event('invoicesUpdated'));
   };
@@ -1857,6 +1873,7 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
         
         {/* Download Options Modal */}
         <Modal
+
           isOpen={showDownloadModal}
           onClose={() => setShowDownloadModal(false)}
           title="Download Invoices"
@@ -1881,6 +1898,7 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
           }
         >
           <div style={{ marginBottom: '15px' }}>
+
             <label>
               <input
                 type="radio"
