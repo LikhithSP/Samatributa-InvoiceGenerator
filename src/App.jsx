@@ -190,6 +190,7 @@ function App() {
     // --------------------------------------------------------
 
     setIsAuthenticated(true)
+    window.dispatchEvent(new Event('login'));
     navigate('/')
   }
 

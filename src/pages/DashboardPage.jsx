@@ -79,9 +79,8 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
       setSelectedCompany(null);
       setSelectedClient(null);
     }
-  // Only run on login (userId change) or users update
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentUserId, users.length]);
+  // Also run when isCurrentUserAdmin changes
+  }, [currentUserId, users.length, isCurrentUserAdmin]);
 
   // Download modal state
   const [showDownloadModal, setShowDownloadModal] = useState(false);
