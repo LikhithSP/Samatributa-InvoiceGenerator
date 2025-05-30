@@ -386,14 +386,15 @@ const InvoicePage = ({ onLogout, darkMode, toggleDarkMode }) => {
       {!showPreview && (
         <header className="header">
           <button 
-            className="back-btn" 
+            className="back-btn"
             onClick={handleBackClick}
             style={{
               background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', marginRight: 12, color: '#888', position: 'relative', top: 2
             }}
             title="Back to Dashboard"
           >
-            &#10005;
+            {/* Back arrow icon instead of 'x' */}
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
           </button>
           <div className="logo" onClick={() => navigate('/dashboard')} style={{ cursor: 'pointer' }}>
             <img 
@@ -401,28 +402,37 @@ const InvoicePage = ({ onLogout, darkMode, toggleDarkMode }) => {
               alt={selectedCompany?.name || companyName}
               style={{ maxHeight: '40px' }}
             />
-            {selectedCompany?.name || companyName}
+            <span className="company-name-header-text">{selectedCompany?.name || companyName}</span>
           </div>
-          <div className="user-actions">
-            {/* Add Save Invoice button in the top bar */}
+          <div className="user-actions" style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+            {/* Save Invoice button styled like the bottom one */}
             {isAuthorized && (
               <button 
                 onClick={saveInvoice} 
-                className="btn btn-primary"
+                className="btn modern-invoice-form"
                 disabled={isLoading}
-                style={{ marginRight: '10px' }}
+                style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600, borderRadius: 24 }}
               >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" style={{ marginRight: '5px' }}>
+                  <path d="M2 1a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H9.5a1 1 0 0 0-1 1v7.293l2.646-2.647a.5.5 0 0 1 .708.708l-3.5 3.5a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L7.5 9.293V2a1 1 0 0 0-1-1H2z"/>
+                </svg>
                 {isLoading ? 'Saving...' : 'Save Invoice'}
               </button>
             )}
-            <button 
-              onClick={toggleDarkMode} 
-              className="btn btn-secondary"
-              title={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-              style={{ fontSize: '18px', padding: '8px 15px' }}
-            >
-              {darkMode ? '☀️' : '🌙'}
-            </button>
+            {/* Modern theme toggle switch like login page */}
+            <div className="theme-switch-wrapper">
+              <label className="theme-switch">
+                <input type="checkbox" checked={darkMode} onChange={toggleDarkMode} />
+                <span className="slider">
+                  <span className="sun-icon" style={{ color: '#f59e0b' }}>
+                    <svg width="18" height="18" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5" fill="currentColor"/><g stroke="currentColor" strokeWidth="2"><path d="M12 1v2"/><path d="M12 21v2"/><path d="M4.22 4.22l1.42 1.42"/><path d="M18.36 18.36l1.42 1.42"/><path d="M1 12h2"/><path d="M21 12h2"/><path d="M4.22 19.78l1.42-1.42"/><path d="M18.36 5.64l1.42-1.42"/></g></svg>
+                  </span>
+                  <span className="moon-icon" style={{ color: '#6366f1' }}>
+                    <svg width="18" height="18" fill="none" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z" fill="currentColor"/></svg>
+                  </span>
+                </span>
+              </label>
+            </div>
           </div>
         </header>
       )}
