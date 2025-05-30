@@ -101,21 +101,7 @@ const BinPage = ({ onLogout, darkMode, toggleDarkMode }) => {
   );
   
   return (
-    <div className="bin-page" style={{
-      minHeight: '90vh',
-      background: darkMode
-        ? 'linear-gradient(135deg, #181f2a 0%, #232a36 100%)'
-        : 'linear-gradient(135deg, #f6f8fa 0%, #e3eafc 100%)',
-      borderRadius: 24,
-      boxShadow: darkMode
-        ? '0 4px 32px 0 #10131a99, 0 1.5px 6px #232a36'
-        : '0 4px 32px 0 #e0e7ef99, 0 1.5px 6px #e3eafc',
-      margin: '40px auto',
-      padding: '32px 0',
-      maxWidth: 1100,
-      border: darkMode ? '1.5px solid #232a36' : '1.5px solid #e5e7eb',
-      transition: 'background 0.3s, box-shadow 0.3s',
-    }}>
+    <div className="bin-page">
       <Header />
       <div className="bin-content" style={{ maxWidth: 900, margin: '0 auto' }}>
         <div className="bin-description" style={{
