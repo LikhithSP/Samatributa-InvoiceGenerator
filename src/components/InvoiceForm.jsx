@@ -556,18 +556,19 @@ const InvoiceForm = ({
   };
 
   return (
-    <div className="invoice-form">
+    <div className="invoice-form modern-invoice-form" style={{ maxWidth: 820, margin: '32px auto', background: 'var(--card-bg)', borderRadius: 18, boxShadow: '0 6px 32px rgba(59,130,246,0.08)', padding: '32px 28px', fontFamily: 'Poppins, Inter, Arial, sans-serif', border: '1px solid var(--border-color)' }}>
       {!isAuthorized && (
         <div className="authorization-warning" style={{
           backgroundColor: '#ffecec',
           color: '#d8000c',
           padding: '10px 15px',
           marginBottom: '20px',
-          borderRadius: '4px',
-          border: '1px solid #d8000c',
+          borderRadius: '8px',
+          border: '1.5px solid #d8000c',
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'center'
+          justifyContent: 'center',
+          fontWeight: 500
         }}>
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" style={{ marginRight: '8px' }}>
             <path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/>
@@ -575,12 +576,9 @@ const InvoiceForm = ({
           <span>You don't have permission to edit this invoice. Only the assigned client can make changes.</span>
         </div>
       )}
-      
       {/* Top Header - Company Information */}
-      <div className="form-section">
-        <h2 className="section-title">
-          Company Information
-        </h2>
+      <div className="form-section invoice-card-section" style={{ marginBottom: 32, background: 'var(--secondary-color)', borderRadius: 14, boxShadow: '0 2px 12px rgba(59,130,246,0.04)', padding: '24px 20px', border: '1px solid var(--border-color)' }}>
+        <h2 className="section-title" style={{ fontSize: 22, color: 'var(--primary-color)', fontWeight: 700, letterSpacing: 1, marginBottom: 18, borderLeft: '4px solid var(--primary-color)', paddingLeft: 12 }}>Company Information</h2>
         
         <div className="form-row">
           <div className="form-group">
@@ -683,10 +681,8 @@ const InvoiceForm = ({
       </div>
       
       {/* Customer (Bill To) Information Section */}
-      <div className="form-section">
-        <h2 className="section-title">
-          Bill To:
-        </h2>
+      <div className="form-section invoice-card-section" style={{ marginBottom: 32, background: 'var(--secondary-color)', borderRadius: 14, boxShadow: '0 2px 12px rgba(59,130,246,0.04)', padding: '24px 20px', border: '1px solid var(--border-color)' }}>
+        <h2 className="section-title" style={{ fontSize: 22, color: 'var(--primary-color)', fontWeight: 700, letterSpacing: 1, marginBottom: 18, borderLeft: '4px solid var(--primary-color)', paddingLeft: 12 }}>Bill To</h2>
         
         {/* Add client selection dropdown */}
         <div className="form-row">
@@ -812,10 +808,8 @@ const InvoiceForm = ({
       </div>
       
       {/* Invoice Summary Section */}
-      <div className="form-section">
-        <h2 className="section-title">
-          Invoice Summary - {invoiceData.recipientName || 'Client'}
-        </h2>
+      <div className="form-section invoice-card-section" style={{ marginBottom: 32, background: 'var(--secondary-color)', borderRadius: 14, boxShadow: '0 2px 12px rgba(59,130,246,0.04)', padding: '24px 20px', border: '1px solid var(--border-color)' }}>
+        <h2 className="section-title" style={{ fontSize: 22, color: 'var(--primary-color)', fontWeight: 700, letterSpacing: 1, marginBottom: 18, borderLeft: '4px solid var(--primary-color)', paddingLeft: 12 }}>Invoice Summary</h2>
         
         <div className="form-row rates-section">
           <div className="form-group">
@@ -875,10 +869,8 @@ const InvoiceForm = ({
       </div>
       
       {/* Service Items Table */}
-      <div className="form-section">
-        <h2 className="section-title">
-          Service Items
-        </h2>
+      <div className="form-section invoice-card-section" style={{ marginBottom: 32, background: 'var(--secondary-color)', borderRadius: 14, boxShadow: '0 2px 12px rgba(59,130,246,0.04)', padding: '24px 20px', border: '1px solid var(--border-color)' }}>
+        <h2 className="section-title" style={{ fontSize: 22, color: 'var(--primary-color)', fontWeight: 700, letterSpacing: 1, marginBottom: 18, borderLeft: '4px solid var(--primary-color)', paddingLeft: 12 }}>Service Items</h2>
         
         <InvoiceItemsTable 
           items={invoiceData.items}
@@ -925,10 +917,8 @@ const InvoiceForm = ({
       </div>
       
       {/* Beneficiary Bank Details */}
-      <div className="form-section">
-        <h2 className="section-title">
-          Beneficiary Account Details
-        </h2>
+      <div className="form-section invoice-card-section" style={{ marginBottom: 32, background: 'var(--secondary-color)', borderRadius: 14, boxShadow: '0 2px 12px rgba(59,130,246,0.04)', padding: '24px 20px', border: '1px solid var(--border-color)' }}>
+        <h2 className="section-title" style={{ fontSize: 22, color: 'var(--primary-color)', fontWeight: 700, letterSpacing: 1, marginBottom: 18, borderLeft: '4px solid var(--primary-color)', paddingLeft: 12 }}>Beneficiary Account Details</h2>
         
         <div className="form-row">
           <div className="form-group full-width">
@@ -1004,7 +994,7 @@ const InvoiceForm = ({
       </div>
       
       {/* Form Actions */}
-      <div className="form-actions" style={{ display: 'flex', flexDirection: 'row', flexWrap: 'nowrap', gap: '16px', justifyContent: 'flex-start', alignItems: 'center', marginTop: '24px' }}>
+      <div className="form-actions" style={{ display: 'flex', flexDirection: 'row', flexWrap: 'nowrap', gap: '16px', justifyContent: 'flex-start', alignItems: 'center', marginTop: '24px', background: 'transparent', border: 'none', boxShadow: 'none' }}>
         <button onClick={onPreview} className="btn">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" style={{ marginRight: '5px' }}>
             <path d="M10.5 8a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0z"/>
