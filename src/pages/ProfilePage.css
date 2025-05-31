@@ -329,3 +329,45 @@
     margin-top: 0.5rem;
   }
 }
+
+/* Loading skeleton animations */
+@keyframes pulse {
+  0% { 
+    opacity: 0.6; 
+  }
+  100% { 
+    opacity: 1; 
+  }
+}
+
+/* Dark mode skeleton adjustments */
+body.dark-mode .profile-avatar-skeleton,
+body.dark-mode .profile-name-skeleton,
+body.dark-mode .profile-email-skeleton {
+  background: #3a4252 !important;
+}
+
+/* Theme toggle button */
+.profile-theme-toggle {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  transition: all 0.2s ease;
+  z-index: 1000;
+}
+
+.profile-theme-toggle:hover {
+  background: var(--primary-hover);
+  transform: scale(1.05);
+}

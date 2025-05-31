@@ -3,43 +3,14 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { FiArrowLeft, FiSave, FiTrash2, FiPlus, FiSun, FiMoon } from 'react-icons/fi';
 import './ClientPage.css'; // Reuse ClientPage styling
+import { supabase } from '../config/supabaseClient';
 
 const DescriptionPage = ({ darkMode, toggleDarkMode }) => {
   // Add a ref to track if we're dispatching our own events
   const isSelfDispatch = React.useRef(false);
 
-  // Get descriptions from localStorage or use sample data
-  const [descriptions, setDescriptions] = useState(() => {
-    const savedDescriptions = localStorage.getItem('serviceDescriptions');
-    if (savedDescriptions) {
-      return JSON.parse(savedDescriptions);
-    }
-    // Default sample descriptions if none exist
-    const defaultDescriptions = [
-      { 
-        id: 1, 
-        text: 'US Federal Corporation Income Tax Return (Form 1120)' 
-      },
-      { 
-        id: 2, 
-        text: 'Foreign related party disclosure form with respect to a foreign subsidiary (Form 5417)' 
-      },
-      { 
-        id: 3,
-        text: 'Foreign related party disclosure form with respect to a foreign shareholders (Form 5472)'
-      },
-      {
-        id: 4,
-        text: 'Application for Automatic Extension of Time To File Business Income Tax (Form 7004)'
-      }
-    ];
-    
-    // Save the default descriptions to localStorage immediately
-    localStorage.setItem('serviceDescriptions', JSON.stringify(defaultDescriptions));
-    
-    return defaultDescriptions;
-  });
-
+  // Get descriptions from Supabase
+  const [descriptions, setDescriptions] = useState([]);
   const [activeDescriptionId, setActiveDescriptionId] = useState(null);
   const [newDescription, setNewDescription] = useState({
     text: ''
@@ -62,15 +33,12 @@ const DescriptionPage = ({ darkMode, toggleDarkMode }) => {
     setIsAddingDescription(true);
   };
   
-  const handleDeleteDescription = (id) => {
+  // Delete description from Supabase
+  const handleDeleteDescription = async (id) => {
     if (window.confirm('Are you sure you want to delete this description?')) {
-      // Update the descriptions list
-      const updatedDescriptions = descriptions.filter(desc => desc.id !== id);
-      setDescriptions(updatedDescriptions);
-      localStorage.setItem('serviceDescriptions', JSON.stringify(updatedDescriptions));
-      
-      // Dispatch event to notify other components about the description changes
-      window.dispatchEvent(new Event('descriptionsUpdated'));
+      await supabase.from('descriptions').delete().eq('id', id);
+      const { data } = await supabase.from('descriptions').select('*').order('id', { ascending: true });
+      setDescriptions(data);
     }
   };
   
@@ -82,86 +50,40 @@ const DescriptionPage = ({ darkMode, toggleDarkMode }) => {
     });
   };
   
-  const handleSaveDescription = () => {
-    if (!newDescription.text) {
-      alert('Description text is required');
-      return;
-    }
-    
-    let updatedDescriptions;
-    const isEditing = activeDescriptionId !== null;
-    
-    if (isEditing) {
-      // Edit existing description
-      updatedDescriptions = descriptions.map(desc => 
-        desc.id === activeDescriptionId ? { ...newDescription, id: activeDescriptionId } : desc
-      );
+  // Save or update description in Supabase
+  const handleSaveDescription = async () => {
+    if (!newDescription.text) return;
+    let result;
+    if (activeDescriptionId !== null) {
+      // Update existing
+      result = await supabase.from('descriptions').update({ text: newDescription.text }).eq('id', activeDescriptionId);
     } else {
-      // Add new description
-      const newId = Math.max(0, ...descriptions.map(d => d.id)) + 1;
-      updatedDescriptions = [...descriptions, { ...newDescription, id: newId }];
+      // Add new
+      result = await supabase.from('descriptions').insert([{ text: newDescription.text }]);
     }
-    
-    setDescriptions(updatedDescriptions);
-    localStorage.setItem('serviceDescriptions', JSON.stringify(updatedDescriptions));
-    
-    // Set the flag to indicate we're dispatching our own event
-    isSelfDispatch.current = true;
-    
-    // Dispatch a custom event with updated description data
-    const updatedDescription = isEditing 
-      ? { ...newDescription, id: activeDescriptionId } 
-      : { ...newDescription, id: Math.max(0, ...descriptions.map(d => d.id)) + 1 };
-    
-    window.dispatchEvent(new CustomEvent('descriptionUpdated', {
-      detail: { description: updatedDescription, action: isEditing ? 'edit' : 'add' }
-    }));
-    
-    // Reset the flag after a short delay to ensure the event handler has time to check it
-    setTimeout(() => {
-      isSelfDispatch.current = false;
-    }, 100);
-    
-    setIsAddingDescription(false);
-    
-    // Show success message
-    setSaveSuccess(true);
-    setTimeout(() => {
-      setSaveSuccess(false);
-    }, 3000);
+    if (!result.error) {
+      // Refresh list
+      const { data } = await supabase.from('descriptions').select('*').order('id', { ascending: true });
+      setDescriptions(data);
+      setIsAddingDescription(false);
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 2000);
+    }
   };
   
   const handleCancelDescriptionEdit = () => {
     setIsAddingDescription(false);
   };
 
+  // Fetch descriptions from Supabase on mount
   useEffect(() => {
-    // Listen for description updates from other components/tabs
-    const handleDescriptionUpdated = (event) => {
-      // Make sure we're only responding to descriptionUpdated events
-      if (event.type !== 'descriptionUpdated') return;
-      
-      // Skip processing if we dispatched this event ourselves
-      if (isSelfDispatch.current) return;
-      
-      if (event.detail && event.detail.description) {
-        const { description, action } = event.detail;
-        
-        if (action === 'add') {
-          setDescriptions(prev => [...prev, description]);
-        } else if (action === 'edit') {
-          setDescriptions(prev => prev.map(d => d.id === description.id ? description : d));
-        }
-      }
+    const fetchDescriptions = async () => {
+      let { data, error } = await supabase.from('descriptions').select('*').order('id', { ascending: true });
+      if (!error && data) setDescriptions(data);
     };
-    
-    window.addEventListener('descriptionUpdated', handleDescriptionUpdated);
-    
-    return () => {
-      window.removeEventListener('descriptionUpdated', handleDescriptionUpdated);
-    };
+    fetchDescriptions();
   }, []);
-  
+
   return (
     <div className="client-container">
       <Link to="/dashboard" className="client-back-btn">

@@ -16,7 +16,6 @@ import DescriptionPage from './pages/DescriptionPage'
 import NotificationDisplay from './components/ErrorDisplay'
 import Modal from './components/Modal'
 import { useNotification } from './context/ErrorContext'
-import MessageInbox from './pages/MessageInbox'
 
 // Session timeout in milliseconds (30 minutes)
 const SESSION_TIMEOUT = 30 * 60 * 1000;
@@ -191,6 +190,7 @@ function App() {
     // --------------------------------------------------------
 
     setIsAuthenticated(true)
+    window.dispatchEvent(new Event('login'));
     navigate('/')
   }
 
@@ -201,6 +201,8 @@ function App() {
   const confirmLogout = () => {
     localStorage.removeItem('isLoggedIn');
     localStorage.removeItem('userEmail');
+    localStorage.removeItem('userRole');
+    localStorage.removeItem('userPosition');
     setIsAuthenticated(false);
     setShowLogoutModal(false);
     navigate('/login');
@@ -277,7 +279,10 @@ function App() {
         
         <Route path="/profile" element={
           isAuthenticated ? 
-            <ProfilePage /> : 
+            <ProfilePage 
+              darkMode={darkMode} 
+              toggleDarkMode={toggleDarkMode}
+            /> : 
             <Navigate to="/login" replace />
         } />
         
@@ -317,12 +322,6 @@ function App() {
               darkMode={darkMode} 
               toggleDarkMode={toggleDarkMode}
             /> : 
-            <Navigate to="/login" replace />
-        } />
-
-        <Route path="/inbox" element={
-          isAuthenticated ? 
-            <MessageInbox /> : 
             <Navigate to="/login" replace />
         } />
 

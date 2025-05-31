@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FiArchive, FiArrowLeft, FiTrash2, FiRefreshCw, FiClock, FiAlertTriangle } from 'react-icons/fi';
+import { supabase } from '../config/supabaseClient';
 import '../App.css';
 import './BinPage.css';
 
@@ -9,143 +10,74 @@ const BinPage = ({ onLogout, darkMode, toggleDarkMode }) => {
   const navigate = useNavigate();
   const [deletedInvoices, setDeletedInvoices] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const currentUserId = localStorage.getItem('userId');
 
-  // Load deleted invoices from localStorage on component mount
+  // Load deleted invoices from Supabase on component mount
   useEffect(() => {
     loadDeletedInvoices();
-    
-    // Listen for updates to the bin
-    window.addEventListener('invoiceBinUpdated', loadDeletedInvoices);
-    
-    return () => {
-      window.removeEventListener('invoiceBinUpdated', loadDeletedInvoices);
-    };
   }, []);
-  
-  // Load deleted invoices from localStorage
-  const loadDeletedInvoices = () => {
-    try {
-      setIsLoading(true);
-      
-      // Get invoices from bin
-      const binInvoices = JSON.parse(localStorage.getItem('invoiceBin')) || [];
-      
-      // Sort by deletion date (newest first)
-      const sortedInvoices = binInvoices.sort((a, b) => b.deletedAt - a.deletedAt);
-      
-      // Clean up invoices older than 30 days
-      const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
-      let currentInvoices = sortedInvoices.filter(invoice => invoice.deletedAt > thirtyDaysAgo);
-      
-      // If some invoices were removed due to age, update localStorage
-      if (currentInvoices.length < sortedInvoices.length) {
-        localStorage.setItem('invoiceBin', JSON.stringify(currentInvoices));
-      }
-      
-      // Filter by user role: only show invoices deleted by the current user
-      const currentUserId = localStorage.getItem('userId');
-      currentInvoices = currentInvoices.filter(inv => inv.deletedBy === currentUserId);
-      
-      setDeletedInvoices(currentInvoices);
-    } catch (error) {
-      console.error('Error loading bin invoices:', error);
-    } finally {
-      setIsLoading(false);
-    }
+
+  // Load deleted invoices from Supabase
+  const loadDeletedInvoices = async () => {
+    setIsLoading(true);
+    // Fetch invoices where deletedAt is not null, deletedBy is current user, and deletedAt within 30 days
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const { data, error } = await supabase
+      .from('invoices')
+      .select('*')
+      .eq('deletedBy', currentUserId)
+      .not('deletedAt', 'is', null)
+      .gte('deletedAt', thirtyDaysAgo)
+      .order('deletedAt', { ascending: false });
+    if (!error) setDeletedInvoices(data || []);
+    setIsLoading(false);
   };
-  
-  // Restore invoice from bin
-  const restoreInvoice = (invoiceId) => {
-    try {
-      // Get current invoices from bin
-      const binInvoices = JSON.parse(localStorage.getItem('invoiceBin')) || [];
-      
-      // Find invoice to restore
-      const invoiceToRestore = binInvoices.find(invoice => invoice.id === invoiceId);
-      
-      if (invoiceToRestore) {
-        // Remove deletedAt property
-        delete invoiceToRestore.deletedAt;
-        
-        // Get existing invoices and add the restored one
-        const savedInvoices = JSON.parse(localStorage.getItem('savedInvoices')) || [];
-        savedInvoices.push(invoiceToRestore);
-        localStorage.setItem('savedInvoices', JSON.stringify(savedInvoices));
-        
-        // Remove from bin
-        const updatedBin = binInvoices.filter(invoice => invoice.id !== invoiceId);
-        localStorage.setItem('invoiceBin', JSON.stringify(updatedBin));
-        
-        // Update state
-        setDeletedInvoices(updatedBin);
-        
-        // Notify other components
-        window.dispatchEvent(new Event('invoicesUpdated'));
-        window.dispatchEvent(new Event('invoiceBinUpdated'));
-        
-        alert('Invoice has been restored successfully.');
-      }
-    } catch (error) {
-      console.error('Error restoring invoice:', error);
-      alert('Failed to restore invoice. Please try again.');
+
+  // Restore invoice from bin (set deletedAt and deletedBy to null)
+  const restoreInvoice = async (invoiceId) => {
+    setIsLoading(true);
+    await supabase.from('invoices').update({ deletedAt: null, deletedBy: null }).eq('id', invoiceId);
+    // After restore, also refresh dashboard invoices if possible
+    if (window.location.pathname !== '/dashboard') {
+      // If not on dashboard, just reload bin
+      await loadDeletedInvoices();
+    } else {
+      // If on dashboard, trigger a refresh event
+      window.dispatchEvent(new Event('invoicesUpdated'));
+      await loadDeletedInvoices();
     }
+    alert('Invoice has been restored successfully.');
   };
-  
-  // Permanently delete an invoice
-  const permanentlyDeleteInvoice = (invoiceId) => {
+
+  // Permanently delete an invoice (delete row from Supabase)
+  const permanentlyDeleteInvoice = async (invoiceId) => {
     if (window.confirm('Are you sure you want to permanently delete this invoice? This action cannot be undone.')) {
-      try {
-        // Get current invoices from bin
-        const binInvoices = JSON.parse(localStorage.getItem('invoiceBin')) || [];
-        
-        // Remove invoice from bin
-        const updatedBin = binInvoices.filter(invoice => invoice.id !== invoiceId);
-        localStorage.setItem('invoiceBin', JSON.stringify(updatedBin));
-        
-        // Update state
-        setDeletedInvoices(updatedBin);
-        
-        // Notify other components
-        window.dispatchEvent(new Event('invoiceBinUpdated'));
-        
-        alert('Invoice has been permanently deleted.');
-      } catch (error) {
-        console.error('Error permanently deleting invoice:', error);
-        alert('Failed to delete invoice. Please try again.');
-      }
+      setIsLoading(true);
+      await supabase.from('invoices').delete().eq('id', invoiceId);
+      await loadDeletedInvoices();
+      alert('Invoice has been permanently deleted.');
     }
   };
-  
-  // Empty the bin (remove all deleted invoices)
-  const emptyBin = () => {
+
+  // Empty the bin (remove all deleted invoices for this user)
+  const emptyBin = async () => {
     if (window.confirm('Are you sure you want to permanently delete all invoices in the bin? This action cannot be undone.')) {
-      try {
-        // Clear bin in localStorage
-        localStorage.setItem('invoiceBin', JSON.stringify([]));
-        
-        // Update state
-        setDeletedInvoices([]);
-        
-        // Notify other components
-        window.dispatchEvent(new Event('invoiceBinUpdated'));
-        
-        alert('Bin has been emptied successfully.');
-      } catch (error) {
-        console.error('Error emptying bin:', error);
-        alert('Failed to empty bin. Please try again.');
+      setIsLoading(true);
+      const ids = deletedInvoices.map(inv => inv.id);
+      if (ids.length > 0) {
+        await supabase.from('invoices').delete().in('id', ids);
       }
+      await loadDeletedInvoices();
+      alert('Bin has been emptied successfully.');
     }
   };
-  
+
   // Calculate time left before permanent deletion
   const getTimeLeft = (deletedAt) => {
     const deleteTime = new Date(deletedAt);
-    const expiryTime = new Date(deletedAt + (30 * 24 * 60 * 60 * 1000)); // 30 days after deletion
+    const expiryTime = new Date(deleteTime.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 days after deletion
     const now = new Date();
-    
-    // Calculate days left
     const daysLeft = Math.ceil((expiryTime - now) / (24 * 60 * 60 * 1000));
-    
     if (daysLeft === 1) {
       return '1 day left';
     } else {
@@ -169,21 +101,7 @@ const BinPage = ({ onLogout, darkMode, toggleDarkMode }) => {
   );
   
   return (
-    <div className="bin-page" style={{
-      minHeight: '90vh',
-      background: darkMode
-        ? 'linear-gradient(135deg, #181f2a 0%, #232a36 100%)'
-        : 'linear-gradient(135deg, #f6f8fa 0%, #e3eafc 100%)',
-      borderRadius: 24,
-      boxShadow: darkMode
-        ? '0 4px 32px 0 #10131a99, 0 1.5px 6px #232a36'
-        : '0 4px 32px 0 #e0e7ef99, 0 1.5px 6px #e3eafc',
-      margin: '40px auto',
-      padding: '32px 0',
-      maxWidth: 1100,
-      border: darkMode ? '1.5px solid #232a36' : '1.5px solid #e5e7eb',
-      transition: 'background 0.3s, box-shadow 0.3s',
-    }}>
+    <div className="bin-page">
       <Header />
       <div className="bin-content" style={{ maxWidth: 900, margin: '0 auto' }}>
         <div className="bin-description" style={{

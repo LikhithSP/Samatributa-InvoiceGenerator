@@ -3,46 +3,12 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { FiArrowLeft, FiSave, FiUpload, FiTrash2, FiPlus, FiSun, FiMoon } from 'react-icons/fi';
 import { defaultLogo } from '../assets/logoData';
+import { supabase } from '../config/supabaseClient';
 import './CompanyPage.css';
 
 const CompanyPage = ({ darkMode, toggleDarkMode }) => {
-  // Get companies from localStorage or use sample data
-  const [companies, setCompanies] = useState(() => {
-    const savedCompanies = localStorage.getItem('userCompanies');
-    if (savedCompanies) {
-      return JSON.parse(savedCompanies);
-    }
-    // Default sample companies if none exist
-    return [
-      { 
-        id: 1, 
-        name: 'Acme Corporation', 
-        logo: './images/default-logo.png',
-        address: '123 Corporate Ave, Business District',
-        gstin: 'GST1234567890ABC',
-        bankDetails: {
-          accountName: 'Acme Corp Ltd.',
-          bankName: 'First National Bank',
-          accountNumber: '1234567890',
-          ifscCode: 'FNBK0001234'
-        }
-      },
-      { 
-        id: 2, 
-        name: 'Globex Industries', 
-        logo: './images/c-logo.png',
-        address: '456 Tech Park, Innovation Valley',
-        gstin: 'GST9876543210XYZ',
-        bankDetails: {
-          accountName: 'Globex Industries Inc.',
-          bankName: 'Global Banking Corp',
-          accountNumber: '9876543210',
-          ifscCode: 'GBCI0005678'
-        }
-      }
-    ];
-  });
-
+  // Get companies from Supabase
+  const [companies, setCompanies] = useState([]);
   const [activeCompanyId, setActiveCompanyId] = useState(null);
   const [newCompany, setNewCompany] = useState({
     name: '',
@@ -58,6 +24,14 @@ const CompanyPage = ({ darkMode, toggleDarkMode }) => {
   });
   const [isAddingCompany, setIsAddingCompany] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  
+  useEffect(() => {
+    const fetchCompanies = async () => {
+      const { data, error } = await supabase.from('companies').select('*');
+      if (!error) setCompanies(data || []);
+    };
+    fetchCompanies();
+  }, []);
   
   const handleCompanyChange = (e) => {
     const { name, value } = e.target;
@@ -86,29 +60,14 @@ const CompanyPage = ({ darkMode, toggleDarkMode }) => {
     setIsAddingCompany(true);
   };
   
-  const handleDeleteCompany = (id) => {
+  const handleDeleteCompany = async (id) => {
     if (window.confirm('Are you sure you want to delete this company? All invoices associated with this company will also be deleted.')) {
-      // Update the companies list
-      const updatedCompanies = companies.filter(company => company.id !== id);
-      setCompanies(updatedCompanies);
-      localStorage.setItem('userCompanies', JSON.stringify(updatedCompanies));
-      
-      // Delete all invoices associated with this company
-      const savedInvoices = JSON.parse(localStorage.getItem('savedInvoices')) || [];
-      const filteredInvoices = savedInvoices.filter(invoice => invoice.companyId !== id);
-      localStorage.setItem('savedInvoices', JSON.stringify(filteredInvoices));
-      
-      // Dispatch event to notify other components about the invoice changes
-      window.dispatchEvent(new Event('invoicesUpdated'));
-      
-      // If the deleted company was selected in localStorage, clear it
-      const selectedCompany = localStorage.getItem('selectedCompany');
-      if (selectedCompany) {
-        const parsed = JSON.parse(selectedCompany);
-        if (parsed.id === id) {
-          localStorage.removeItem('selectedCompany');
-        }
-      }
+      await supabase.from('companies').delete().eq('id', id);
+      // Optionally, delete invoices for this company
+      await supabase.from('invoices').delete().eq('companyId', id);
+      // Refresh companies
+      const { data } = await supabase.from('companies').select('*');
+      setCompanies(data || []);
     }
   };
   
@@ -144,54 +103,29 @@ const CompanyPage = ({ darkMode, toggleDarkMode }) => {
     });
   };
   
-  const handleSaveCompany = () => {
+  const handleSaveCompany = async () => {
     if (!newCompany.name) {
       alert('Company name is required');
       return;
     }
-    
-    let updatedCompanies;
-    const isEditing = activeCompanyId !== null;
-    
-    if (isEditing) {
-      // Edit existing company
-      updatedCompanies = companies.map(company => 
-        company.id === activeCompanyId ? { ...newCompany, id: activeCompanyId } : company
-      );
+    let result;
+    if (activeCompanyId !== null) {
+      // Update existing company
+      result = await supabase.from('companies').update({ ...newCompany }).eq('id', activeCompanyId);
     } else {
       // Add new company
-      const newId = Math.max(0, ...companies.map(c => c.id)) + 1;
-      updatedCompanies = [...companies, { ...newCompany, id: newId }];
+      result = await supabase.from('companies').insert([{ ...newCompany }]);
     }
-    
-    setCompanies(updatedCompanies);
-    localStorage.setItem('userCompanies', JSON.stringify(updatedCompanies));
-    
-    // Dispatch a custom event with updated company data
-    const updatedCompany = isEditing 
-      ? { ...newCompany, id: activeCompanyId } 
-      : { ...newCompany, id: Math.max(0, ...companies.map(c => c.id)) + 1 };
-    
-    window.dispatchEvent(new CustomEvent('companyUpdated', {
-      detail: { company: updatedCompany, action: isEditing ? 'edit' : 'add' }
-    }));
-    
-    // Update selected company if needed
-    const selectedCompany = localStorage.getItem('selectedCompany');
-    if (selectedCompany) {
-      const parsedCompany = JSON.parse(selectedCompany);
-      if (parsedCompany.id === updatedCompany.id) {
-        localStorage.setItem('selectedCompany', JSON.stringify(updatedCompany));
-      }
+    if (result.error) {
+      alert(result.error.message);
+      return;
     }
-    
+    // Refresh companies
+    const { data } = await supabase.from('companies').select('*');
+    setCompanies(data || []);
     setIsAddingCompany(false);
-    
-    // Show success message
     setSaveSuccess(true);
-    setTimeout(() => {
-      setSaveSuccess(false);
-    }, 3000);
+    setTimeout(() => setSaveSuccess(false), 3000);
   };
   
   const handleCancelCompanyEdit = () => {

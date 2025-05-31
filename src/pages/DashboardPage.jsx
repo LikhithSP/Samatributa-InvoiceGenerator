@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FiSearch, FiSettings, FiLogOut, FiUser, FiPlus, FiChevronDown, FiUsers, FiTrash2, FiDownload, FiMenu } from 'react-icons/fi';
-import { FiSun, FiMoon, FiArchive, FiList, FiMail } from 'react-icons/fi';
+import { FiSun, FiMoon, FiArchive, FiList } from 'react-icons/fi';
 import '../App.css';
 import { defaultLogo } from '../assets/logoData';
 import jsPDF from 'jspdf';
@@ -10,53 +10,33 @@ import NotificationBell from '../components/NotificationBell';
 import { useUserRole } from '../context/UserRoleContext';
 import { useUserNotifications } from '../context/UserNotificationsContext';
 import Modal from '../components/Modal';
+import { supabase } from '../config/supabaseClient';
 
 const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
   const navigate = useNavigate();
   const { isAdmin, hasPermission } = useUserRole();
   const { addNotification } = useUserNotifications();
   
+  // Get current user name from localStorage for loading state
+  const currentUserName = localStorage.getItem('userName') || 'User';
+  
   // Add state for bulk download progress
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState({ current: 0, total: 0 });
   const [downloadStatus, setDownloadStatus] = useState('');
   
-  const [companies, setCompanies] = useState(() => {
-    const savedCompanies = localStorage.getItem('userCompanies');
-    return savedCompanies ? JSON.parse(savedCompanies) : [];
-  });
+  const [companies, setCompanies] = useState([]);
   
   // State for selected company and dashboard view
-  const [selectedCompany, setSelectedCompany] = useState(() => {
-    const savedCompany = localStorage.getItem('selectedCompany');
-    return savedCompany ? JSON.parse(savedCompany) : null;
-  });
+  const [selectedCompany, setSelectedCompany] = useState(null);
 
   // State for clients and selected client
-  const [clients, setClients] = useState(() => {
-    const savedClients = localStorage.getItem('userClients');
-    return savedClients ? JSON.parse(savedClients) : [];
-  });
+  const [clients, setClients] = useState([]);
   
   const [selectedClient, setSelectedClient] = useState(null);
   
   // State for users
-  const [users, setUsers] = useState(() => {
-    const savedUsers = JSON.parse(localStorage.getItem('users')) || [];
-    // If no users exist yet, create a demo user
-    if (savedUsers.length === 0) {
-      const demoUser = {
-        id: 'demo_user',
-        name: 'Demo User',
-        email: 'user@example.com',
-        role: 'admin',
-        position: 'CEO'
-      };
-      localStorage.setItem('users', JSON.stringify([demoUser]));
-      return [demoUser];
-    }
-    return savedUsers;
-  });
+  const [users, setUsers] = useState([]);
   
   const [showAllInvoices, setShowAllInvoices] = useState(true);
   const [selectedAssignee, setSelectedAssignee] = useState(null);
@@ -72,12 +52,11 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
   const [sortField, setSortField] = useState('date');
   const [sortDirection, setSortDirection] = useState('desc');
   const [showSortOptions, setShowSortOptions] = useState(false);
+    // State for saved invoices
+  const [savedInvoices, setSavedInvoices] = useState([]);
   
-  // State for saved invoices
-  const [savedInvoices, setSavedInvoices] = useState(() => {
-    const invoices = JSON.parse(localStorage.getItem('savedInvoices')) || [];
-    return invoices;
-  });
+  // Loading state for initial dashboard data fetch
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
   
   // Current user ID
   const currentUserId = localStorage.getItem('userId') || 'demo_user';
@@ -100,9 +79,8 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
       setSelectedCompany(null);
       setSelectedClient(null);
     }
-  // Only run on login (userId change) or users update
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentUserId, users.length]);
+  // Also run when isCurrentUserAdmin changes
+  }, [currentUserId, users.length, isCurrentUserAdmin]);
 
   // Download modal state
   const [showDownloadModal, setShowDownloadModal] = useState(false);
@@ -126,92 +104,45 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
   useEffect(() => {
     localStorage.setItem('invoiceStatuses', JSON.stringify(invoiceStatuses));
   }, [invoiceStatuses]);
-  
-  // Listen for changes in the userCompanies localStorage item
+    // Fetch all data from Supabase on mount
   useEffect(() => {
-    const handleStorageChange = () => {
-      const savedCompanies = localStorage.getItem('userCompanies');
-      if (savedCompanies) {
-        setCompanies([...JSON.parse(savedCompanies)]);
-      } else {
-        setCompanies([]);
-      }
-
-      // Also refresh the saved invoices
-      const invoices = JSON.parse(localStorage.getItem('savedInvoices')) || [];
-      setSavedInvoices(invoices);
-      
-      // Refresh users list
-      const updatedUsers = JSON.parse(localStorage.getItem('users')) || [];
-      setUsers(updatedUsers);
-    };
-    
-    // Listen for the custom invoicesUpdated event
-    const handleInvoicesUpdated = () => {
-      const invoices = JSON.parse(localStorage.getItem('savedInvoices')) || [];
-      setSavedInvoices(invoices);
-    };
-    
-    // Listen for client updates
-    const handleClientsUpdated = () => {
-      const savedClients = localStorage.getItem('userClients');
-      if (savedClients) {
-        setClients(JSON.parse(savedClients));
-      } else {
-        setClients([]);
+    const fetchAll = async () => {
+      try {
+        setIsInitialLoading(true);
+        const { data: companies } = await supabase.from('companies').select('*');
+        setCompanies(companies || []);
+        const { data: clients } = await supabase.from('clients').select('*');
+        setClients(clients || []);
+        const { data: users } = await supabase.from('users').select('*');
+        setUsers(users || []);
+        // Only fetch invoices that are NOT deleted
+        const { data: invoices } = await supabase.from('invoices').select('*').is('deletedAt', null);
+        setSavedInvoices(invoices || []);
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+      } finally {
+        setIsInitialLoading(false);
       }
     };
-    
-    // Set up event listeners
-    window.addEventListener('storage', handleStorageChange);
-    window.addEventListener('invoicesUpdated', handleInvoicesUpdated);
-    window.addEventListener('clientsUpdated', handleClientsUpdated);
-    
-    // Clean up event listeners
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      window.removeEventListener('invoicesUpdated', handleInvoicesUpdated);
-      window.removeEventListener('clientsUpdated', handleClientsUpdated);
-    };
+    fetchAll();
   }, []);
   
-  // Need to manually refresh when returning from CompanyPage or InvoicePage
+  // Presave default service descriptions for all users on app load
   useEffect(() => {
-    // Check for updates to companies when the component mounts
-    const savedCompanies = localStorage.getItem('userCompanies');
-    if (savedCompanies) {
-      setCompanies([...JSON.parse(savedCompanies)]);
-    } else {
-      setCompanies([]);
+    const defaultDescriptions = [
+      { id: 1, text: 'US Federal Corporation Income Tax Return (Form 1120)' },
+      { id: 2, text: 'Foreign related party disclosure form with respect to a foreign subsidiary (Form 5417)' },
+      { id: 3, text: 'Foreign related party disclosure form with respect to a foreign shareholders (Form 5472)' },
+      { id: 4, text: 'Application for Automatic Extension of Time To File Business Income Tax (Form 7004)' }
+    ];
+    const savedDescriptions = localStorage.getItem('serviceDescriptions');
+    if (!savedDescriptions) {
+      localStorage.setItem('serviceDescriptions', JSON.stringify(defaultDescriptions));
     }
-
-    // Also refresh saved invoices
-    const invoices = JSON.parse(localStorage.getItem('savedInvoices')) || [];
-    setSavedInvoices(invoices);
-    
-    // Refresh users list
-    const updatedUsers = JSON.parse(localStorage.getItem('users')) || [];
-    setUsers(updatedUsers);
-    
-    // Add a focus event listener to refresh data when returning to this tab/window
-    const handleFocus = () => {
-      const refreshedInvoices = JSON.parse(localStorage.getItem('savedInvoices')) || [];
-      setSavedInvoices(refreshedInvoices);
-      
-      const refreshedCompanies = JSON.parse(localStorage.getItem('userCompanies')) || [];
-      setCompanies(refreshedCompanies);
-      
-      const refreshedUsers = JSON.parse(localStorage.getItem('users')) || [];
-      setUsers(refreshedUsers);
-    };
-    
-    window.addEventListener('focus', handleFocus);
-    
-    // Clean up event listener
-    return () => {
-      window.removeEventListener('focus', handleFocus);
-    };
   }, []);
+  
+  // Replace all localStorage CRUD for companies, clients, users, invoices with Supabase queries in all relevant handlers
+  // ...existing code...
 
   const handleCompanySelect = (company) => {
     setSelectedCompany(company);
@@ -426,9 +357,12 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
           color: #3b82f6;
           border-top: 2px solid #e5e7eb;
           font-size: 16px;
-        }
-        .text-right {
+        }        .text-right {
           text-align: right;
+        }
+        @keyframes pulse {
+          0% { opacity: 0.6; }
+          100% { opacity: 1; }
         }
       `;
       document.head.appendChild(style);
@@ -724,100 +658,112 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
       </div>
     `;
   };
-  
-  // Function to toggle invoice status
-  const toggleInvoiceStatus = (e, invoiceId) => {
-    e.stopPropagation(); // Prevent navigating to invoice detail page
-    
-    setInvoiceStatuses(prevStatuses => {
-      const newStatuses = { ...prevStatuses };
-      const statusOptions = ['Paid', 'Pending', 'Draft', 'Cancelled'];
-      
-      if (newStatuses[invoiceId]) {
-        // Find current status in the cycle
-        const currentIndex = statusOptions.indexOf(newStatuses[invoiceId]);
-        // Move to next status (or back to first if at end)
-        const nextIndex = (currentIndex + 1) % statusOptions.length;
-        newStatuses[invoiceId] = statusOptions[nextIndex];
-      } else {
-        // If no saved status, set the next status after the default
-        const defaultStatus = parseInt(invoiceId.split('-')[1]) % 2 === 0 ? 'Paid' : 'Pending';
-        const defaultIndex = statusOptions.indexOf(defaultStatus);
-        const nextIndex = (defaultIndex + 1) % statusOptions.length;
-        newStatuses[invoiceId] = statusOptions[nextIndex];
-      }
-      
-      return newStatuses;
-    });
+    // Function to toggle invoice status
+  const toggleInvoiceStatus = async (e, invoiceId) => {
+    e.stopPropagation();
+    const invoice = savedInvoices.find(inv => inv.id === invoiceId);
+    if (!invoice) return;
+    const statusOptions = ['Paid', 'Pending', 'Draft', 'Cancelled'];
+    const currentStatus = invoice.status || invoiceStatuses[invoiceId] || 'Pending';
+    const currentIndex = statusOptions.indexOf(currentStatus);
+    const nextIndex = (currentIndex + 1) % statusOptions.length;
+    const newStatus = statusOptions[nextIndex];
+
+    // Update status in Supabase
+    const { error } = await supabase.from('invoices').update({ status: newStatus }).eq('id', invoiceId);
+    if (error) {
+      alert('Failed to update status: ' + error.message);
+      return;
+    }
+    // Update local state after successful update
+    const updatedInvoices = savedInvoices.map(inv =>
+      inv.id === invoiceId ? { ...inv, status: newStatus } : inv
+    );
+    setSavedInvoices(updatedInvoices);
+    setInvoiceStatuses(prevStatuses => ({
+      ...prevStatuses,
+      [invoiceId]: newStatus
+    }));
   };
   
   // Function to assign an invoice to a user
-  const assignInvoice = (e, invoiceId, assigneeId) => {
+  const assignInvoice = async (e, invoiceId, assigneeId) => {
     e.stopPropagation(); // Prevent navigating to invoice detail page
-    
     // Check if user has permission to assign invoices
     if (!hasPermission('assign-invoice')) {
       alert('Only administrators can assign invoices to users.');
       return;
     }
-    
     // Get the previous assignee to check if this is a new assignment
     const invoice = savedInvoices.find(inv => inv.id === invoiceId);
     const previousAssigneeId = invoice?.assigneeId;
-    
-    // Update the invoice with the new assignee
+    const assigneeName = users.find(user => user.id === assigneeId)?.name || 'Unassigned';
+    // Update in Supabase
+    const { error } = await supabase.from('invoices').update({ assigneeId, assigneeName }).eq('id', invoiceId);
+    if (error) {
+      alert('Failed to assign invoice: ' + error.message);
+      return;
+    }
+    // Update the invoice with the new assignee in local state
     const updatedInvoices = savedInvoices.map(invoice => {
       if (invoice.id === invoiceId) {
         return {
           ...invoice,
           assigneeId,
-          assigneeName: users.find(user => user.id === assigneeId)?.name || 'Unassigned'
+          assigneeName
         };
       }
       return invoice;
     });
-    
-    // Save updated invoices to localStorage
-    localStorage.setItem('savedInvoices', JSON.stringify(updatedInvoices));
     setSavedInvoices(updatedInvoices);
-    
     // Send notification to the assignee if this is a new assignment
     if (assigneeId && assigneeId !== previousAssigneeId) {
-      // Get the invoice and user details
       const updatedInvoice = updatedInvoices.find(inv => inv.id === invoiceId);
       const assignee = users.find(user => user.id === assigneeId);
-      
       if (assignee) {
-        // Store notification in assignee's notifications
-        const assigneeNotifications = JSON.parse(localStorage.getItem(`notifications_${assigneeId}`)) || [];
-        const newNotification = {
-          id: `notification_${Date.now()}`,
-          timestamp: new Date().toISOString(),
-          message: `You have been assigned a new invoice: ${updatedInvoice.invoiceNumber}`,
-          type: 'info',
-          read: false,
-          data: {
-            invoiceId,
-            invoiceNumber: updatedInvoice.invoiceNumber
+        // Save notification to Supabase
+        await supabase.from('notifications').insert([
+          {
+            user_id: assigneeId,
+            message: `You have been assigned a new invoice: ${updatedInvoice.invoiceNumber}`,
+            type: 'info',
+            read: false,
+            data: { invoiceId, invoiceNumber: updatedInvoice.invoiceNumber },
+            timestamp: new Date().toISOString()
           }
-        };
-        
-        localStorage.setItem(`notifications_${assigneeId}`, JSON.stringify([
-          newNotification,
-          ...assigneeNotifications
-        ]));
-        
-        // If the assignee is the current user, update their notifications
+        ]);
+        // Save notification to Supabase for the admin (current user)
+        if (isCurrentUserAdmin) {
+          await supabase.from('notifications').insert([
+            {
+              user_id: currentUserId,
+              message: `Invoice has been assigned to ${assignee.name}`,
+              type: 'success',
+              read: false,
+              data: { invoiceId, invoiceNumber: updatedInvoice.invoiceNumber, assigneeName: assignee.name },
+              timestamp: new Date().toISOString()
+            }
+          ]);
+        }
+        // Always trigger in-app notification for the assignee if they are the current user
         if (assigneeId === currentUserId) {
           addNotification(`You have been assigned a new invoice: ${updatedInvoice.invoiceNumber}`, 'info', {
             invoiceId,
             invoiceNumber: updatedInvoice.invoiceNumber
           });
         }
+        // Show a success notification to the admin
+        if (isCurrentUserAdmin) {
+          addNotification(`Invoice has been assigned to ${assignee.name}`, 'success', {
+            invoiceId,
+            invoiceNumber: updatedInvoice.invoiceNumber,
+            assigneeName: assignee.name
+          });
+        } else {
+          addNotification('Invoice assigned successfully!', 'success');
+        }
       }
     }
-    
-    // Dispatch event to notify other components about the change
     window.dispatchEvent(new Event('invoicesUpdated'));
   };
   
@@ -953,6 +899,36 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
     filteredClients = clients.filter(client => userClientNames.has(client.name));
   }
 
+  // Sync invoice statuses with savedInvoices when they change
+  useEffect(() => {
+    // Update the invoiceStatuses state with status from each invoice
+    if (savedInvoices && savedInvoices.length > 0) {
+      setInvoiceStatuses(prevStatuses => {
+        const newStatuses = { ...prevStatuses };
+        
+        // Add/update statuses from savedInvoices
+        savedInvoices.forEach(invoice => {
+          if (invoice.status) {
+            newStatuses[invoice.id] = invoice.status;
+          }
+        });
+        
+        return newStatuses;
+      });
+    }
+  }, [savedInvoices]);
+
+  // Listen for invoice bin/restore updates and refresh invoices
+  useEffect(() => {
+    const refreshInvoices = async () => {
+      const { data: invoices } = await supabase.from('invoices').select('*').is('deletedAt', null);
+      setSavedInvoices(invoices || []);
+    };
+    const handler = () => refreshInvoices();
+    window.addEventListener('invoicesUpdated', handler);
+    return () => window.removeEventListener('invoicesUpdated', handler);
+  }, []);
+  
   return (
     <div className="dashboard-container">
       {/* Mobile sidebar toggle button */}
@@ -1053,15 +1029,6 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
                 <FiArchive className="company-icon" />
                 <span className="company-name" style={{ fontSize: '18px', color: 'white' }}>Recently Deleted</span>
               </div>
-              {/* Message Inbox button */}
-              <div
-                className="company-item"
-                style={{ marginTop: '10px', color: 'var(--light-text)' }}
-                onClick={() => navigate('/inbox')}
-              >
-                <FiMail className="company-icon" />
-                <span className="company-name" style={{ fontSize: '18px', color: 'white' }}>Message Inbox</span>
-              </div>
               {/* Invoicing Associates section header */}
               <div className="section-title" style={{ 
                 padding: '10px', 
@@ -1146,10 +1113,8 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    color: 'white',
-                    fontWeight: 'bold',
-                    fontSize: '12px',
-                    marginRight: '10px'
+                    color: 'var(--dark-text)',
+                    fontWeight: 'bold'
                   }}>
                     {currentUser?.name ? currentUser.name[0].toUpperCase() : 'U'}
                   </div>
@@ -1233,15 +1198,6 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
               >
                 <FiArchive className="company-icon" />
                 <span className="company-name" style={{ fontSize: '18px', color: 'white' }}>Recently Deleted</span>
-              </div>
-              {/* Message Inbox button */}
-              <div
-                className="company-item"
-                style={{ marginTop: '10px', color: 'var(--light-text)' }}
-                onClick={() => navigate('/inbox')}
-              >
-                <FiMail className="company-icon" />
-                <span className="company-name" style={{ fontSize: '18px', color: 'white' }}>Message Inbox</span>
               </div>
             </>
           )}
@@ -1359,17 +1315,18 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
       
       {/* Main content area */}
       <main className="dashboard-main">
-        <header className="dashboard-header">
-          <h2>
-            {selectedAssignee
-              ? `Invoices Assigned to ${getAssigneeName(selectedAssignee)}`
-              : (showAllInvoices 
-                ? 'Invoice Tracker' 
-                : selectedCompany 
-                  ? `${selectedCompany.name} Invoices` 
-                  : selectedClient 
-                    ? `${selectedClient.name} Invoices`
-                    : 'Invoices')}
+        <header className="dashboard-header">          <h2>
+            {isInitialLoading 
+              ? (isAdmin ? 'Invoice Tracker' : 'Your Invoices')
+              : (selectedAssignee
+                ? (isAdmin ? `Invoices Assigned to ${getAssigneeName(selectedAssignee)}` : 'Your Invoices')
+                : (showAllInvoices 
+                  ? (isAdmin ? 'Invoice Tracker' : 'Your Invoices')
+                  : selectedCompany 
+                    ? `${selectedCompany.name} Invoices` 
+                    : selectedClient 
+                      ? `${selectedClient.name} Invoices`
+                      : 'Invoices'))}
           </h2>
           <div className="dashboard-controls">
             {/* Sort dropdown */}
@@ -1529,9 +1486,56 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
             <p style={{ margin: '0', fontSize: '14px' }}>{downloadStatus}</p>
           </div>
         )}
-        
-        <div className="invoice-list" style={{ width: '100%' }}>
-          {savedInvoices.length > 0 ? (
+          <div className="invoice-list" style={{ width: '100%' }}>
+          {isInitialLoading ? (
+            // Loading skeleton
+            <div className="loading-skeleton">
+              {[...Array(3)].map((_, index) => (
+                <div key={index} className="invoice-card-skeleton" style={{
+                  background: darkMode ? '#232a36' : '#f8f9fa',
+                  borderRadius: '12px',
+                  padding: '20px',
+                  marginBottom: '16px',
+                  boxShadow: darkMode ? '0 1px 4px #10131a33' : '0 1px 4px #e0e7ef33',
+                  border: darkMode ? '1px solid #3a4252' : '1px solid #e5e7eb',
+                  animation: 'pulse 1.5s ease-in-out infinite alternate'
+                }}>
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'flex-start',
+                    marginBottom: '12px'
+                  }}>
+                    <div style={{
+                      height: '20px',
+                      width: '120px',
+                      background: darkMode ? '#3a4252' : '#e5e7eb',
+                      borderRadius: '4px'
+                    }} />
+                    <div style={{
+                      height: '24px',
+                      width: '80px',
+                      background: darkMode ? '#3a4252' : '#e5e7eb',
+                      borderRadius: '12px'
+                    }} />
+                  </div>
+                  <div style={{
+                    height: '16px',
+                    width: '200px',
+                    background: darkMode ? '#3a4252' : '#e5e7eb',
+                    borderRadius: '4px',
+                    marginBottom: '8px'
+                  }} />
+                  <div style={{
+                    height: '16px',
+                    width: '100px',
+                    background: darkMode ? '#3a4252' : '#e5e7eb',
+                    borderRadius: '4px'
+                  }} />
+                </div>
+              ))}
+            </div>
+          ) : savedInvoices.length > 0 ? (
             sortInvoices(savedInvoices)
               .filter(invoice => {
                 // If a company is selected, only show invoices for that company
@@ -1579,9 +1583,9 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
                 
                 // Format the invoice date for display
                 const invoiceDate = new Date(invoice.invoiceDate);
-                
-                // Get status for this invoice
-                const invoiceStatus = invoice.status || 'Pending';
+                  // Get status for this invoice - prioritize the status stored in the invoice object itself
+                // If not found, check invoiceStatuses, and finally default to 'Pending'
+                const invoiceStatus = invoice.status || invoiceStatuses[invoice.id] || 'Pending';
                 
                 // Check if current user can access this invoice (admin or assigned user)
                 const canAccessInvoice = isAdmin || invoice.assigneeId === currentUserId;
@@ -1632,34 +1636,17 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
                       </div>
                       <div className="invoice-status">
                         <span 
-                          className={`status ${!invoice.assigneeId ? 'draft' : invoiceStatus.toLowerCase()}`} 
+                          className={`status ${!invoice.assigneeId ? 'draft' : invoiceStatus.toLowerCase()}`}
                           onClick={(e) => {
                             e.stopPropagation();
-                            
                             // If invoice is not assigned, it should stay as draft and cannot be changed
                             if (!invoice.assigneeId) {
                               alert("This invoice needs to be assigned to a client before the status can be changed.");
                               return;
                             }
-                            
-                            // If assigned, only the assigned client can change status
+                            // Only the assigned client can change status
                             if (invoice.assigneeId === currentUserId) {
-                              // Toggle status for this invoice
-                              const statusOptions = ['Paid', 'Pending', 'Draft', 'Cancelled'];
-                              const currentIndex = statusOptions.indexOf(invoiceStatus);
-                              const nextIndex = (currentIndex + 1) % statusOptions.length;
-                              const newStatus = statusOptions[nextIndex];
-                              
-                              // Update invoice status in local state
-                              const updatedInvoices = savedInvoices.map(inv => 
-                                inv.id === invoice.id 
-                                  ? {...inv, status: newStatus} 
-                                  : inv
-                              );
-                              
-                              // Save to localStorage
-                              localStorage.setItem('savedInvoices', JSON.stringify(updatedInvoices));
-                              setSavedInvoices(updatedInvoices);
+                              toggleInvoiceStatus(e, invoice.id);
                             } else {
                               // Show error message if user is not the assignee
                               alert(`Only ${getAssigneeName(invoice.assigneeId)} can change the status of this invoice.`);
@@ -1886,6 +1873,9 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
         
         {/* Download Options Modal */}
         <Modal
+
+         
+
           isOpen={showDownloadModal}
           onClose={() => setShowDownloadModal(false)}
           title="Download Invoices"
@@ -1910,6 +1900,7 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
           }
         >
           <div style={{ marginBottom: '15px' }}>
+
             <label>
               <input
                 type="radio"

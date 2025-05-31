@@ -1,27 +1,24 @@
 import React, { useState, useEffect } from 'react';
+import { supabase } from '../config/supabaseClient';
 
 const InvoiceItemsTable = ({ items, setItems, exchangeRate, currency, disabled = false }) => {
   const [inputValues, setInputValues] = useState({});
   const [descriptions, setDescriptions] = useState([]);
   
-  // Load service descriptions from localStorage
+  // Fetch service descriptions from Supabase on mount
   useEffect(() => {
-    const loadDescriptions = () => {
-      const savedDescriptions = localStorage.getItem('serviceDescriptions');
-      if (savedDescriptions) {
-        setDescriptions(JSON.parse(savedDescriptions));
+    const fetchDescriptions = async () => {
+      let { data, error } = await supabase.from('descriptions').select('*').order('id', { ascending: true });
+      if (!error && data) {
+        setDescriptions(data);
       }
     };
-    
-    loadDescriptions();
-    
-    // Listen for updates to descriptions
+    fetchDescriptions();
+    // Listen for updates to descriptions (in case another tab/page updates)
     const handleDescriptionsUpdated = () => {
-      loadDescriptions();
+      fetchDescriptions();
     };
-    
     window.addEventListener('descriptionsUpdated', handleDescriptionsUpdated);
-    
     return () => {
       window.removeEventListener('descriptionsUpdated', handleDescriptionsUpdated);
     };

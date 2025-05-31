@@ -8,6 +8,7 @@ import { useNotification } from '../context/NotificationContext';
 import Modal from './Modal';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
+import { supabase } from '../config/supabaseClient';
 
 const InvoiceForm = ({ 
   invoiceData, 
@@ -27,34 +28,33 @@ const InvoiceForm = ({
   const [showSendModal, setShowSendModal] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);
   const { setNotification } = useNotification();
-  const [clients, setClients] = useState(() => {
-    const savedClients = localStorage.getItem('userClients');
-    return savedClients ? JSON.parse(savedClients) : [];
-  });
+  const [clients, setClients] = useState([]);
   const isInitialMount = useRef(true); // Ref to track initial mount
-  
+  // Track selected clientId for dropdown (controlled component)
+  const [selectedClientId, setSelectedClientId] = useState('');
+
+  // Sync selectedClientId with invoiceData.recipientName (for edit mode or after autofill)
+  useEffect(() => {
+    if (!invoiceData.recipientName) {
+      setSelectedClientId('');
+      return;
+    }
+    const found = clients.find(c => c.name === invoiceData.recipientName);
+    if (found) setSelectedClientId(found.id.toString());
+  }, [invoiceData.recipientName, clients]);
+
   // Fetch exchange rate on component mount
   useEffect(() => {
     fetchExchangeRate();
   }, []);
   
-  // Add a useEffect to listen for client updates
+  // Fetch clients from Supabase on mount
   useEffect(() => {
-    // Listen for the clientsUpdated event
-    const handleClientsUpdated = () => {
-      const savedClients = localStorage.getItem('userClients');
-      if (savedClients) {
-        setClients(JSON.parse(savedClients));
-      }
+    const fetchClients = async () => {
+      const { data, error } = await supabase.from('clients').select('*');
+      if (!error) setClients(data || []);
     };
-    
-    // Add event listener
-    window.addEventListener('clientsUpdated', handleClientsUpdated);
-    
-    // Clean up
-    return () => {
-      window.removeEventListener('clientsUpdated', handleClientsUpdated);
-    };
+    fetchClients();
   }, []);
   
   // Add useEffect to update invoice number prefix when recipient name changes on an existing invoice
@@ -85,32 +85,52 @@ const InvoiceForm = ({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [invoiceData.recipientName, id, setInvoiceData]);
 
-  // Handle client selection
+  // Handle client selection (autofill all fields from Supabase client)
   const handleClientSelect = (e) => {
-    const clientId = parseInt(e.target.value);
+    const clientId = e.target.value ? String(e.target.value) : null;
+    setSelectedClientId(clientId || '');
     if (!clientId) {
+      setInvoiceData(prevData => ({
+        ...prevData,
+        recipientName: '',
+        recipientAddress: '',
+        recipientPhone: '',
+        recipientEmail: '',
+        recipientWebsite: '',
+        recipientGSTIN: '',
+        recipientPAN: '',
+        invoiceNumber: invoiceLogic.generateInvoiceNumber('CUST', true) // Reset to default if no client
+      }));
       return;
     }
-    const selectedClient = clients.find(client => client.id === clientId);
-    if (selectedClient) {
-      setInvoiceData(prevData => {
-        const updated = {
-          ...prevData,
-          recipientName: selectedClient.name,
-          recipientAddress: selectedClient.address || '',
-          recipientPhone: selectedClient.phone || '',
-          recipientEmail: selectedClient.email || '',
-          recipientWebsite: selectedClient.website || '',
-          recipientGSTIN: selectedClient.gstin || '',
-          recipientPAN: selectedClient.pan || ''
-        };
-        // Also update invoice number prefix if recipientName changes
-        if (selectedClient.name) {
-          updated.invoiceNumber = invoiceLogic.generateInvoiceNumber(selectedClient.name, false);
-        }
-        return updated;
-      });
+    const selectedClient = clients.find(client => String(client.id) === clientId);
+    if (!selectedClient) {
+      setNotification('Client not found. Please try again.', 'error');
+      setInvoiceData(prevData => ({
+        ...prevData,
+        recipientName: '',
+        recipientAddress: '',
+        recipientPhone: '',
+        recipientEmail: '',
+        recipientWebsite: '',
+        recipientGSTIN: '',
+        recipientPAN: '',
+        invoiceNumber: invoiceLogic.generateInvoiceNumber('CUST', true)
+      }));
+      return;
     }
+    // Force update all fields, even if values are the same, and update invoice number
+    setInvoiceData(prevData => ({
+      ...prevData,
+      recipientName: selectedClient.name || '',
+      recipientAddress: selectedClient.address || '',
+      recipientPhone: selectedClient.phone || '',
+      recipientEmail: selectedClient.email || '',
+      recipientWebsite: selectedClient.website || '',
+      recipientGSTIN: selectedClient.gstin || '',
+      recipientPAN: selectedClient.pan || '',
+      invoiceNumber: invoiceLogic.generateInvoiceNumber(selectedClient.name || 'CUST', true)
+    }));
   };
 
   // Generate invoice number with format CUST-YYYYMMDD-XXXX (now using recipientName)
@@ -536,18 +556,19 @@ const InvoiceForm = ({
   };
 
   return (
-    <div className="invoice-form">
+    <div className="invoice-form modern-invoice-form" style={{ maxWidth: 820, margin: '32px auto', background: 'var(--card-bg)', borderRadius: 18, boxShadow: '0 6px 32px rgba(59,130,246,0.08)', padding: '32px 28px', fontFamily: 'Poppins, Inter, Arial, sans-serif', border: '1px solid var(--border-color)' }}>
       {!isAuthorized && (
         <div className="authorization-warning" style={{
           backgroundColor: '#ffecec',
           color: '#d8000c',
           padding: '10px 15px',
           marginBottom: '20px',
-          borderRadius: '4px',
-          border: '1px solid #d8000c',
+          borderRadius: '8px',
+          border: '1.5px solid #d8000c',
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'center'
+          justifyContent: 'center',
+          fontWeight: 500
         }}>
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" style={{ marginRight: '8px' }}>
             <path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/>
@@ -555,12 +576,9 @@ const InvoiceForm = ({
           <span>You don't have permission to edit this invoice. Only the assigned client can make changes.</span>
         </div>
       )}
-      
       {/* Top Header - Company Information */}
-      <div className="form-section">
-        <h2 className="section-title">
-          Company Information
-        </h2>
+      <div className="form-section invoice-card-section" style={{ marginBottom: 32, background: 'var(--secondary-color)', borderRadius: 14, boxShadow: '0 2px 12px rgba(59,130,246,0.04)', padding: '24px 20px', border: '1px solid var(--border-color)' }}>
+        <h2 className="section-title" style={{ fontSize: 22, color: 'var(--primary-color)', fontWeight: 700, letterSpacing: 1, marginBottom: 18, borderLeft: '4px solid var(--primary-color)', paddingLeft: 12 }}>Company Information</h2>
         
         <div className="form-row">
           <div className="form-group">
@@ -663,10 +681,8 @@ const InvoiceForm = ({
       </div>
       
       {/* Customer (Bill To) Information Section */}
-      <div className="form-section">
-        <h2 className="section-title">
-          Bill To:
-        </h2>
+      <div className="form-section invoice-card-section" style={{ marginBottom: 32, background: 'var(--secondary-color)', borderRadius: 14, boxShadow: '0 2px 12px rgba(59,130,246,0.04)', padding: '24px 20px', border: '1px solid var(--border-color)' }}>
+        <h2 className="section-title" style={{ fontSize: 22, color: 'var(--primary-color)', fontWeight: 700, letterSpacing: 1, marginBottom: 18, borderLeft: '4px solid var(--primary-color)', paddingLeft: 12 }}>Bill To</h2>
         
         {/* Add client selection dropdown */}
         <div className="form-row">
@@ -674,6 +690,7 @@ const InvoiceForm = ({
             <label htmlFor="clientSelect">Select Saved Client</label>
             <select
               id="clientSelect"
+              value={selectedClientId}
               onChange={handleClientSelect}
               disabled={!isAuthorized}
               style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc', marginBottom: '15px' }}
@@ -791,10 +808,8 @@ const InvoiceForm = ({
       </div>
       
       {/* Invoice Summary Section */}
-      <div className="form-section">
-        <h2 className="section-title">
-          Invoice Summary - {invoiceData.recipientName || 'Client'}
-        </h2>
+      <div className="form-section invoice-card-section" style={{ marginBottom: 32, background: 'var(--secondary-color)', borderRadius: 14, boxShadow: '0 2px 12px rgba(59,130,246,0.04)', padding: '24px 20px', border: '1px solid var(--border-color)' }}>
+        <h2 className="section-title" style={{ fontSize: 22, color: 'var(--primary-color)', fontWeight: 700, letterSpacing: 1, marginBottom: 18, borderLeft: '4px solid var(--primary-color)', paddingLeft: 12 }}>Invoice Summary</h2>
         
         <div className="form-row rates-section">
           <div className="form-group">
@@ -854,10 +869,8 @@ const InvoiceForm = ({
       </div>
       
       {/* Service Items Table */}
-      <div className="form-section">
-        <h2 className="section-title">
-          Service Items
-        </h2>
+      <div className="form-section invoice-card-section" style={{ marginBottom: 32, background: 'var(--secondary-color)', borderRadius: 14, boxShadow: '0 2px 12px rgba(59,130,246,0.04)', padding: '24px 20px', border: '1px solid var(--border-color)' }}>
+        <h2 className="section-title" style={{ fontSize: 22, color: 'var(--primary-color)', fontWeight: 700, letterSpacing: 1, marginBottom: 18, borderLeft: '4px solid var(--primary-color)', paddingLeft: 12 }}>Service Items</h2>
         
         <InvoiceItemsTable 
           items={invoiceData.items}
@@ -904,10 +917,8 @@ const InvoiceForm = ({
       </div>
       
       {/* Beneficiary Bank Details */}
-      <div className="form-section">
-        <h2 className="section-title">
-          Beneficiary Account Details
-        </h2>
+      <div className="form-section invoice-card-section" style={{ marginBottom: 32, background: 'var(--secondary-color)', borderRadius: 14, boxShadow: '0 2px 12px rgba(59,130,246,0.04)', padding: '24px 20px', border: '1px solid var(--border-color)' }}>
+        <h2 className="section-title" style={{ fontSize: 22, color: 'var(--primary-color)', fontWeight: 700, letterSpacing: 1, marginBottom: 18, borderLeft: '4px solid var(--primary-color)', paddingLeft: 12 }}>Beneficiary Account Details</h2>
         
         <div className="form-row">
           <div className="form-group full-width">
@@ -983,53 +994,52 @@ const InvoiceForm = ({
       </div>
       
       {/* Form Actions */}
-      <div className="form-actions" style={{ display: 'flex', flexDirection: 'row', flexWrap: 'nowrap', gap: '16px', justifyContent: 'flex-start', alignItems: 'center', marginTop: '24px' }}>
-        <button onClick={onPreview} className="btn">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" style={{ marginRight: '5px' }}>
-            <path d="M10.5 8a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0z"/>
-            <path d="M0 8s3-5.5 8-5.5S16 8 16 8s-3 5.5-8 5.5S0 8 0 8zm8 3.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"/>
-          </svg>
-          Preview Invoice
-        </button>
-        
-        <button onClick={downloadPDF} className="btn">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" style={{ marginRight: '5px' }}>
-            <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
-            <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
-          </svg>
-          Download PDF
-        </button>
-        
-        <button onClick={() => setShowSendModal(true)} className="btn" disabled={!isAuthorized}>
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" style={{ marginRight: '5px' }}>
-            <path d="M15.854.146a.5.5 0 0 1 .11.54l-5.819 14.547a.75.75 0 0 1-1.329.124l-3.178-4.995L.643 7.184a.75.75 0 0 1 .124-1.33L15.314.037a.5.5 0 0 1 .54.11ZM6.636 10.07l2.761 4.338L14.13 2.576 6.636 10.07Zm6.787-8.201L1.591 6.602l4.339 2.76 7.494-7.493Z"/>
-          </svg>
-          Send Invoice
-        </button>
-        
-        <button onClick={() => setShowResetModal(true)} className="btn btn-secondary" disabled={!isAuthorized}>
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" style={{ marginRight: '5px' }}>
-            <path d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
-            <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
-          </svg>
-          Reset Form
-        </button>
-        
-        <button onClick={onSave} className="btn" disabled={!isAuthorized}>
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" style={{ marginRight: '5px' }}>
-            <path d="M2 1a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H9.5a1 1 0 0 0-1 1v7.293l2.646-2.647a.5.5 0 0 1 .708.708l-3.5 3.5a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L7.5 9.293V2a2 2 0 0 1 2-2H14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h2.5a2 2 0 0 1 2 2v7.293l3.05-3.05a.5.5 0 1 1 .707.707l-3.5 3.5a.5.5 0 0 1-.707 0l-3.5-3.5a.5.5 0 1 1 .707-.707L7.5 9.293V2a1 1 0 0 0-1-1H2z"/>
-          </svg>
-          Save Invoice
-        </button>
-        
-        {invoiceData.invoiceNumber && id && id !== 'new' && (
-          <button onClick={onDelete} className="btn btn-danger" disabled={!isAuthorized}>
+      <div className="form-actions" style={{ display: 'flex', flexDirection: 'row', flexWrap: 'nowrap', gap: '16px', justifyContent: 'flex-start', alignItems: 'center', marginTop: '24px', background: 'transparent', border: 'none', boxShadow: 'none' }}>
+        <div className="main-actions" style={{ display: 'flex', flexDirection: 'row', flexWrap: 'wrap', gap: '16px', alignItems: 'center' }}>
+          <button onClick={onPreview} className="btn">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" style={{ marginRight: '5px' }}>
-              <path fillRule="evenodd" d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
-              <path fillRule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+              <path d="M10.5 8a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0z"/>
+              <path d="M0 8s3-5.5 8-5.5S16 8 16 8s-3 5.5-8 5.5S0 8 0 8zm8 3.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"/>
             </svg>
-            Delete Invoice
+            Preview Invoice
           </button>
+          <button onClick={downloadPDF} className="btn">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" style={{ marginRight: '5px' }}>
+              <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
+              <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
+            </svg>
+            Download PDF
+          </button>
+          <button onClick={() => setShowSendModal(true)} className="btn" disabled={!isAuthorized}>
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" style={{ marginRight: '5px' }}>
+              <path d="M15.854.146a.5.5 0 0 1 .11.54l-5.819 14.547a.75.75 0 0 1-1.329.124l-3.178-4.995L.643 7.184a.75.75 0 0 1 .124-1.33L15.314.037a.5.5 0 0 1 .54.11ZM6.636 10.07l2.761 4.338L14.13 2.576 6.636 10.07Zm6.787-8.201L1.591 6.602l4.339 2.76 7.494-7.493Z"/>
+            </svg>
+            Send Invoice
+          </button>
+          <button onClick={() => setShowResetModal(true)} className="btn btn-secondary" disabled={!isAuthorized}>
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" style={{ marginRight: '5px' }}>
+              <path d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
+              <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
+            </svg>
+            Reset Form
+          </button>
+          <button onClick={onSave} className="btn" disabled={!isAuthorized}>
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" style={{ marginRight: '5px' }}>
+              <path d="M2 1a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H9.5a1 1 0 0 0-1 1v7.293l2.646-2.647a.5.5 0 0 1 .708.708l-3.5 3.5a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L7.5 9.293V2a2 2 0 0 1 2-2H14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h2.5a2 2 0 0 1 2 2v7.293l3.05-3.05a.5.5 0 1 1 .707.707l-3.5 3.5a.5.5 0 0 1-.707 0l-3.5-3.5a.5.5 0 1 1 .707-.707L7.5 9.293V2a1 1 0 0 0-1-1H2z"/>
+            </svg>
+            Save Invoice
+          </button>
+        </div>
+        {invoiceData.invoiceNumber && id && id !== 'new' && (
+          <div className="delete-action" style={{ marginLeft: 'auto', display: 'flex' }}>
+            <button onClick={onDelete} className="btn btn-danger" disabled={!isAuthorized}>
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" style={{ marginRight: '5px' }}>
+                <path fillRule="evenodd" d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+                <path fillRule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+              </svg>
+              Delete Invoice
+            </button>
+          </div>
         )}
       </div>
       
