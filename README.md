@@ -1,8 +1,10 @@
 # Corporate Invoice Application (CIA)
+<p align="center">
+  <img src="./prev01.png">
+  <img src="./prev02.png">
+  <b>A professional enterprise-grade invoice management system with dual currency support (USD and INR),dashboard,manage and edit invoices  built with React and Vite</b><br><a href="https://journifyx.vercel.app" target="_blank">Visit Now</a> <br>
 
-A professional enterprise-grade invoice management system with dual currency support (USD and INR), built with React and Vite.
-
-![Invoice Application](src/assets/images/favicon.png)
+</p>
 
 ## Overview
 
