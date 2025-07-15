@@ -49,6 +49,7 @@ CIA is a comprehensive invoice generator designed for businesses that operate ac
    git clone https://github.com/yourusername/CIA.git
    cd CIA
    ```
+   
 
 2. **Install dependencies**
    ```bash
