@@ -103,16 +103,20 @@ const LoginPage = ({ onLogin, darkMode, toggleDarkMode }) => {
         setIsLoading(false);
         return;
       }
-      // Insert user profile into users table
-      await supabase.from('users').insert({
+      // Insert user profile into users table with error handling
+      const { error: userInsertError } = await supabase.from('users').insert({
         id: data.user.id,
         email,
         name,
         phone,
         position: position || 'Invoicing Associate',
         role: 'user',
-        created_at: new Date().toISOString(),
       });
+      if (userInsertError) {
+        setError('Sign up succeeded, but failed to create user profile: ' + userInsertError.message);
+        setIsLoading(false);
+        return;
+      }
       // Auto-login after registration
       onLogin(email, data.user.id, name, phone, position || 'Invoicing Associate', 'user');
       setIsLoading(false);
