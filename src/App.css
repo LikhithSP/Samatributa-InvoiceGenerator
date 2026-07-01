@@ -1033,12 +1033,12 @@ body.dark-mode .dashboard-container {
   height: 100%;
   overflow-y: auto;
   box-shadow: var(--card-shadow);
-  border-radius: 18px 0 0 18px;
+  border-radius: 18px;
 }
 
 .dashboard-main {
   grid-area: main;
-  padding: 20px;
+  padding: 20px 25px;
   overflow-y: auto;
   background-color: var(--bg-color);
   transition: background-color var(--transition-speed);
@@ -1049,18 +1049,22 @@ body.dark-mode .dashboard-container {
   grid-area: topbar;
   background-color: var(--card-bg);
   border-bottom: 1px solid var(--border-color);
-  padding: 15px 25px;
+  height: 80px;
+  padding: 0 25px;
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
   align-items: center;
+  box-sizing: border-box;
 }
 
 .company-logo-container {
-  padding: 20px;
+  height: 80px;
+  padding: 0 20px;
   display: flex;
   align-items: center;
   gap: 10px;
   border-bottom: 1px solid var(--border-color);
+  box-sizing: border-box;
 }
 
 .main-company-logo {
@@ -1149,6 +1153,17 @@ body.dark-mode .btn-logout {
 body.dark-mode .btn-logout:hover {
   background-color: rgb(148, 118, 18);
   border-color: rgb(250, 248, 248);
+}
+
+.btn-create.secondary {
+  background-color: transparent;
+  color: var(--primary-color);
+  border: 1px solid var(--primary-color);
+}
+
+.btn-create.secondary:hover {
+  background-color: rgba(59, 130, 246, 0.08);
+  transform: translateY(-1px);
 }
 
 .dashboard-header {
@@ -1271,7 +1286,7 @@ body.dark-mode .btn-logout:hover {
 
 .invoice-card-details {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1.4fr 0.6fr;
   gap: 15px;
 }
 
@@ -1310,28 +1325,96 @@ body.dark-mode .btn-logout:hover {
 }
 
 .status {
-  padding: 4px 8px;
-  border-radius: 15px;
-  font-size: 0.8em;
-  font-weight: bold;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 700;
   text-transform: uppercase;
-  color: white;
+  letter-spacing: 0.5px;
+  display: inline-block;
 }
 
 .status.paid {
-  background-color: var(--status-completed);
+  background-color: rgba(16, 185, 129, 0.15) !important;
+  color: #10b981 !important;
 }
 
 .status.pending {
-  background-color: var(--status-pending);
+  background-color: rgba(245, 158, 11, 0.15) !important;
+  color: #d97706 !important;
 }
 
 .status.draft {
-  background-color: var(--status-in-progress);
+  background-color: rgba(59, 130, 246, 0.15) !important;
+  color: #3b82f6 !important;
 }
 
 .status.cancelled {
-  background-color: var(--status-pending);
+  background-color: rgba(239, 68, 68, 0.15) !important;
+  color: #ef4444 !important;
+}
+
+.status.overdue {
+  background-color: rgba(239, 68, 68, 0.15) !important;
+  color: #b91c1c !important;
+}
+
+/* Custom Assignee Select Dropdown Styling */
+.invoice-assignee-row {
+  margin-top: 15px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.assignee-label {
+  font-size: 0.85rem;
+  color: var(--light-text);
+  font-weight: 500;
+}
+
+.assignee-select-container {
+  position: relative;
+  flex: 1;
+  max-width: 150px;
+}
+
+.assignee-select {
+  width: 100%;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background-color: var(--card-bg);
+  color: var(--text-color);
+  font-size: 0.85rem;
+  font-weight: 500;
+  outline: none;
+  cursor: pointer;
+  transition: all var(--transition-speed);
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%234b5563' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  background-size: 14px;
+  padding-right: 28px;
+}
+
+body.dark-mode .assignee-select {
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23d1d5db' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+}
+
+.assignee-select:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px var(--primary-color-light);
+}
+
+.assignee-select:disabled {
+  background-color: var(--secondary-color);
+  cursor: not-allowed;
+  opacity: 0.7;
 }
 
 .no-invoices-message {
@@ -2190,4 +2273,71 @@ body.dark-mode .invoice-card-section {
     padding-top: 16px;
     justify-content: flex-start;
   }
+}
+
+/* Sidebar action items colors: light mode defaults (black text) */
+.company-item.action-item.manage-clients,
+.company-item.action-item.manage-clients .company-icon,
+.company-item.action-item.manage-clients .company-name,
+.company-item.action-item.add-descriptions,
+.company-item.action-item.add-descriptions .company-icon,
+.company-item.action-item.add-descriptions .company-name,
+.company-item.action-item.recently-deleted,
+.company-item.action-item.recently-deleted .company-icon,
+.company-item.action-item.recently-deleted .company-name {
+  color: #000000 !important;
+}
+
+/* Dark mode overrides (white colors) */
+body.dark-mode .company-item.action-item.manage-clients,
+body.dark-mode .company-item.action-item.manage-clients .company-icon,
+body.dark-mode .company-item.action-item.manage-clients .company-name,
+body.dark-mode .company-item.action-item.add-descriptions,
+body.dark-mode .company-item.action-item.add-descriptions .company-icon,
+body.dark-mode .company-item.action-item.add-descriptions .company-name,
+body.dark-mode .company-item.action-item.recently-deleted,
+body.dark-mode .company-item.action-item.recently-deleted .company-icon,
+body.dark-mode .company-item.action-item.recently-deleted .company-name {
+  color: #ffffff !important;
+}
+
+/* Sidebar scrollbar styles for dark mode */
+body.dark-mode .dashboard-sidebar,
+body.dark-mode .company-list {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.15) rgba(0, 0, 0, 0.1);
+}
+
+body.dark-mode .dashboard-sidebar::-webkit-scrollbar,
+body.dark-mode .company-list::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+body.dark-mode .dashboard-sidebar::-webkit-scrollbar-track,
+body.dark-mode .company-list::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 3px;
+}
+
+body.dark-mode .dashboard-sidebar::-webkit-scrollbar-thumb,
+body.dark-mode .company-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 3px;
+}
+
+body.dark-mode .dashboard-sidebar::-webkit-scrollbar-thumb:hover,
+body.dark-mode .company-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Modern Template Header Text Visibility */
+.modern-header-title {
+  color: #ffffff !important;
+}
+.modern-header-text {
+  color: #e0f2fe !important;
+}
+.modern-grand-total-text {
+  color: #ffffff !important;
 }

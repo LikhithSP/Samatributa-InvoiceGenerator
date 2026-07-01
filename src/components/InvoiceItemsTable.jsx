@@ -9,8 +9,31 @@ const InvoiceItemsTable = ({ items, setItems, exchangeRate, currency, disabled =
   useEffect(() => {
     const fetchDescriptions = async () => {
       let { data, error } = await supabase.from('descriptions').select('*').order('id', { ascending: true });
-      if (!error && data) {
+      if (!error && data && data.length > 0) {
         setDescriptions(data);
+      } else {
+        // Fallback to default descriptions if table doesn't exist or is empty
+        setDescriptions([
+          { id: 'd1', text: 'US Federal Corporation Income Tax Return (Form 1120)' },
+          { id: 'd2', text: 'US Partnership Income Tax Return (Form 1065)' },
+          { id: 'd3', text: 'US Individual Income Tax Return (Form 1040)' },
+          { id: 'd4', text: 'US S Corporation Income Tax Return (Form 1120-S)' },
+          { id: 'd5', text: 'Foreign Related Party Disclosure (Form 5471)' },
+          { id: 'd6', text: 'Foreign Related Party Disclosure (Form 5472)' },
+          { id: 'd7', text: 'Application for Automatic Extension of Time To File (Form 7004)' },
+          { id: 'd8', text: 'Bookkeeping Services' },
+          { id: 'd9', text: 'Payroll Processing & Payroll Tax Filing' },
+          { id: 'd10', text: 'Financial Statement Preparation' },
+          { id: 'd11', text: 'Tax Planning & Advisory Services' },
+          { id: 'd12', text: 'Accounting & Compliance Services' },
+          { id: 'd13', text: 'GST Registration' },
+          { id: 'd14', text: 'GST Return Filing' },
+          { id: 'd15', text: 'GST Audit & Compliance' },
+          { id: 'd16', text: 'Business Consulting Services' },
+          { id: 'd17', text: 'Virtual CFO Services' },
+          { id: 'd18', text: 'Company Incorporation & Registration' },
+          { id: 'd19', text: 'Other Professional Services' }
+        ]);
       }
     };
     fetchDescriptions();
@@ -87,7 +110,15 @@ const InvoiceItemsTable = ({ items, setItems, exchangeRate, currency, disabled =
         type: 'main',
         name: '',
         description: '',
-        subServices: []
+        subServices: [
+          {
+            id: `sub-${Math.random().toString(36).substr(2, 9)}`,
+            name: '',
+            description: '',
+            amountUSD: 0,
+            amountINR: 0
+          }
+        ]
       }
     ]);
   };
@@ -341,7 +372,7 @@ const InvoiceItemsTable = ({ items, setItems, exchangeRate, currency, disabled =
                       onFocus={() => handleAmountFocus(mainIndex, subIndex, 'amountUSD')}
                       onBlur={() => handleAmountBlur(mainIndex, subIndex, 'amountUSD')}
                       placeholder="Amount (USD)"
-                      disabled={disabled || currency === 'INR'}
+                      disabled={disabled}
                     />
                   </td>
                   <td>
@@ -353,7 +384,7 @@ const InvoiceItemsTable = ({ items, setItems, exchangeRate, currency, disabled =
                       onFocus={() => handleAmountFocus(mainIndex, subIndex, 'amountINR')}
                       onBlur={() => handleAmountBlur(mainIndex, subIndex, 'amountINR')}
                       placeholder="Amount (INR)"
-                      disabled={disabled || currency === 'USD'}
+                      disabled={disabled}
                     />
                   </td>
                   <td>

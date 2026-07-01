@@ -1,7 +1,7 @@
 // DescriptionPage.jsx - Dedicated page for service description management
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { FiArrowLeft, FiSave, FiTrash2, FiPlus, FiSun, FiMoon } from 'react-icons/fi';
+import { FiArrowLeft, FiSave, FiTrash2, FiPlus, FiSun, FiMoon, FiEdit } from 'react-icons/fi';
 import './ClientPage.css'; // Reuse ClientPage styling
 import { supabase } from '../config/supabaseClient';
 
@@ -118,7 +118,7 @@ const DescriptionPage = ({ darkMode, toggleDarkMode }) => {
                 </div>
                 <div className="client-actions">
                   <button className="btn-icon" onClick={() => handleEditDescription(description.id)} title="Edit">
-                    <FiSave />
+                    <FiEdit />
                   </button>
                   <button className="btn-icon danger" onClick={() => handleDeleteDescription(description.id)} title="Delete">
                     <FiTrash2 />

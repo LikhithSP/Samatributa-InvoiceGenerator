@@ -33,6 +33,7 @@ export const ClassicTemplate = ({ invoiceData, normalizedItems, formatDate, defa
           </div>
           <div className="invoice-date">
             <p><strong>Date:</strong> {formatDate(invoiceData.invoiceDate)}</p>
+            {invoiceData.dueDate && <p><strong>Due Date:</strong> {formatDate(invoiceData.dueDate)}</p>}
           </div>
         </div>
       </div>
@@ -147,8 +148,24 @@ export const ClassicTemplate = ({ invoiceData, normalizedItems, formatDate, defa
                 ₹{invoiceData.taxAmountINR.toFixed(2)}
               </td>
             </tr>
+            <tr>
+              <td>Total:</td>
+              <td className="text-right">
+                ${(invoiceData.subtotalUSD + invoiceData.taxAmountUSD).toFixed(2)} / 
+                ₹{(invoiceData.subtotalINR + invoiceData.taxAmountINR).toFixed(2)}
+              </td>
+            </tr>
+            {invoiceData.amountPaid > 0 && (
+              <tr>
+                <td>Amount Paid:</td>
+                <td className="text-right">
+                  ${(invoiceData.amountPaidUSD || 0).toFixed(2)} / 
+                  ₹{(invoiceData.amountPaidINR || 0).toFixed(2)}
+                </td>
+              </tr>
+            )}
             <tr className="grand-total">
-              <td>Grand Total:</td>
+              <td>Grand Total (Balance Due):</td>
               <td className="text-right">
                 ${invoiceData.totalUSD.toFixed(2)} / 
                 ₹{invoiceData.totalINR.toFixed(2)}
@@ -174,12 +191,31 @@ export const ClassicTemplate = ({ invoiceData, normalizedItems, formatDate, defa
           <div className="info-row half-width">
             <p><strong>IFSC Code:</strong> {invoiceData.ifscCode || extractIFSCCode(invoiceData.notes)}</p>
           </div>
+          {invoiceData.upiId && (
+            <div className="info-row full-width">
+              <p><strong>UPI ID:</strong> {invoiceData.upiId}</p>
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Signature Section */}
+      {invoiceData.signature && (
+        <div className="signature-section" style={{ marginTop: '30px', textAlign: 'right', fontStyle: 'italic', paddingRight: '20px' }}>
+          <p style={{ margin: '0 0 5px 0' }}>Signed by:</p>
+          <h4 style={{ margin: 0, fontWeight: '600', fontSize: '1.1rem', color: '#333' }}>{invoiceData.signature}</h4>
+        </div>
+      )}
       
       {/* 8. Footer Section */}
       <div className="invoice-footer">
-        <p>Thank you for your business!</p>
+        {invoiceData.notes ? (
+          <p style={{ whiteSpace: 'pre-line', marginBottom: '15px', fontStyle: 'italic', color: '#555', textAlign: 'left' }}>
+            {invoiceData.notes}
+          </p>
+        ) : (
+          <p>Thank you for your business!</p>
+        )}
       </div>
     </div>
   );
@@ -187,39 +223,47 @@ export const ClassicTemplate = ({ invoiceData, normalizedItems, formatDate, defa
 
 // Modern Template - more minimalist with a different color scheme and font
 export const ModernTemplate = ({ invoiceData, normalizedItems, formatDate, defaultLogo, exchangeRate }) => {
+  const currentRate = invoiceData.exchangeRate || exchangeRate || 82;
   return (
-    <div className="modern-template" style={{ fontFamily: "'Poppins', sans-serif", color: '#333', background: 'linear-gradient(135deg, #f5f7fa 0%, #ffffff 100%)' }}>
+    <div className="modern-template" style={{ fontFamily: "'Poppins', sans-serif", color: '#333', padding: '30px', background: '#f8fafc', borderRadius: '8px' }}>
       {/* Header with Gradient Banner */}
       <div style={{ 
-        background: 'linear-gradient(135deg, #65c7f7 0%, #0052D4 100%)',
-        borderRadius: '12px',
-        padding: '25px',
-        marginBottom: '30px',
+        background: 'linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%)',
+        borderRadius: '16px',
+        padding: '30px',
+        marginBottom: '35px',
         display: 'flex',
         justifyContent: 'space-between',
-        boxShadow: '0 4px 20px rgba(0, 82, 212, 0.15)'
+        alignItems: 'center',
+        boxShadow: '0 10px 25px rgba(59, 130, 246, 0.15)'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', background: 'white', padding: '15px', borderRadius: '10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', background: 'rgba(255,255,255,0.12)', padding: '15px 20px', borderRadius: '12px', backdropFilter: 'blur(8px)' }}>
           <img 
             src={invoiceData.logoUrl || defaultLogo} 
             alt="Company Logo"
-            style={{ width: '70px', height: 'auto', marginRight: '15px' }}
+            style={{ width: '60px', height: '60px', marginRight: '15px', borderRadius: '8px', objectFit: 'contain', background: '#fff', padding: '2px' }}
           />
           <div>
-            <h1 style={{ fontSize: '22px', margin: 0, color: '#333' }}>{invoiceData.senderName || 'Your Company'}</h1>
-            <p style={{ fontSize: '13px', margin: '5px 0 0 0', color: '#666' }}>{invoiceData.senderAddress || 'Company Address'}</p>
+            <h1 className="modern-header-title" style={{ fontSize: '24px', margin: 0, color: '#ffffff', fontWeight: 700 }}>{invoiceData.senderName || 'Your Company'}</h1>
+            <p className="modern-header-text" style={{ fontSize: '13px', margin: '5px 0 0 0', color: '#e0f2fe' }}>{invoiceData.senderAddress || 'Company Address'}</p>
           </div>
         </div>
         <div style={{ 
-          backgroundColor: 'rgba(255, 255, 255, 0.9)', 
-          padding: '15px', 
-          borderRadius: '10px', 
-          textAlign: 'center',
-          minWidth: '140px'
+          backgroundColor: 'rgba(255, 255, 255, 0.95)', 
+          padding: '20px', 
+          borderRadius: '12px', 
+          textAlign: 'right',
+          minWidth: '160px',
+          boxShadow: '0 4px 15px rgba(0,0,0,0.05)'
         }}>
-          <h2 style={{ color: '#0052D4', fontSize: '28px', margin: '0', fontWeight: '600', letterSpacing: '1px' }}>INVOICE</h2>
-          <p style={{ margin: '8px 0 0 0', fontSize: '14px', color: '#333' }}>#{invoiceData.invoiceNumber}</p>
-          <p style={{ margin: '5px 0 0 0', fontSize: '13px', color: '#666' }}>Date: {formatDate(invoiceData.invoiceDate)}</p>
+          <h2 style={{ color: '#1e3a8a', fontSize: '28px', margin: '0', fontWeight: '800', letterSpacing: '1px' }}>INVOICE</h2>
+          <p style={{ margin: '8px 0 0 0', fontSize: '14px', color: '#1e293b', fontWeight: 'bold' }}>#{invoiceData.invoiceNumber}</p>
+          <p style={{ margin: '5px 0 0 0', fontSize: '12px', color: '#64748b' }}>Date: {formatDate(invoiceData.invoiceDate)}</p>
+          {invoiceData.dueDate && (
+            <p style={{ margin: '3px 0 0 0', fontSize: '12px', color: '#ef4444', fontWeight: '600' }}>
+              Due Date: {formatDate(invoiceData.dueDate)}
+            </p>
+          )}
         </div>
       </div>
 
@@ -227,238 +271,289 @@ export const ModernTemplate = ({ invoiceData, normalizedItems, formatDate, defau
       <div style={{ 
         display: 'grid',
         gridTemplateColumns: '1fr 1fr',
-        gap: '20px',
-        marginBottom: '30px'
+        gap: '24px',
+        marginBottom: '35px'
       }}>
         <div style={{ 
-          padding: '20px',
-          borderRadius: '10px',
-          boxShadow: '0 5px 15px rgba(0,0,0,0.05)',
-          background: 'white'
+          padding: '25px',
+          borderRadius: '16px',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.03)',
+          background: 'white',
+          border: '1px solid #f1f5f9'
         }}>
           <h3 style={{ 
-            color: '#0052D4', 
+            color: '#1e3a8a', 
             marginTop: 0, 
-            fontSize: '18px',
-            borderBottom: '2px solid #e6f2ff',
+            fontSize: '16px',
+            fontWeight: 700,
+            textTransform: 'uppercase',
+            letterSpacing: '0.5px',
+            borderBottom: '2px solid #e2e8f0',
             paddingBottom: '10px'
           }}>Bill To</h3>
-          <p style={{ margin: '12px 0 5px 0', fontWeight: 'bold', fontSize: '16px' }}>{invoiceData.recipientName || 'Client Name'}</p>
-          <p style={{ margin: '8px 0', fontSize: '14px', color: '#555' }}>{invoiceData.recipientAddress || 'Client Address'}</p>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '13px', color: '#666', marginTop: '10px' }}>
-            <p style={{ margin: '5px 0' }}><strong>Phone:</strong> {invoiceData.recipientPhone || 'N/A'}</p>
-            <p style={{ margin: '5px 0' }}><strong>Email:</strong> {invoiceData.recipientEmail || 'N/A'}</p>
-            <p style={{ margin: '5px 0' }}><strong>GSTIN:</strong> {invoiceData.recipientGSTIN || 'N/A'}</p>
-            <p style={{ margin: '5px 0' }}><strong>PAN:</strong> {invoiceData.recipientPAN || 'N/A'}</p>
+          <p style={{ margin: '12px 0 5px 0', fontWeight: 'bold', fontSize: '16px', color: '#1e293b' }}>{invoiceData.recipientName || 'Client Name'}</p>
+          <p style={{ margin: '8px 0', fontSize: '14px', color: '#475569', lineHeight: '1.5' }}>{invoiceData.recipientAddress || 'Client Address'}</p>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '13px', color: '#64748b', marginTop: '15px', borderTop: '1px solid #f1f5f9', paddingTop: '12px' }}>
+            <p style={{ margin: '3px 0' }}><strong>Phone:</strong> {invoiceData.recipientPhone || 'N/A'}</p>
+            <p style={{ margin: '3px 0' }}><strong>Email:</strong> {invoiceData.recipientEmail || 'N/A'}</p>
+            <p style={{ margin: '3px 0' }}><strong>GSTIN:</strong> {invoiceData.recipientGSTIN || 'N/A'}</p>
+            <p style={{ margin: '3px 0' }}><strong>PAN:</strong> {invoiceData.recipientPAN || 'N/A'}</p>
           </div>
         </div>
         
         <div style={{ 
-          padding: '20px',
-          borderRadius: '10px',
-          boxShadow: '0 5px 15px rgba(0,0,0,0.05)',
-          background: 'white'
+          padding: '25px',
+          borderRadius: '16px',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.03)',
+          background: 'white',
+          border: '1px solid #f1f5f9'
         }}>
           <h3 style={{ 
-            color: '#0052D4', 
+            color: '#1e3a8a', 
             marginTop: 0, 
-            fontSize: '18px',
-            borderBottom: '2px solid #e6f2ff',
+            fontSize: '16px',
+            fontWeight: 700,
+            textTransform: 'uppercase',
+            letterSpacing: '0.5px',
+            borderBottom: '2px solid #e2e8f0',
             paddingBottom: '10px'
-          }}>Payment Information</h3>
-          <div style={{ display: 'flex', justifyContent: 'space-between', margin: '15px 0', padding: '10px', background: '#f7faff', borderRadius: '8px' }}>
-            <span style={{ fontWeight: '600' }}>USD to INR Rate:</span> 
-            <span style={{ color: '#0052D4', fontWeight: '600' }}>{exchangeRate}</span>
+          }}>Payment Info</h3>
+          <div style={{ display: 'flex', justifyContent: 'space-between', margin: '12px 0', padding: '10px 14px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
+            <span style={{ fontWeight: '600', color: '#475569' }}>USD to INR Rate:</span> 
+            <span style={{ color: '#2563eb', fontWeight: '700' }}>{currentRate}</span>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', margin: '15px 0', padding: '10px', background: '#f7faff', borderRadius: '8px' }}>
-            <span style={{ fontWeight: '600' }}>GST Rate:</span> 
-            <span style={{ color: '#0052D4', fontWeight: '600' }}>{invoiceData.taxRate || 5}%</span>
+          <div style={{ display: 'flex', justifyContent: 'space-between', margin: '12px 0', padding: '10px 14px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
+            <span style={{ fontWeight: '600', color: '#475569' }}>GST Rate:</span> 
+            <span style={{ color: '#2563eb', fontWeight: '700' }}>{invoiceData.taxRate || 5}%</span>
           </div>
-          <div style={{ fontSize: '13px', marginTop: '8px', color: '#666', fontStyle: 'italic' }}>
-            <p>Invoice issued on {formatDate(invoiceData.invoiceDate)}</p>
+          <div style={{ fontSize: '13px', marginTop: '15px', color: '#64748b', fontStyle: 'italic', borderTop: '1px solid #f1f5f9', paddingTop: '12px' }}>
+            <p style={{ margin: 0 }}>Invoice issued on {formatDate(invoiceData.invoiceDate)}</p>
           </div>
         </div>
       </div>
 
       {/* Service Items Table with Modern Styling */}
       <div style={{ 
-        marginBottom: '30px',
-        borderRadius: '10px',
+        background: 'white', 
+        borderRadius: '16px', 
+        boxShadow: '0 4px 12px rgba(0,0,0,0.03)', 
         overflow: 'hidden',
-        boxShadow: '0 5px 15px rgba(0,0,0,0.05)',
+        marginBottom: '35px',
+        border: '1px solid #f1f5f9'
       }}>
-        <div style={{ background: 'linear-gradient(to right, #65c7f7, #0052D4)', padding: '15px 20px' }}>
-          <h3 style={{ color: 'white', margin: 0, fontSize: '18px', fontWeight: '500' }}>Services</h3>
-        </div>
-        <div style={{ background: 'white', padding: '5px' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr style={{ borderBottom: '2px solid #e6f2ff' }}>
-                <th style={{ padding: '15px', textAlign: 'left', fontSize: '15px', color: '#0052D4', width: '70%' }}>Description</th>
-                <th style={{ padding: '15px', textAlign: 'right', fontSize: '15px', color: '#0052D4', width: '15%' }}>USD</th>
-                <th style={{ padding: '15px', textAlign: 'right', fontSize: '15px', color: '#0052D4', width: '15%' }}>INR</th>
-              </tr>
-            </thead>
-            <tbody>
-              {normalizedItems.map((item, index) => (
-                <React.Fragment key={index}>
-                  {item.type === 'main' ? (
-                    <>
-                      <tr style={{ backgroundColor: '#f7faff' }}>
-                        <td colSpan="3" style={{ padding: '15px', fontWeight: '600', color: '#0052D4', fontSize: '16px', borderLeft: '4px solid #65c7f7' }}>
-                          {item.name || 'Service'}
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr style={{ background: '#1e3a8a', color: 'white' }}>
+              <th style={{ padding: '16px 20px', textAlign: 'left', fontWeight: '600' }}>Description</th>
+              <th style={{ padding: '16px 20px', textAlign: 'right', fontWeight: '600', width: '20%' }}>Amount (USD)</th>
+              <th style={{ padding: '16px 20px', textAlign: 'right', fontWeight: '600', width: '20%' }}>Amount (INR)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {normalizedItems.map((item, index) => (
+              <React.Fragment key={index}>
+                {item.type === 'main' ? (
+                  <>
+                    <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                      <td colSpan="3" style={{ padding: '14px 20px' }}>
+                        <strong style={{ color: '#0f172a', fontSize: '15px' }}>{item.name || 'Service'}</strong>
+                      </td>
+                    </tr>
+                    {item.subServices && item.subServices.length > 0 ? (
+                      item.subServices.map((subService, subIdx) => (
+                        <tr key={subIdx} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                          <td style={{ padding: '12px 20px 12px 40px' }}>
+                            <span style={{ fontSize: '14px', color: '#334155', fontWeight: '500' }}>{subService.name || 'Sub-service'}</span>
+                            {subService.description && (
+                              <p style={{ margin: '4px 0 0 0', color: '#64748b', fontSize: '12px' }}>{subService.description}</p>
+                            )}
+                          </td>
+                          <td style={{ padding: '12px 20px', textAlign: 'right', color: '#334155', fontSize: '14px' }}>${parseFloat(subService.amountUSD || 0).toFixed(2)}</td>
+                          <td style={{ padding: '12px 20px', textAlign: 'right', color: '#334155', fontSize: '14px' }}>₹{parseFloat(subService.amountINR || 0).toFixed(2)}</td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan="3" style={{ padding: '12px 20px 12px 40px', color: '#94a3b8', fontSize: '13px', fontStyle: 'italic' }}>
+                          No sub-services available
                         </td>
                       </tr>
-                      {item.subServices && Array.isArray(item.subServices) && item.subServices.length > 0 ? (
-                        item.subServices.map((subService, subIndex) => (
-                          <tr key={`${index}-sub-${subIndex}`} style={{ borderBottom: '1px solid #f0f0f0' }}>
-                            <td style={{ padding: '12px 15px 12px 30px' }}>
-                              <strong style={{ color: '#444', fontSize: '15px' }}>{subService.name || 'Sub-service'}</strong>
-                              {subService.description && (
-                                <p style={{ margin: '5px 0 0 0', color: '#666', fontSize: '13px' }}>{subService.description}</p>
-                              )}
-                            </td>
-                            <td style={{ padding: '12px 15px', textAlign: 'right', color: '#444' }}>${parseFloat(subService.amountUSD || 0).toFixed(2)}</td>
-                            <td style={{ padding: '12px 15px', textAlign: 'right', color: '#444' }}>₹{parseFloat(subService.amountINR || 0).toFixed(2)}</td>
-                          </tr>
-                        ))
-                      ) : (
-                        <tr>
-                          <td colSpan="3" style={{ padding: '12px 15px 12px 30px', color: '#888', fontSize: '14px', fontStyle: 'italic' }}>
-                            No sub-services available
-                          </td>
-                        </tr>
-                      )}
-                    </>
-                  ) : (
-                    <tr style={{ borderBottom: '1px solid #f0f0f0' }}>
-                      <td style={{ padding: '15px' }}>
-                        <strong style={{ color: '#444', fontSize: '15px' }}>{item.name || 'Service'}</strong>
-                        <p style={{ margin: '5px 0 0 0', color: '#666', fontSize: '13px' }}>{item.description || ''}</p>
-                      </td>
-                      <td style={{ padding: '15px', textAlign: 'right', color: '#444' }}>${parseFloat(item.amountUSD || 0).toFixed(2)}</td>
-                      <td style={{ padding: '15px', textAlign: 'right', color: '#444' }}>₹{parseFloat(item.amountINR || 0).toFixed(2)}</td>
-                    </tr>
-                  )}
-                </React.Fragment>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                    )}
+                  </>
+                ) : (
+                  <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
+                    <td style={{ padding: '16px 20px' }}>
+                      <strong style={{ color: '#0f172a', fontSize: '15px' }}>{item.name || 'Service'}</strong>
+                      <p style={{ margin: '5px 0 0 0', color: '#64748b', fontSize: '13px' }}>{item.description || ''}</p>
+                    </td>
+                    <td style={{ padding: '16px 20px', textAlign: 'right', color: '#334155', fontSize: '14px' }}>${parseFloat(item.amountUSD || 0).toFixed(2)}</td>
+                    <td style={{ padding: '16px 20px', textAlign: 'right', color: '#334155', fontSize: '14px' }}>₹{parseFloat(item.amountINR || 0).toFixed(2)}</td>
+                  </tr>
+                )}
+              </React.Fragment>
+            ))}
+          </tbody>
+        </table>
       </div>
 
-      {/* Totals Section with Gradient Card */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '30px' }}>
+      {/* Totals Section */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '35px' }}>
         <div style={{ 
-          width: '350px',
-          borderRadius: '10px',
+          width: '380px',
+          borderRadius: '16px',
           overflow: 'hidden',
-          boxShadow: '0 5px 15px rgba(0,0,0,0.05)',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.03)',
+          border: '1px solid #f1f5f9'
         }}>
-          <div style={{ padding: '15px 20px', background: 'white' }}>
-            <div style={{ padding: '10px', display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f0f0f0' }}>
-              <span style={{ color: '#555' }}>Subtotal:</span>
-              <span style={{ color: '#555', fontWeight: '500' }}>${invoiceData.subtotalUSD.toFixed(2)} / ₹{invoiceData.subtotalINR.toFixed(2)}</span>
+          <div style={{ padding: '18px 22px', background: 'white' }}>
+            <div style={{ padding: '8px 0', display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', fontSize: '14px' }}>
+              <span style={{ color: '#64748b' }}>Subtotal:</span>
+              <span style={{ color: '#1e293b', fontWeight: '600' }}>${invoiceData.subtotalUSD.toFixed(2)} / ₹{invoiceData.subtotalINR.toFixed(2)}</span>
             </div>
-            <div style={{ padding: '10px', display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f0f0f0' }}>
-              <span style={{ color: '#555' }}>GST ({invoiceData.taxRate}%):</span>
-              <span style={{ color: '#555', fontWeight: '500' }}>${invoiceData.taxAmountUSD.toFixed(2)} / ₹{invoiceData.taxAmountINR.toFixed(2)}</span>
+            <div style={{ padding: '8px 0', display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', fontSize: '14px' }}>
+              <span style={{ color: '#64748b' }}>GST ({invoiceData.taxRate}%):</span>
+              <span style={{ color: '#1e293b', fontWeight: '600' }}>${invoiceData.taxAmountUSD.toFixed(2)} / ₹{invoiceData.taxAmountINR.toFixed(2)}</span>
             </div>
+            <div style={{ padding: '8px 0', display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', fontSize: '14px' }}>
+              <span style={{ color: '#64748b' }}>Total (Before Paid):</span>
+              <span style={{ color: '#1e293b', fontWeight: '600' }}>${(invoiceData.subtotalUSD + invoiceData.taxAmountUSD).toFixed(2)} / ₹{(invoiceData.subtotalINR + invoiceData.taxAmountINR).toFixed(2)}</span>
+            </div>
+            {invoiceData.amountPaid > 0 && (
+              <div style={{ padding: '8px 0', display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', fontSize: '14px' }}>
+                <span style={{ color: '#64748b' }}>Amount Paid:</span>
+                <span style={{ fontWeight: '600', color: '#16a34a' }}>${(invoiceData.amountPaidUSD || 0).toFixed(2)} / ₹{(invoiceData.amountPaidINR || 0).toFixed(2)}</span>
+              </div>
+            )}
           </div>
           <div style={{ 
-            padding: '15px 20px', 
+            padding: '18px 22px', 
             display: 'flex', 
             justifyContent: 'space-between', 
-            background: 'linear-gradient(to right, #65c7f7, #0052D4)', 
+            background: 'linear-gradient(to right, #1e3a8a, #3b82f6)', 
             color: 'white',
           }}>
-            <span style={{ fontWeight: 'bold' }}>Grand Total:</span>
-            <span style={{ fontWeight: 'bold' }}>${invoiceData.totalUSD.toFixed(2)} / ₹{invoiceData.totalINR.toFixed(2)}</span>
+            <span className="modern-grand-total-text" style={{ fontWeight: 'bold', fontSize: '15px' }}>Grand Total:</span>
+            <span className="modern-grand-total-text" style={{ fontWeight: 'bold', fontSize: '15px' }}>${invoiceData.totalUSD.toFixed(2)} / ₹{invoiceData.totalINR.toFixed(2)}</span>
           </div>
         </div>
       </div>
 
       {/* Bank Details with Modern Card UI */}
       <div style={{ 
-        borderRadius: '10px',
-        padding: '25px',
-        marginBottom: '30px',
+        borderRadius: '16px',
+        padding: '30px',
+        marginBottom: '35px',
         background: 'white',
-        boxShadow: '0 5px 15px rgba(0,0,0,0.05)',
+        boxShadow: '0 4px 12px rgba(0,0,0,0.03)',
         position: 'relative',
-        overflow: 'hidden'
+        overflow: 'hidden',
+        border: '1px solid #f1f5f9'
       }}>
         <div style={{ 
           position: 'absolute',
           top: 0,
           left: 0,
-          width: '10px',
+          width: '6px',
           height: '100%',
-          background: 'linear-gradient(to bottom, #65c7f7, #0052D4)'
+          background: 'linear-gradient(to bottom, #1e3a8a, #3b82f6)'
         }}></div>
-        <h3 style={{ color: '#0052D4', marginTop: 0, marginLeft: '15px', marginBottom: '20px', fontSize: '18px' }}>
+        <h3 style={{ color: '#1e3a8a', marginTop: 0, marginLeft: '10px', marginBottom: '20px', fontSize: '16px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
           Beneficiary Account Details
         </h3>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', fontSize: '14px', paddingLeft: '15px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', fontSize: '14px', paddingLeft: '10px' }}>
           <div style={{ 
-            padding: '10px 15px', 
-            background: '#f7faff', 
-            borderRadius: '8px',
+            padding: '12px 18px', 
+            background: '#f8fafc', 
+            borderRadius: '12px',
             display: 'flex',
             flexDirection: 'column',
-            gap: '5px'
+            gap: '4px',
+            border: '1px solid #f1f5f9'
           }}>
-            <p style={{ margin: 0, fontSize: '13px', color: '#888' }}>Account Name</p>
-            <p style={{ margin: 0, fontWeight: '600', color: '#333' }}>{invoiceData.accountName || extractAccountName(invoiceData.notes) || 'N/A'}</p>
+            <p style={{ margin: 0, fontSize: '12px', color: '#64748b' }}>Account Name</p>
+            <p style={{ margin: 0, fontWeight: '600', color: '#1e293b' }}>{invoiceData.accountName || extractAccountName(invoiceData.notes) || 'N/A'}</p>
           </div>
           <div style={{ 
-            padding: '10px 15px', 
-            background: '#f7faff', 
-            borderRadius: '8px',
+            padding: '12px 18px', 
+            background: '#f8fafc', 
+            borderRadius: '12px',
             display: 'flex',
             flexDirection: 'column',
-            gap: '5px'
+            gap: '4px',
+            border: '1px solid #f1f5f9'
           }}>
-            <p style={{ margin: 0, fontSize: '13px', color: '#888' }}>Bank Name</p>
-            <p style={{ margin: 0, fontWeight: '600', color: '#333' }}>{invoiceData.bankName || extractBankName(invoiceData.notes) || 'N/A'}</p>
+            <p style={{ margin: 0, fontSize: '12px', color: '#64748b' }}>Bank Name</p>
+            <p style={{ margin: 0, fontWeight: '600', color: '#1e293b' }}>{invoiceData.bankName || extractBankName(invoiceData.notes) || 'N/A'}</p>
           </div>
           <div style={{ 
-            padding: '10px 15px', 
-            background: '#f7faff', 
-            borderRadius: '8px',
+            padding: '12px 18px', 
+            background: '#f8fafc', 
+            borderRadius: '12px',
             display: 'flex',
             flexDirection: 'column',
-            gap: '5px'
+            gap: '4px',
+            border: '1px solid #f1f5f9'
           }}>
-            <p style={{ margin: 0, fontSize: '13px', color: '#888' }}>Account Number</p>
-            <p style={{ margin: 0, fontWeight: '600', color: '#333' }}>{invoiceData.accountNumber || extractAccountNumber(invoiceData.notes) || 'N/A'}</p>
+            <p style={{ margin: 0, fontSize: '12px', color: '#64748b' }}>Account Number</p>
+            <p style={{ margin: 0, fontWeight: '600', color: '#1e293b' }}>{invoiceData.accountNumber || extractAccountNumber(invoiceData.notes) || 'N/A'}</p>
           </div>
           <div style={{ 
-            padding: '10px 15px', 
-            background: '#f7faff', 
-            borderRadius: '8px',
+            padding: '12px 18px', 
+            background: '#f8fafc', 
+            borderRadius: '12px',
             display: 'flex',
             flexDirection: 'column',
-            gap: '5px'
+            gap: '4px',
+            border: '1px solid #f1f5f9'
           }}>
-            <p style={{ margin: 0, fontSize: '13px', color: '#888' }}>IFSC Code</p>
-            <p style={{ margin: 0, fontWeight: '600', color: '#333' }}>{invoiceData.ifscCode || extractIFSCCode(invoiceData.notes) || 'N/A'}</p>
+            <p style={{ margin: 0, fontSize: '12px', color: '#64748b' }}>IFSC Code</p>
+            <p style={{ margin: 0, fontWeight: '600', color: '#1e293b' }}>{invoiceData.ifscCode || extractIFSCCode(invoiceData.notes) || 'N/A'}</p>
           </div>
+          {invoiceData.upiId && (
+            <div style={{ 
+              padding: '12px 18px', 
+              background: '#f8fafc', 
+              borderRadius: '12px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '4px',
+              border: '1px solid #f1f5f9',
+              gridColumn: '1 / -1'
+            }}>
+              <p style={{ margin: 0, fontSize: '12px', color: '#64748b' }}>UPI ID</p>
+              <p style={{ margin: 0, fontWeight: '600', color: '#1e293b' }}>{invoiceData.upiId}</p>
+            </div>
+          )}
         </div>
       </div>
 
+      {/* Signature Section */}
+      {invoiceData.signature && (
+        <div style={{ marginTop: '25px', textAlign: 'right', fontStyle: 'italic', paddingRight: '20px', marginBottom: '25px' }}>
+          <p style={{ margin: '0 0 5px 0', fontSize: '13px', color: '#64748b' }}>Signed by:</p>
+          <h4 style={{ margin: 0, fontWeight: '700', fontSize: '1.25rem', color: '#1e3a8a', fontFamily: 'Georgia, serif' }}>{invoiceData.signature}</h4>
+        </div>
+      )}
+
       {/* Modern Footer */}
       <div style={{ 
-        padding: '20px', 
-        textAlign: 'center',
+        padding: '25px', 
+        textAlign: 'left',
         background: 'white',
-        borderRadius: '10px',
-        boxShadow: '0 5px 15px rgba(0,0,0,0.05)',
+        borderRadius: '16px',
+        boxShadow: '0 4px 12px rgba(0,0,0,0.03)',
+        border: '1px solid #f1f5f9'
       }}>
-        <div style={{ fontSize: '18px', fontWeight: '600', color: '#0052D4', marginBottom: '10px' }}>
-          Thank you for your business!
-        </div>
-        <p style={{ margin: 0, fontSize: '13px', color: '#888' }}>Invoice generated on {formatDate(invoiceData.invoiceDate)}</p>
+        {invoiceData.notes ? (
+          <p style={{ whiteSpace: 'pre-line', margin: 0, fontStyle: 'italic', color: '#475569', fontSize: '13px', lineHeight: '1.6' }}>
+            {invoiceData.notes}
+          </p>
+        ) : (
+          <div style={{ fontSize: '16px', fontWeight: '600', color: '#1e3a8a', textAlign: 'center' }}>
+            Thank you for your business!
+          </div>
+        )}
+        <p style={{ margin: '15px 0 0 0', fontSize: '11px', color: '#94a3b8', textAlign: 'center', borderTop: '1px solid #f1f5f9', paddingTop: '12px' }}>Invoice generated on {formatDate(invoiceData.invoiceDate)}</p>
       </div>
     </div>
   );

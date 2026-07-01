@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS clients (
     website text,
     gstin text,
     pan text,
+    logo text,
     created_by uuid REFERENCES users(id),
     created_at timestamptz DEFAULT now(),
     updated_at timestamptz
@@ -83,5 +84,24 @@ CREATE TABLE IF NOT EXISTS invoices (
     created_at timestamptz DEFAULT now(),
     updated_at timestamptz,
     deletedAt timestamptz,
-    deletedBy uuid REFERENCES users(id)
+    deletedBy uuid REFERENCES users(id),
+    "dueDate" date,
+    "signature" text,
+    "upiId" text,
+    "amountPaid" numeric DEFAULT 0,
+    "amountPaidUSD" numeric DEFAULT 0,
+    "amountPaidINR" numeric DEFAULT 0,
+    "balanceDueUSD" numeric DEFAULT 0,
+    "balanceDueINR" numeric DEFAULT 0
 );
+
+-- Migration SQL for existing tables (Run this in Supabase SQL Editor if database is already created)
+-- ALTER TABLE invoices ADD COLUMN IF NOT EXISTS "dueDate" date;
+-- ALTER TABLE invoices ADD COLUMN IF NOT EXISTS "signature" text;
+-- ALTER TABLE invoices ADD COLUMN IF NOT EXISTS "upiId" text;
+-- ALTER TABLE invoices ADD COLUMN IF NOT EXISTS "amountPaid" numeric DEFAULT 0;
+-- ALTER TABLE invoices ADD COLUMN IF NOT EXISTS "amountPaidUSD" numeric DEFAULT 0;
+-- ALTER TABLE invoices ADD COLUMN IF NOT EXISTS "amountPaidINR" numeric DEFAULT 0;
+-- ALTER TABLE invoices ADD COLUMN IF NOT EXISTS "balanceDueUSD" numeric DEFAULT 0;
+-- ALTER TABLE invoices ADD COLUMN IF NOT EXISTS "balanceDueINR" numeric DEFAULT 0;
+

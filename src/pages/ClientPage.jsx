@@ -1,7 +1,7 @@
 // ClientPage.jsx - Dedicated page for client management
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { FiArrowLeft, FiSave, FiUpload, FiTrash2, FiPlus, FiSun, FiMoon } from 'react-icons/fi';
+import { FiArrowLeft, FiSave, FiUpload, FiTrash2, FiPlus, FiSun, FiMoon, FiUser, FiEdit2 } from 'react-icons/fi';
 import './ClientPage.css';
 import { supabase } from '../config/supabaseClient';
 
@@ -19,7 +19,8 @@ const ClientPage = ({ darkMode, toggleDarkMode }) => {
     email: '',
     website: '',
     gstin: '',
-    pan: ''
+    pan: '',
+    logo: ''
   });
   const [isAddingClient, setIsAddingClient] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -39,6 +40,20 @@ const ClientPage = ({ darkMode, toggleDarkMode }) => {
       ...newClient,
       [name]: value
     });
+  };
+
+  const handleFileUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setNewClient({
+          ...newClient,
+          logo: event.target.result
+        });
+      };
+      reader.readAsDataURL(file);
+    }
   };
   
   const handleEditClient = (id) => {
@@ -67,7 +82,8 @@ const ClientPage = ({ darkMode, toggleDarkMode }) => {
       email: '',
       website: '',
       gstin: '',
-      pan: ''
+      pan: '',
+      logo: ''
     });
   };
   
@@ -154,7 +170,22 @@ const ClientPage = ({ darkMode, toggleDarkMode }) => {
           <div className="clients-list">
             {clients.map(client => (
               <div key={client.id} className="client-card">
-                <div className="client-card-header">
+                <div className="client-card-header" style={{ display: 'flex', alignItems: 'center' }}>
+                  {client.logo ? (
+                    <img 
+                      src={client.logo} 
+                      alt={client.name} 
+                      className="client-logo-thumbnail" 
+                      style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', marginRight: '12px', border: '1px solid var(--border-color)' }} 
+                    />
+                  ) : (
+                    <div 
+                      className="client-logo-placeholder" 
+                      style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: 'var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: '12px', color: 'var(--light-text)' }}
+                    >
+                      <FiUser size={20} />
+                    </div>
+                  )}
                   <div className="client-info">
                     <h4>{client.name}</h4>
                     {client.gstin && <p className="client-gstin">GSTIN: {client.gstin}</p>}
@@ -169,7 +200,7 @@ const ClientPage = ({ darkMode, toggleDarkMode }) => {
                 </div>
                 <div className="client-actions">
                   <button className="btn-icon" onClick={() => handleEditClient(client.id)} title="Edit">
-                    <FiSave />
+                    <FiEdit2 />
                   </button>
                   <button className="btn-icon danger" onClick={() => handleDeleteClient(client.id)} title="Delete">
                     <FiTrash2 />
@@ -197,6 +228,31 @@ const ClientPage = ({ darkMode, toggleDarkMode }) => {
       ) : (
         <div className="client-form">
           <h3>{activeClientId !== null ? 'Edit Client' : 'Add New Client'}</h3>
+          
+          <div className="logo-upload-section" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '20px', gap: '10px' }}>
+            {newClient.logo ? (
+              <img src={newClient.logo} alt="Client Logo Preview" className="client-logo-preview" style={{ width: '100px', height: '100px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--primary-color)' }} />
+            ) : (
+              <div style={{ width: '100px', height: '100px', borderRadius: '50%', backgroundColor: 'var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--light-text)', border: '2px dashed var(--border-color)' }}>
+                <FiUser size={40} />
+              </div>
+            )}
+            <div className="logo-upload-actions">
+              <div className="file-upload-container">
+                <label htmlFor="clientLogoUpload" className="btn-upload" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '8px 16px', backgroundColor: 'var(--secondary-color)', borderRadius: '4px', cursor: 'pointer', fontSize: '14px', color: 'var(--text-color)', border: '1px solid var(--border-color)' }}>
+                  <FiUpload /> Upload Logo
+                </label>
+                <input 
+                  type="file" 
+                  id="clientLogoUpload" 
+                  accept="image/*" 
+                  style={{ display: 'none' }} 
+                  onChange={handleFileUpload} 
+                />
+              </div>
+            </div>
+            <small style={{ color: 'var(--light-text)', fontSize: '12px' }}>(Upload client's company logo)</small>
+          </div>
           
           <div className="form-group">
             <label htmlFor="clientName">Client Name*</label>

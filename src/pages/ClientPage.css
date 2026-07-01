@@ -69,17 +69,21 @@
   display: inline-flex;
   align-items: center;
   background-color: var(--primary-color);
-  color: var(--button-text);
+  color: #ffffff;
   border: none;
   border-radius: 4px;
   padding: 0.5rem 1rem;
   font-size: 0.9rem;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: background-color 0.2s, transform 0.1s;
 }
 
 .btn-add:hover {
-  background-color: var(--primary-color-dark);
+  background-color: var(--primary-hover);
+}
+
+.btn-add:active {
+  transform: scale(0.98);
 }
 
 .btn-add svg {
@@ -94,7 +98,7 @@
 
 .client-card {
   background: var(--card-bg);
-  border-radius: 8px;
+  border-radius: 16px;
   padding: 1.5rem;
   box-shadow: 0 2px 6px var(--shadow-color);
   border: 1px solid var(--border-color);
@@ -179,19 +183,23 @@
   display: inline-flex;
   align-items: center;
   background-color: var(--primary-color);
-  color: var(--button-text);
+  color: #ffffff;
   border: none;
   border-radius: 4px;
   padding: 0.5rem 1rem;
   font-size: 0.9rem;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: background-color 0.2s, transform 0.1s;
   text-align: center;
   justify-content: center;
 }
 
 .btn:hover {
-  background-color: var(--primary-color-dark);
+  background-color: var(--primary-hover);
+}
+
+.btn:active {
+  transform: scale(0.98);
 }
 
 .btn svg {
@@ -202,10 +210,12 @@
   background-color: transparent;
   border: 1px solid var(--border-color);
   color: var(--text-color);
+  transition: background-color 0.2s, color 0.2s;
 }
 
 .btn-secondary:hover {
-  background-color: var(--primary-color-light);
+  background-color: rgba(59, 130, 246, 0.1);
+  color: var(--primary-color);
 }
 
 .btn-toggle-theme {
@@ -231,7 +241,7 @@
 
 .client-form {
   background: var(--card-bg);
-  border-radius: 8px;
+  border-radius: 16px;
   padding: 1.5rem;
   box-shadow: 0 2px 8px var(--shadow-color);
   margin-bottom: 2rem;

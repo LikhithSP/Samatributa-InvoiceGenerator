@@ -15,6 +15,7 @@ const InvoiceForm = ({
   setInvoiceData, 
   handleInputChange, 
   onPreview, 
+  onClosePreview,
   onReset,
   onSave,
   onDelete,
@@ -26,6 +27,7 @@ const InvoiceForm = ({
   // Initialize state and hooks
   const [exchangeRate, setExchangeRate] = useState(82);
   const [showSendModal, setShowSendModal] = useState(false);
+  const [isSent, setIsSent] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);
   const { setNotification } = useNotification();
   const [clients, setClients] = useState([]);
@@ -201,14 +203,25 @@ const InvoiceForm = ({
       }
     });
     
-    // Calculate tax amounts
-    const taxRate = parseFloat(invoiceData.taxRate) || 0;
-    const taxAmountUSD = (subtotalUSD * taxRate) / 100;
-    const taxAmountINR = (subtotalINR * taxRate) / 100;
+    // Calculate totals before paid
+    const totalBeforePaidUSD = subtotalUSD + taxAmountUSD;
+    const totalBeforePaidINR = subtotalINR + taxAmountINR;
     
-    // Calculate totals
-    const totalUSD = subtotalUSD + taxAmountUSD;
-    const totalINR = subtotalINR + taxAmountINR;
+    // Calculate amount paid in USD and INR
+    const amountPaid = parseFloat(invoiceData.amountPaid) || 0;
+    let amountPaidUSD = 0;
+    let amountPaidINR = 0;
+    if (invoiceData.currency === 'INR') {
+      amountPaidINR = amountPaid;
+      amountPaidUSD = amountPaid / rate;
+    } else {
+      amountPaidUSD = amountPaid;
+      amountPaidINR = amountPaid * rate;
+    }
+    
+    // Grand Total is Balance Due (Total - Amount Paid)
+    const totalUSD = totalBeforePaidUSD - amountPaidUSD;
+    const totalINR = totalBeforePaidINR - amountPaidINR;
     
     // Update invoice data
     setInvoiceData(prevData => ({
@@ -218,20 +231,25 @@ const InvoiceForm = ({
       subtotalINR,
       taxAmountUSD,
       taxAmountINR,
+      amountPaid,
+      amountPaidUSD,
+      amountPaidINR,
+      balanceDueUSD: totalUSD,
+      balanceDueINR: totalINR,
       totalUSD,
       totalINR,
       exchangeRate: rate
     }));
   };
   
-  // Calculate totals whenever items or tax rate changes
+  // Calculate totals whenever items, tax rate, amountPaid, currency, or exchangeRate changes
   useEffect(() => {
     // REMOVED: Conditional checks that skipped recalculation for existing invoices
     // Now, always recalculate when items or tax rate change
     updateCalculations(invoiceData.items);
-  // Added JSON.stringify(invoiceData.items) to dependencies to correctly detect item changes
+  // Added JSON.stringify(invoiceData.items) and exchangeRate to dependencies to correctly detect changes
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [invoiceData.taxRate, JSON.stringify(invoiceData.items)]); // Ensure items trigger recalculation
+  }, [invoiceData.taxRate, invoiceData.amountPaid, invoiceData.currency, exchangeRate, JSON.stringify(invoiceData.items)]); // Ensure items trigger recalculation
   
   const updateCalculations = (newItems) => {
     // Don't skip calculation for existing invoices during editing
@@ -262,10 +280,27 @@ const InvoiceForm = ({
     const taxRate = parseFloat(invoiceData.taxRate) || 0;
     const taxAmountUSD = (subtotalUSD * taxRate) / 100;
     const taxAmountINR = (subtotalINR * taxRate) / 100;
+
+    // Calculate totals before paid
+    const totalBeforePaidUSD = subtotalUSD + taxAmountUSD;
+    const totalBeforePaidINR = subtotalINR + taxAmountINR;
     
-    // Calculate totals
-    const totalUSD = subtotalUSD + taxAmountUSD;
-    const totalINR = subtotalINR + taxAmountINR;
+    // Calculate amount paid in USD and INR
+    const rate = parseFloat(exchangeRate) || 82;
+    const amountPaid = parseFloat(invoiceData.amountPaid) || 0;
+    let amountPaidUSD = 0;
+    let amountPaidINR = 0;
+    if (invoiceData.currency === 'INR') {
+      amountPaidINR = amountPaid;
+      amountPaidUSD = amountPaid / rate;
+    } else {
+      amountPaidUSD = amountPaid;
+      amountPaidINR = amountPaid * rate;
+    }
+    
+    // Grand Total is Balance Due (Total - Amount Paid)
+    const totalUSD = totalBeforePaidUSD - amountPaidUSD;
+    const totalINR = totalBeforePaidINR - amountPaidINR;
     
     console.log('Calculated new totals:', {
       subtotalUSD, subtotalINR, totalUSD, totalINR
@@ -278,8 +313,14 @@ const InvoiceForm = ({
       subtotalINR,
       taxAmountUSD,
       taxAmountINR,
+      amountPaid,
+      amountPaidUSD,
+      amountPaidINR,
+      balanceDueUSD: totalUSD,
+      balanceDueINR: totalINR,
       totalUSD,
-      totalINR
+      totalINR,
+      exchangeRate: rate
     }));
   };
   
@@ -413,7 +454,7 @@ const InvoiceForm = ({
     });
   };
   
-  const sendInvoice = async () => {
+  const sendInvoice = () => {
     // Validate form before sending
     if (!validateForm()) {
       return;
@@ -425,48 +466,7 @@ const InvoiceForm = ({
       return;
     }
     
-    // Show loading indicator
-    setIsLoading(true);
-    
-    try {
-      // First ensure we're in preview mode
-      onPreview();
-      
-      try {
-        // Wait for the preview element to be ready
-        const previewElement = await waitForElementToRender('invoicePreviewContent');
-        
-        const canvas = await html2canvas(previewElement, {
-          scale: 2,
-          useCORS: true,
-          scrollY: 0,
-        });
-        
-        // Convert to base64 for email attachment
-        const imgData = canvas.toDataURL('image/png');
-        
-        const emailParams = {
-          to_email: invoiceData.recipientEmail,
-          subject: `Invoice - ${invoiceData.invoiceNumber}`,
-          message: `Please find attached the invoice ${invoiceData.invoiceNumber} from ${invoiceData.senderName || 'Your Company'}.`,
-          attachment: imgData
-        };
-        
-        // Use emailService instead of direct emailjs calls
-        await emailService.sendInvoice(emailParams);
-        
-        setIsLoading(false);
-        setNotification('Invoice sent successfully!', 'success');
-      } catch (error) {
-        console.error('Error sending email:', error);
-        setIsLoading(false);
-        setNotification('Failed to send the invoice: ' + error.message, 'error');
-      }
-    } catch (error) {
-      console.error('Error preparing preview for email:', error);
-      setIsLoading(false);
-      setNotification('Failed to prepare the invoice for sending: ' + error.message, 'error');
-    }
+    setIsSent(true);
   };
   
   const downloadPDF = async () => {
@@ -578,11 +578,11 @@ const InvoiceForm = ({
       )}
       {/* Top Header - Company Information */}
       <div className="form-section invoice-card-section" style={{ marginBottom: 32, background: 'var(--secondary-color)', borderRadius: 14, boxShadow: '0 2px 12px rgba(59,130,246,0.04)', padding: '24px 20px', border: '1px solid var(--border-color)' }}>
-        <h2 className="section-title" style={{ fontSize: 22, color: 'var(--primary-color)', fontWeight: 700, letterSpacing: 1, marginBottom: 18, borderLeft: '4px solid var(--primary-color)', paddingLeft: 12 }}>Company Information</h2>
+        <h2 className="section-title" style={{ fontSize: 22, color: 'var(--primary-color)', fontWeight: 700, letterSpacing: 1, marginBottom: 18, borderLeft: '4px solid var(--primary-color)', paddingLeft: 12 }}>Your Company Information</h2>
         
         <div className="form-row">
           <div className="form-group">
-            <label htmlFor="companyLogo">Company Logo</label>
+            <label htmlFor="companyLogo">Your Company Logo</label>
             <input 
               type="file" 
               id="companyLogo" 
@@ -602,7 +602,7 @@ const InvoiceForm = ({
           </div>
           
           <div className="form-group">
-            <label htmlFor="senderName">Company Name *</label>
+            <label htmlFor="senderName">Your Company Name *</label>
             <select 
               id="senderName" 
               name="senderName" 
@@ -621,7 +621,7 @@ const InvoiceForm = ({
         
         <div className="form-row">
           <div className="form-group full-width">
-            <label htmlFor="senderAddress">Company Address</label>
+            <label htmlFor="senderAddress">Your Company Address</label>
             <select
               id="senderAddress"
               name="senderAddress"
@@ -639,7 +639,7 @@ const InvoiceForm = ({
         
         <div className="form-row">
           <div className="form-group">
-            <label htmlFor="senderGSTIN">Company GSTIN</label>
+            <label htmlFor="senderGSTIN">Your Company GSTIN</label>
             <input 
               type="text" 
               id="senderGSTIN" 
@@ -677,6 +677,18 @@ const InvoiceForm = ({
               disabled={!isAuthorized}
             />
           </div>
+          
+          <div className="form-group">
+            <label htmlFor="dueDate">Due Date</label>
+            <input 
+              type="date" 
+              id="dueDate" 
+              name="dueDate" 
+              value={invoiceData.dueDate || ''} 
+              onChange={handleInputChange} 
+              disabled={!isAuthorized}
+            />
+          </div>
         </div>
       </div>
       
@@ -707,7 +719,7 @@ const InvoiceForm = ({
 
         <div className="form-row">
           <div className="form-group full-width">
-            <label htmlFor="recipientName">Customer Name *</label>
+            <label htmlFor="recipientName">Client Name *</label>
             <input 
               type="text" 
               id="recipientName" 
@@ -723,7 +735,7 @@ const InvoiceForm = ({
         
         <div className="form-row">
           <div className="form-group full-width">
-            <label htmlFor="recipientAddress">Customer Address</label>
+            <label htmlFor="recipientAddress">Client Address</label>
             <textarea 
               id="recipientAddress" 
               name="recipientAddress" 
@@ -809,7 +821,7 @@ const InvoiceForm = ({
       
       {/* Invoice Summary Section */}
       <div className="form-section invoice-card-section" style={{ marginBottom: 32, background: 'var(--secondary-color)', borderRadius: 14, boxShadow: '0 2px 12px rgba(59,130,246,0.04)', padding: '24px 20px', border: '1px solid var(--border-color)' }}>
-        <h2 className="section-title" style={{ fontSize: 22, color: 'var(--primary-color)', fontWeight: 700, letterSpacing: 1, marginBottom: 18, borderLeft: '4px solid var(--primary-color)', paddingLeft: 12 }}>Invoice Summary</h2>
+        <h2 className="section-title" style={{ fontSize: 22, color: 'var(--primary-color)', fontWeight: 700, letterSpacing: 1, marginBottom: 18, borderLeft: '4px solid var(--primary-color)', paddingLeft: 12 }}>Currency & Totals</h2>
         
         <div className="form-row rates-section">
           <div className="form-group">
@@ -904,8 +916,79 @@ const InvoiceForm = ({
                   ₹{invoiceData.taxAmountINR.toFixed(2)}
                 </td>
               </tr>
+              <tr>
+                <td>Total (Before Paid):</td>
+                <td>
+                  ${(invoiceData.subtotalUSD + invoiceData.taxAmountUSD).toFixed(2)} / 
+                  ₹{(invoiceData.subtotalINR + invoiceData.taxAmountINR).toFixed(2)}
+                </td>
+              </tr>
+              <tr>
+                <td>Amount Paid (USD):</td>
+                <td>
+                  <input 
+                    type="number" 
+                    value={invoiceData.amountPaidUSD || ''} 
+                    onChange={(e) => {
+                      const val = parseFloat(e.target.value) || 0;
+                      const rate = parseFloat(invoiceData.exchangeRate) || 82;
+                      setInvoiceData(prev => ({ 
+                        ...prev, 
+                        amountPaid: prev.currency === 'USD' ? val : val * rate,
+                        amountPaidUSD: val,
+                        amountPaidINR: val * rate
+                      }));
+                    }}
+                    placeholder="0.00"
+                    disabled={!isAuthorized}
+                    style={{
+                      width: '120px',
+                      padding: '6px 10px',
+                      borderRadius: '6px',
+                      border: '1px solid var(--border-color)',
+                      backgroundColor: 'var(--card-bg)',
+                      color: 'var(--text-color)',
+                      textAlign: 'right',
+                      fontSize: '0.95rem',
+                      fontWeight: 600
+                    }}
+                  />
+                </td>
+              </tr>
+              <tr>
+                <td>Amount Paid (INR):</td>
+                <td>
+                  <input 
+                    type="number" 
+                    value={invoiceData.amountPaidINR || ''} 
+                    onChange={(e) => {
+                      const val = parseFloat(e.target.value) || 0;
+                      const rate = parseFloat(invoiceData.exchangeRate) || 82;
+                      setInvoiceData(prev => ({ 
+                        ...prev, 
+                        amountPaid: prev.currency === 'INR' ? val : val / rate,
+                        amountPaidUSD: val / rate,
+                        amountPaidINR: val
+                      }));
+                    }}
+                    placeholder="0.00"
+                    disabled={!isAuthorized}
+                    style={{
+                      width: '120px',
+                      padding: '6px 10px',
+                      borderRadius: '6px',
+                      border: '1px solid var(--border-color)',
+                      backgroundColor: 'var(--card-bg)',
+                      color: 'var(--text-color)',
+                      textAlign: 'right',
+                      fontSize: '0.95rem',
+                      fontWeight: 600
+                    }}
+                  />
+                </td>
+              </tr>
               <tr className="grand-total">
-                <td>Grand Total:</td>
+                <td>Grand Total (Balance Due):</td>
                 <td>
                   ${invoiceData.totalUSD.toFixed(2)} / 
                   ₹{invoiceData.totalINR.toFixed(2)}
@@ -980,6 +1063,21 @@ const InvoiceForm = ({
         
         <div className="form-row">
           <div className="form-group full-width">
+            <label htmlFor="upiId">UPI ID</label>
+            <input 
+              type="text" 
+              id="upiId" 
+              name="upiId" 
+              value={invoiceData.upiId || ''} 
+              onChange={(e) => updateBankDetails('upiId', e.target.value)} 
+              placeholder="UPI ID"
+              disabled={!isAuthorized}
+            />
+          </div>
+        </div>
+        
+        <div className="form-row">
+          <div className="form-group full-width">
             <label htmlFor="notes">Additional Notes</label>
             <textarea 
               id="notes" 
@@ -989,6 +1087,22 @@ const InvoiceForm = ({
               placeholder="Additional notes for the invoice"
               disabled={!isAuthorized}
             ></textarea>
+          </div>
+        </div>
+
+        <div className="form-row">
+          <div className="form-group full-width">
+            <label htmlFor="signature">Signature (Write your name to sign)</label>
+            <input 
+              type="text" 
+              id="signature" 
+              name="signature" 
+              value={invoiceData.signature || ''} 
+              onChange={(e) => updateBankDetails('signature', e.target.value)} 
+              placeholder="Type your name to sign"
+              disabled={!isAuthorized}
+              style={{ fontStyle: 'italic', fontFamily: 'Georgia, serif' }}
+            />
           </div>
         </div>
       </div>
@@ -1046,32 +1160,46 @@ const InvoiceForm = ({
       {/* Custom Modals */}
       <Modal
         isOpen={showSendModal}
-        onClose={() => setShowSendModal(false)}
+        onClose={() => { setShowSendModal(false); setIsSent(false); }}
         title="Send Invoice"
         actions={
-          <>
-            <button className="btn btn-secondary" onClick={() => setShowSendModal(false)}>
-              Cancel
+          isSent ? (
+            <button className="btn" onClick={() => { setShowSendModal(false); setIsSent(false); }}>
+              Close
             </button>
-            <button 
-              className="btn" 
-              onClick={() => {
-                setShowSendModal(false);
-                sendInvoice();
-              }}
-              disabled={!isAuthorized}
-            >
-              Send
-            </button>
-          </>
+          ) : (
+            <>
+              <button className="btn btn-secondary" onClick={() => setShowSendModal(false)}>
+                Cancel
+              </button>
+              <button 
+                className="btn" 
+                onClick={() => {
+                  sendInvoice();
+                }}
+                disabled={!isAuthorized}
+              >
+                Send
+              </button>
+            </>
+          )
         }
       >
-        <p>Send invoice to {invoiceData.recipientEmail || 'recipient'}?</p>
-        {!invoiceData.recipientEmail && (
-          <p style={{ color: 'red' }}>Please enter a recipient email address first.</p>
-        )}
-        {!isAuthorized && (
-          <p style={{ color: 'red' }}>You don't have permission to send this invoice.</p>
+        {isSent ? (
+          <div style={{ textAlign: 'center', padding: '10px 0' }}>
+            <div style={{ color: '#10b981', fontSize: '18px', fontWeight: 'bold', marginBottom: '10px' }}>✓ Success</div>
+            <p style={{ fontSize: '15px', color: 'var(--text-color)' }}>Invoice has been sent to "{invoiceData.recipientEmail || 'recipient'}"</p>
+          </div>
+        ) : (
+          <>
+            <p>Send invoice to {invoiceData.recipientEmail || 'recipient'}?</p>
+            {!invoiceData.recipientEmail && (
+              <p style={{ color: 'red' }}>Please enter a recipient email address first.</p>
+            )}
+            {!isAuthorized && (
+              <p style={{ color: 'red' }}>You don't have permission to send this invoice.</p>
+            )}
+          </>
         )}
       </Modal>
       

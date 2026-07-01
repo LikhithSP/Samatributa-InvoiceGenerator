@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FiSearch, FiSettings, FiLogOut, FiUser, FiPlus, FiChevronDown, FiUsers, FiTrash2, FiDownload, FiMenu } from 'react-icons/fi';
+import { FiSearch, FiSettings, FiLogOut, FiUser, FiPlus, FiChevronDown, FiUsers, FiTrash2, FiDownload, FiMenu, FiFileText } from 'react-icons/fi';
 import { FiSun, FiMoon, FiArchive, FiList } from 'react-icons/fi';
 import '../App.css';
 import { defaultLogo } from '../assets/logoData';
@@ -49,8 +49,8 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
   });
   
   // Sort state
-  const [sortField, setSortField] = useState('date');
-  const [sortDirection, setSortDirection] = useState('desc');
+  const [sortField, setSortField] = useState('dueDate');
+  const [sortDirection, setSortDirection] = useState('asc');
   const [showSortOptions, setShowSortOptions] = useState(false);
     // State for saved invoices
   const [savedInvoices, setSavedInvoices] = useState([]);
@@ -131,9 +131,24 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
   useEffect(() => {
     const defaultDescriptions = [
       { id: 1, text: 'US Federal Corporation Income Tax Return (Form 1120)' },
-      { id: 2, text: 'Foreign related party disclosure form with respect to a foreign subsidiary (Form 5417)' },
-      { id: 3, text: 'Foreign related party disclosure form with respect to a foreign shareholders (Form 5472)' },
-      { id: 4, text: 'Application for Automatic Extension of Time To File Business Income Tax (Form 7004)' }
+      { id: 2, text: 'US Partnership Income Tax Return (Form 1065)' },
+      { id: 3, text: 'US Individual Income Tax Return (Form 1040)' },
+      { id: 4, text: 'US S Corporation Income Tax Return (Form 1120-S)' },
+      { id: 5, text: 'Foreign Related Party Disclosure (Form 5471)' },
+      { id: 6, text: 'Foreign Related Party Disclosure (Form 5472)' },
+      { id: 7, text: 'Application for Automatic Extension of Time To File (Form 7004)' },
+      { id: 8, text: 'Bookkeeping Services' },
+      { id: 9, text: 'Payroll Processing & Payroll Tax Filing' },
+      { id: 10, text: 'Financial Statement Preparation' },
+      { id: 11, text: 'Tax Planning & Advisory Services' },
+      { id: 12, text: 'Accounting & Compliance Services' },
+      { id: 13, text: 'GST Registration' },
+      { id: 14, text: 'GST Return Filing' },
+      { id: 15, text: 'GST Audit & Compliance' },
+      { id: 16, text: 'Business Consulting Services' },
+      { id: 17, text: 'Virtual CFO Services' },
+      { id: 18, text: 'Company Incorporation & Registration' },
+      { id: 19, text: 'Other Professional Services' }
     ];
     const savedDescriptions = localStorage.getItem('serviceDescriptions');
     if (!savedDescriptions) {
@@ -192,9 +207,15 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
   const getSortLabel = () => {
     const labels = {
       'date': 'Date',
+      'dueDate': 'Due Date',
       'name': 'Company Name',
+      'clientName': 'Client Name',
       'amount': 'Amount',
-      'status': 'Status'
+      'status': 'Status',
+      'draft': 'Draft',
+      'pending': 'Pending',
+      'paid': 'Paid',
+      'cancelled': 'Cancelled'
     };
     return `Sort by: ${labels[sortField]} (${sortDirection === 'asc' ? 'Ascending' : 'Descending'})`;
   };
@@ -229,6 +250,14 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
       // If an assignee is selected, only show invoices assigned to them
       if (selectedAssignee) {
         if (invoice.assigneeId !== selectedAssignee) {
+          return false;
+        }
+      }
+      
+      // Filter by status if a specific status filter is active
+      if (['draft', 'pending', 'paid', 'cancelled'].includes(sortField)) {
+        const currentStatus = (invoice.status || invoiceStatuses[invoice.id] || 'Pending').toLowerCase();
+        if (currentStatus !== sortField) {
           return false;
         }
       }
@@ -550,6 +579,7 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
             </div>
             <div class="invoice-date">
               <p><strong>Date:</strong> ${formatDateForDisplay(invoiceData.invoiceDate)}</p>
+              ${invoiceData.dueDate ? `<p><strong>Due Date:</strong> ${formatDateForDisplay(invoiceData.dueDate)}</p>` : ''}
             </div>
           </div>
         </div>
@@ -621,8 +651,24 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
                   ₹${invoiceData.taxAmountINR.toFixed(2)}
                 </td>
               </tr>
+              <tr>
+                <td>Total:</td>
+                <td class="text-right">
+                  $${(invoiceData.subtotalUSD + invoiceData.taxAmountUSD).toFixed(2)} / 
+                  ₹${(invoiceData.subtotalINR + invoiceData.taxAmountINR).toFixed(2)}
+                </td>
+              </tr>
+              ${invoiceData.amountPaid > 0 ? `
+              <tr>
+                <td>Amount Paid:</td>
+                <td class="text-right">
+                  $${(invoiceData.amountPaidUSD || 0).toFixed(2)} / 
+                  ₹${(invoiceData.amountPaidINR || 0).toFixed(2)}
+                </td>
+              </tr>
+              ` : ''}
               <tr class="grand-total">
-                <td>Grand Total:</td>
+                <td>Grand Total (Balance Due):</td>
                 <td class="text-right">
                   $${invoiceData.totalUSD.toFixed(2)} / 
                   ₹${invoiceData.totalINR.toFixed(2)}
@@ -648,12 +694,29 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
             <div class="info-row half-width">
               <p><strong>IFSC Code:</strong> ${invoiceData.ifscCode || 'N/A'}</p>
             </div>
+            ${invoiceData.upiId ? `
+            <div class="info-row full-width">
+              <p><strong>UPI ID:</strong> ${invoiceData.upiId}</p>
+            </div>
+            ` : ''}
           </div>
         </div>
+
+        <!-- Signature Section -->
+        ${invoiceData.signature ? `
+        <div class="signature-section" style="margin-top: 30px; text-align: right; font-style: italic; padding-right: 20px;">
+          <p style="margin-bottom: 5px;">Signed by:</p>
+          <h4 style="margin: 0; font-weight: 600; font-size: 1.1rem; color: #333;">${invoiceData.signature}</h4>
+        </div>
+        ` : ''}
         
         <!-- 8. Footer Section -->
         <div class="invoice-footer">
-          <p>Thank you for your business!</p>
+          ${invoiceData.notes ? `
+          <p style="white-space: pre-line; margin-bottom: 15px; font-style: italic; color: #555; text-align: left;">
+            ${invoiceData.notes}
+          </p>
+          ` : '<p>Thank you for your business!</p>'}
         </div>
       </div>
     `;
@@ -663,7 +726,7 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
     e.stopPropagation();
     const invoice = savedInvoices.find(inv => inv.id === invoiceId);
     if (!invoice) return;
-    const statusOptions = ['Paid', 'Pending', 'Draft', 'Cancelled'];
+    const statusOptions = ['Paid', 'Pending', 'Draft', 'Cancelled', 'Overdue'];
     const currentStatus = invoice.status || invoiceStatuses[invoiceId] || 'Pending';
     const currentIndex = statusOptions.indexOf(currentStatus);
     const nextIndex = (currentIndex + 1) % statusOptions.length;
@@ -786,17 +849,43 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
           aValue = new Date(a.invoiceDate);
           bValue = new Date(b.invoiceDate);
           break;
+        case 'dueDate':
+          aValue = a.dueDate ? new Date(a.dueDate) : new Date(0);
+          bValue = b.dueDate ? new Date(b.dueDate) : new Date(0);
+          break;
         case 'name':
-          aValue = a.senderName;
-          bValue = b.senderName;
+          aValue = (a.senderName || '').toLowerCase();
+          bValue = (b.senderName || '').toLowerCase();
+          break;
+        case 'clientName':
+          aValue = (a.recipientName || '').toLowerCase();
+          bValue = (b.recipientName || '').toLowerCase();
           break;
         case 'amount':
-          aValue = a.totalUSD;
-          bValue = b.totalUSD;
+          aValue = Number(a.totalUSD) || 0;
+          bValue = Number(b.totalUSD) || 0;
           break;
-        case 'status':
-          aValue = a.status || 'Pending';
-          bValue = b.status || 'Pending';
+        case 'status': {
+          const statusOrder = {
+            'draft': 1,
+            'pending': 2,
+            'paid': 3,
+            'cancelled': 4
+          };
+          const getStatusPriority = (status) => {
+            const s = (status || 'Pending').toLowerCase();
+            return statusOrder[s] || 99;
+          };
+          aValue = getStatusPriority(a.status || invoiceStatuses[a.id]);
+          bValue = getStatusPriority(b.status || invoiceStatuses[b.id]);
+          break;
+        }
+        case 'draft':
+        case 'pending':
+        case 'paid':
+        case 'cancelled':
+          aValue = new Date(a.invoiceDate);
+          bValue = new Date(b.invoiceDate);
           break;
         default:
           aValue = a.timestamp || 0;
@@ -963,7 +1052,7 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
                 onClick={handleShowAllInvoices}
               >
                 <FiUser className="company-icon" />
-                <span className="company-name" style={{ fontSize: '18px', color: 'white' }}>Show All Invoices</span>
+                <span className="company-name" style={{ fontSize: '16px', fontWeight: '600' }}>Show All Invoices</span>
               </div>
               {/* Companies list */}
               {companies.map((company) => (
@@ -972,8 +1061,8 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
                   className={`company-item ${selectedCompany?.id === company.id && !showAllInvoices && !selectedAssignee ? 'active' : ''}`}
                   onClick={() => handleCompanySelect(company)}
                 >
-                  <img src={company.logo} alt={company.name} className="company-icon" />
-                  <span className="company-name" style={{ fontSize: '18px', color: 'white' }}>{company.name}</span>
+                  <img src={company.logo} alt={company.name} className="company-icon" style={{ objectFit: 'contain', borderRadius: '4px', backgroundColor: 'white', padding: '1px' }} />
+                  <span className="company-name" style={{ fontSize: '16px', fontWeight: '500' }}>{company.name}</span>
                 </div>
               ))}
               {/* Clients section header */}
@@ -993,8 +1082,21 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
                   className={`company-item ${selectedClient?.id === client.id ? 'active' : ''}`}
                   onClick={() => handleClientSelect(client)}
                 >
-                  <FiUser className="company-icon" />
-                  <span className="company-name" style={{ fontSize: '18px', color: 'white' }}>{client.name}</span>
+                  {client.logo ? (
+                    <img 
+                      src={client.logo} 
+                      alt={client.name} 
+                      className="company-icon" 
+                      style={{ 
+                        objectFit: 'cover', 
+                        borderRadius: '50%', 
+                        border: '1px solid var(--border-color)' 
+                      }} 
+                    />
+                  ) : (
+                    <FiUser className="company-icon" />
+                  )}
+                  <span className="company-name" style={{ fontSize: '16px', fontWeight: '500' }}>{client.name}</span>
                 </div>
               ))}
               {clients.length === 0 && (
@@ -1004,30 +1106,30 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
               )}
               {/* Add New Client button */}
               <div 
-                className="company-item"
-                style={{ marginTop: '10px', color: 'var(--light-text)' }}
+                className="company-item action-item manage-clients"
+                style={{ marginTop: '10px' }}
                 onClick={() => navigate('/client')}
               >
                 <FiPlus className="company-icon" />
-                <span className="company-name" style={{ fontSize: '18px', color: 'white' }}>Add New Client</span>
+                <span className="company-name" style={{ fontSize: '16px', fontWeight: '500' }}>Manage Clients</span>
               </div>
               {/* Add Descriptions button */}
               <div 
-                className="company-item"
-                style={{ marginTop: '10px', color: 'var(--light-text)' }}
+                className="company-item action-item add-descriptions"
+                style={{ marginTop: '10px' }}
                 onClick={() => navigate('/description')}
               >
                 <FiList className="company-icon" />
-                <span className="company-name" style={{ fontSize: '18px', color: 'white' }}>Add Descriptions</span>
+                <span className="company-name" style={{ fontSize: '16px', fontWeight: '500' }}>Add Descriptions</span>
               </div>
               {/* Deleted Invoices Bin */}
               <div 
-                className="company-item"
-                style={{ marginTop: '20px', color: 'var(--light-text)' }}
+                className="company-item action-item recently-deleted"
+                style={{ marginTop: '20px' }}
                 onClick={() => navigate('/bin')}
               >
                 <FiArchive className="company-icon" />
-                <span className="company-name" style={{ fontSize: '18px', color: 'white' }}>Recently Deleted</span>
+                <span className="company-name" style={{ fontSize: '16px', fontWeight: '500' }}>Recently Deleted</span>
               </div>
               {/* Invoicing Associates section header */}
               <div className="section-title" style={{ 
@@ -1077,7 +1179,7 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
                       {user.name[0].toUpperCase()}
                     </div>
                   )}
-                  <span className="company-name" style={{ fontSize: '18px', color: 'white' }}>
+                  <span className="company-name" style={{ fontSize: '16px', fontWeight: '500' }}>
                     {user.name} {user.id === currentUserId && '(You)'}
                   </span>
                 </div>
@@ -1119,7 +1221,7 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
                     {currentUser?.name ? currentUser.name[0].toUpperCase() : 'U'}
                   </div>
                 )}
-                <span className="company-name" style={{ fontSize: '18px', color: 'white' }}>
+                <span className="company-name" style={{ fontSize: '16px', fontWeight: '500' }}>
                   {currentUser?.name} (You)
                 </span>
               </div>
@@ -1142,8 +1244,8 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
                   className={`company-item ${selectedCompany?.id === company.id && !showAllInvoices && !selectedAssignee ? 'active' : ''}`}
                   onClick={() => handleCompanySelect(company)}
                 >
-                  <img src={company.logo} alt={company.name} className="company-icon" />
-                  <span className="company-name" style={{ fontSize: '18px', color: 'white' }}>{company.name}</span>
+                  <img src={company.logo} alt={company.name} className="company-icon" style={{ objectFit: 'contain', borderRadius: '4px', backgroundColor: 'white', padding: '1px' }} />
+                  <span className="company-name" style={{ fontSize: '16px', fontWeight: '500' }}>{company.name}</span>
                 </div>
               ))}
               {/* Clients section header */}
@@ -1163,8 +1265,21 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
                   className={`company-item ${selectedClient?.id === client.id ? 'active' : ''}`}
                   onClick={() => handleClientSelect(client)}
                 >
-                  <FiUser className="company-icon" />
-                  <span className="company-name" style={{ fontSize: '18px', color: 'white' }}>{client.name}</span>
+                  {client.logo ? (
+                    <img 
+                      src={client.logo} 
+                      alt={client.name} 
+                      className="company-icon" 
+                      style={{ 
+                        objectFit: 'cover', 
+                        borderRadius: '50%', 
+                        border: '1px solid var(--border-color)' 
+                      }} 
+                    />
+                  ) : (
+                    <FiUser className="company-icon" />
+                  )}
+                  <span className="company-name" style={{ fontSize: '16px', fontWeight: '500' }}>{client.name}</span>
                 </div>
               ))}
               {filteredClients.length === 0 && (
@@ -1172,38 +1287,42 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
                   No clients added yet
                 </div>
               )}
-              {/* Add New Client button */}
-              <div
-                className="company-item"
-                style={{ marginTop: '10px', color: 'var(--light-text)' }}
-                onClick={() => navigate('/client')}
-              >
-                <FiPlus className="company-icon" />
-                <span className="company-name" style={{ fontSize: '18px', color: 'white' }}>Add New Client</span>
-              </div>
-              {/* Add Descriptions button */}
-              <div
-                className="company-item"
-                style={{ marginTop: '10px', color: 'var(--light-text)' }}
-                onClick={() => navigate('/description')}
-              >
-                <FiList className="company-icon" />
-                <span className="company-name" style={{ fontSize: '18px', color: 'white' }}>Add Descriptions</span>
-              </div>
-              {/* Deleted Invoices Bin */}
-              <div
-                className="company-item"
-                style={{ marginTop: '20px', color: 'var(--light-text)' }}
-                onClick={() => navigate('/bin')}
-              >
-                <FiArchive className="company-icon" />
-                <span className="company-name" style={{ fontSize: '18px', color: 'white' }}>Recently Deleted</span>
-              </div>
             </>
           )}
         </div>
         
         <div className="sidebar-footer">
+          {!isCurrentUserAdmin && (
+            <div style={{ display: 'flex', flexDirection: 'column', width: '100%', gap: '8px', marginBottom: '15px' }}>
+              {/* Add New Client button */}
+              <div
+                className="company-item action-item manage-clients"
+                style={{ width: '100%', boxSizing: 'border-box' }}
+                onClick={() => navigate('/client')}
+              >
+                <FiPlus className="company-icon" />
+                <span className="company-name" style={{ fontSize: '16px', fontWeight: '500' }}>Manage Clients</span>
+              </div>
+              {/* Add Descriptions button */}
+              <div
+                className="company-item action-item add-descriptions"
+                style={{ width: '100%', boxSizing: 'border-box' }}
+                onClick={() => navigate('/description')}
+              >
+                <FiList className="company-icon" />
+                <span className="company-name" style={{ fontSize: '16px', fontWeight: '500' }}>Add Descriptions</span>
+              </div>
+              {/* Deleted Invoices Bin */}
+              <div
+                className="company-item action-item recently-deleted"
+                style={{ width: '100%', boxSizing: 'border-box' }}
+                onClick={() => navigate('/bin')}
+              >
+                <FiArchive className="company-icon" />
+                <span className="company-name" style={{ fontSize: '16px', fontWeight: '500' }}>Recently Deleted</span>
+              </div>
+            </div>
+          )}
           <button onClick={onLogout} className="btn-logout" title="Logout">
             <FiLogOut style={{ marginRight: '5px' }} /> Logout
           </button>
@@ -1213,50 +1332,30 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
       {/* Top navigation bar */}
       <div className="dashboard-topbar" style={{
         gridArea: 'topbar',
-        padding: '27.5px 25px',
+        height: '80px',
+        padding: '0 25px',
         display: 'flex',
         alignItems: 'center',
+        justifyContent: 'space-between',
         borderBottom: '1px solid var(--border-color)',
-        backgroundColor: 'var(--card-bg)'
+        backgroundColor: 'var(--card-bg)',
+        boxSizing: 'border-box'
       }}>
-        {/* Keep search bar at the start */}
-        <div className="search-container" style={{ maxWidth: 350, flex: 1 }}>
-          <FiSearch className="search-icon" style={{
-            position: 'absolute',
-            left: '12px',
-            top: '50%',
-            transform: 'translateY(-50%)',
-            color: darkMode ? '#bfc7d5' : '#888',
-            pointerEvents: 'none',
-            fontSize: '18px'
-          }} />
-          <input 
-            type="text" 
-            placeholder="Search invoices..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={{
-              width: '100%',
-              padding: '8px 32px 8px 36px',
-              borderRadius: '20px',
-              border: darkMode ? '1px solid #3a4252' : '1px solid var(--border-color)',
-              background: darkMode ? '#232a36' : 'var(--input-bg, #f7f7f7)',
-              color: darkMode ? '#f5f7fa' : 'var(--text-color)',
-              fontSize: '15px',
-              outline: 'none',
-              boxShadow: darkMode ? '0 1px 4px 0 rgba(0,0,0,0.25)' : 'none',
-              transition: 'border 0.2s, background 0.2s, color 0.2s',
-              '::placeholder': {
-                color: darkMode ? '#bfc7d5' : '#888',
-                opacity: 1
-              }
-            }}
-          />
-        </div>
-        {/* Spacer to push actions to the right */}
-        <div style={{ flex: 1 }} />
-        {/* Actions: Bell, theme switch, profile */}
-        <div className="user-actions" style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+        <h2 style={{ margin: 0, fontSize: '20px', fontWeight: '600', color: 'var(--text-color)' }}>
+          {isInitialLoading 
+            ? (isAdmin ? 'Invoice Tracker' : 'Your Invoices')
+            : (selectedAssignee
+              ? (isAdmin ? `Invoices Assigned to ${getAssigneeName(selectedAssignee)}` : 'Your Invoices')
+              : (showAllInvoices 
+                ? (isAdmin ? 'Invoice Tracker' : 'Your Invoices')
+                : selectedCompany 
+                  ? `${selectedCompany.name} Invoices` 
+                  : selectedClient 
+                    ? `${selectedClient.name} Invoices`
+                    : 'Invoices'))}
+        </h2>
+        <div className="header-right-actions" style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+          {/* Actions: Bell, theme switch, profile */}
           <NotificationBell />
           <div className="theme-switch-wrapper">
             <label className="theme-switch">
@@ -1300,7 +1399,7 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
                 {(localStorage.getItem('userName') || 'U')[0].toUpperCase()}
               </div>
             )}
-            <span>{currentUser?.name || (localStorage.getItem('userName') || 'User')}</span>
+            <span style={{ fontSize: '15px', fontWeight: '500' }}>{currentUser?.name || (localStorage.getItem('userName') || 'User')}</span>
             {isAdmin && <span className="admin-badge" style={{
               fontSize: '10px',
               padding: '2px 5px',
@@ -1313,22 +1412,43 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
         </div>
       </div>
       
-      {/* Main content area */}
       <main className="dashboard-main">
-        <header className="dashboard-header">          <h2>
-            {isInitialLoading 
-              ? (isAdmin ? 'Invoice Tracker' : 'Your Invoices')
-              : (selectedAssignee
-                ? (isAdmin ? `Invoices Assigned to ${getAssigneeName(selectedAssignee)}` : 'Your Invoices')
-                : (showAllInvoices 
-                  ? (isAdmin ? 'Invoice Tracker' : 'Your Invoices')
-                  : selectedCompany 
-                    ? `${selectedCompany.name} Invoices` 
-                    : selectedClient 
-                      ? `${selectedClient.name} Invoices`
-                      : 'Invoices'))}
-          </h2>
-          <div className="dashboard-controls">
+
+        {/* Dashboard sub-controls toolbar */}
+        <div className="dashboard-toolbar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '15px' }}>
+          
+          {/* Left Controls: Search and Sort next to each other */}
+          <div className="toolbar-left" style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+            {/* Search bar */}
+            <div className="search-container" style={{ width: 260, position: 'relative' }}>
+              <FiSearch className="search-icon" style={{
+                position: 'absolute',
+                left: '12px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                color: darkMode ? '#bfc7d5' : '#888',
+                pointerEvents: 'none',
+                fontSize: '18px'
+              }} />
+              <input 
+                type="text" 
+                placeholder="Search invoices..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '8px 12px 8px 36px',
+                  borderRadius: '20px',
+                  border: darkMode ? '1px solid #3a4252' : '1px solid var(--border-color)',
+                  background: darkMode ? '#232a36' : 'var(--input-bg, #f7f7f7)',
+                  color: darkMode ? '#f5f7fa' : 'var(--text-color)',
+                  fontSize: '15px',
+                  outline: 'none',
+                  transition: 'border 0.2s, background 0.2s, color 0.2s'
+                }}
+              />
+            </div>
+
             {/* Sort dropdown */}
             <div className="sort-container" style={{ position: 'relative' }}>
               <button 
@@ -1356,7 +1476,7 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
                   style={{
                     position: 'absolute',
                     top: '100%',
-                    right: '0',
+                    left: '0',
                     width: '200px',
                     backgroundColor: 'var(--card-bg)',
                     border: '1px solid var(--border-color)',
@@ -1368,7 +1488,7 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
                 >
                   <div className="sort-option-group" style={{ padding: '10px' }}>
                     <div style={{ fontWeight: 'bold', marginBottom: '5px' }}>Sort by:</div>
-                    {['date', 'name', 'amount', 'status'].map(field => (
+                    {['date', 'dueDate', 'name', 'clientName', 'amount', 'status', 'draft', 'pending', 'paid', 'cancelled'].map(field => (
                       <div 
                         key={field}
                         className={`sort-option ${sortField === field ? 'active' : ''}`}
@@ -1385,8 +1505,14 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
                         }}
                       >
                         <span>{field === 'date' ? 'Date' : 
+                               field === 'dueDate' ? 'Due Date' :
                                field === 'name' ? 'Company Name' : 
-                               field === 'amount' ? 'Amount' : 'Status'}</span>
+                               field === 'clientName' ? 'Client Name' : 
+                               field === 'amount' ? 'Amount' : 
+                               field === 'status' ? 'Status' : 
+                               field === 'draft' ? 'Draft' : 
+                               field === 'pending' ? 'Pending' : 
+                               field === 'paid' ? 'Paid' : 'Cancelled'}</span>
                         {sortField === field && (
                           <span>{sortDirection === 'asc' ? '↑' : '↓'}</span>
                         )}
@@ -1428,12 +1554,24 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
                 </div>
               )}
             </div>
-            
-            <button className="btn-create" onClick={handleCreateInvoice}>
+          </div>
+          
+          {/* Right Controls: Action buttons */}
+          <div className="toolbar-right" style={{ display: 'flex', gap: '15px' }}>
+            <button 
+              className="btn-create" 
+              onClick={handleCreateInvoice}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px'
+              }}
+            >
+              <FiFileText />
               Create New Invoice
             </button>
             <button 
-              className="btn-create" 
+              className="btn-create secondary" 
               onClick={() => setShowDownloadModal(true)}
               disabled={isDownloading}
               style={{
@@ -1446,7 +1584,7 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
               {isDownloading ? `Downloading (${downloadProgress.current}/${downloadProgress.total})` : 'Download All'}
             </button>
           </div>
-        </header>
+        </div>
         
         {/* Invoice List */}
         {/* Download progress indicator */}
@@ -1564,6 +1702,14 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
                   }
                 }
                 
+                // Filter by status if a specific status filter is active
+                if (['draft', 'pending', 'paid', 'cancelled'].includes(sortField)) {
+                  const currentStatus = (invoice.status || invoiceStatuses[invoice.id] || 'Pending').toLowerCase();
+                  if (currentStatus !== sortField) {
+                    return false;
+                  }
+                }
+                
                 // Filter by search term if provided
                 if (searchTerm && 
                     !invoice.invoiceNumber?.toLowerCase().includes(searchTerm.toLowerCase()) &&
@@ -1581,11 +1727,21 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
                   logo: invoice.logoUrl || defaultLogo
                 };
                 
+                // Find client info for this invoice to get the client's logo
+                const invoiceClient = clients.find(c => c.name === invoice.recipientName);
+                const clientLogo = invoiceClient?.logo || defaultLogo;
+                
                 // Format the invoice date for display
                 const invoiceDate = new Date(invoice.invoiceDate);
                   // Get status for this invoice - prioritize the status stored in the invoice object itself
                 // If not found, check invoiceStatuses, and finally default to 'Pending'
-                const invoiceStatus = invoice.status || invoiceStatuses[invoice.id] || 'Pending';
+                let invoiceStatus = invoice.status || invoiceStatuses[invoice.id] || 'Pending';
+                if (invoiceStatus.toLowerCase() === 'pending' && invoice.dueDate) {
+                  const todayStr = new Date().toISOString().split('T')[0];
+                  if (todayStr > invoice.dueDate) {
+                    invoiceStatus = 'Overdue';
+                  }
+                }
                 
                 // Check if current user can access this invoice (admin or assigned user)
                 const canAccessInvoice = isAdmin || invoice.assigneeId === currentUserId;
@@ -1605,9 +1761,10 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
                   >
                     <div className="invoice-card-header">
                       <img 
-                        src={invoiceCompany.logo} 
-                        alt={invoiceCompany.name} 
+                        src={clientLogo} 
+                        alt={invoice.recipientName || 'Client'} 
                         className="invoice-company-logo"
+                        style={{ borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--border-color)' }}
                       />
                       <div className="invoice-info">
                         <span className="invoice-number">{invoice.invoiceNumber}</span>
@@ -1631,8 +1788,10 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
                         <span className="currency">{invoice.currency}</span>
                       </div>
                       <div className="invoice-date">
-                        <span className="label">Date:</span>
-                        <span className="value">{invoiceDate.toLocaleDateString()}</span>
+                        <span className="label">Due Date:</span>
+                        <span className="value">
+                          {invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString() : 'N/A'}
+                        </span>
                       </div>
                       <div className="invoice-status">
                         <span 
@@ -1654,12 +1813,7 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
                           }}
                           style={{ 
                             cursor: invoice.assigneeId === currentUserId ? 'pointer' : 'not-allowed', 
-                            position: 'relative',
-                            backgroundColor: !invoice.assigneeId ? 'var(--info-color, #2196f3)' :
-                                            invoiceStatus === 'Paid' ? 'var(--success-color, #4caf50)' : 
-                                            invoiceStatus === 'Pending' ? 'var(--warning-color, #ff9800)' :
-                                            invoiceStatus === 'Draft' ? 'var(--info-color, #2196f3)' :
-                                            invoiceStatus === 'Cancelled' ? 'var(--danger-color, #f44336)' : 'gray'
+                            position: 'relative'
                           }}
                           title={!invoice.assigneeId ? 
                                  "Invoice must be assigned before status can be changed" : 
@@ -1788,6 +1942,14 @@ const DashboardPage = ({ onLogout, darkMode, toggleDarkMode }) => {
                   }
                 }
               }
+              // Filter by status if a specific status filter is active
+              if (['draft', 'pending', 'paid', 'cancelled'].includes(sortField)) {
+                const currentStatus = (invoice.status || invoiceStatuses[invoice.id] || 'Pending').toLowerCase();
+                if (currentStatus !== sortField) {
+                  return false;
+                }
+              }
+
               if (searchTerm && 
                   !invoice.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) &&
                   !invoice.senderName.toLowerCase().includes(searchTerm.toLowerCase()) &&

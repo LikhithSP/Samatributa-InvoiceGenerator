@@ -181,9 +181,24 @@ function App() {
     if (!localStorage.getItem('serviceDescriptions')) {
       const defaultDescriptions = [
         { id: 1, text: 'US Federal Corporation Income Tax Return (Form 1120)' },
-        { id: 2, text: 'Foreign related party disclosure form with respect to a foreign subsidiary (Form 5417)' },
-        { id: 3, text: 'Foreign related party disclosure form with respect to a foreign shareholders (Form 5472)' },
-        { id: 4, text: 'Application for Automatic Extension of Time To File Business Income Tax (Form 7004)' }
+        { id: 2, text: 'US Partnership Income Tax Return (Form 1065)' },
+        { id: 3, text: 'US Individual Income Tax Return (Form 1040)' },
+        { id: 4, text: 'US S Corporation Income Tax Return (Form 1120-S)' },
+        { id: 5, text: 'Foreign Related Party Disclosure (Form 5471)' },
+        { id: 6, text: 'Foreign Related Party Disclosure (Form 5472)' },
+        { id: 7, text: 'Application for Automatic Extension of Time To File (Form 7004)' },
+        { id: 8, text: 'Bookkeeping Services' },
+        { id: 9, text: 'Payroll Processing & Payroll Tax Filing' },
+        { id: 10, text: 'Financial Statement Preparation' },
+        { id: 11, text: 'Tax Planning & Advisory Services' },
+        { id: 12, text: 'Accounting & Compliance Services' },
+        { id: 13, text: 'GST Registration' },
+        { id: 14, text: 'GST Return Filing' },
+        { id: 15, text: 'GST Audit & Compliance' },
+        { id: 16, text: 'Business Consulting Services' },
+        { id: 17, text: 'Virtual CFO Services' },
+        { id: 18, text: 'Company Incorporation & Registration' },
+        { id: 19, text: 'Other Professional Services' }
       ];
       localStorage.setItem('serviceDescriptions', JSON.stringify(defaultDescriptions));
     }

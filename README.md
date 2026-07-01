@@ -2,6 +2,8 @@
 <p align="center">
   <img src="./prev01.png">
   <img src="./prev02.png">
+  <img src="./prev03.png">
+  <img src="./prev04.png">
   <b>A professional enterprise-grade invoice management system with dual currency support (USD and INR),dashboard,manage and edit invoices  built with React and Vite</b><br><a href="https://journifyx.vercel.app" target="_blank">Visit Now</a> <br>
 
 </p>
@@ -273,12 +275,36 @@ Common issues:
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
+## Recent Feature Enhancements (2026 Updates)
+
+### 1. Advanced Invoice Calculations & Fields
+- **Dual Amount Paid & Balance Due Inputs**: Enter payment details in either USD or INR; the system auto-converts based on the exchange rate and updates the **Grand Total (Balance Due)**.
+- **Auto-Calculations**: Dynamic calculations of subtotal, tax amount, amount paid, and balance due values.
+- **Custom Bank Fields**: Includes random account number, IFSC code, and customizable **UPI ID** fields.
+- **Signatures**: Digital signatures supported directly on invoice forms using name input.
+- **Due Date Tracking**: Automatically marks invoices as **Overdue** if they remain in a pending state past their due date.
+
+### 2. Premium Invoice Templates
+- **Redesigned Modern Template**: Fully overhauled minimalist template utilizing gradient blue banners, modern Poppins typography, rounded shadow card layouts, signature flows, UPI visibility, and high-contrast light labels for readability.
+- **Unified Exchange Rate Flow**: Template previews utilize the precise, custom exchange rate defined on the invoice during creation.
+
+### 3. Dashboard Improvements
+- **Default Sort Settings**: Invoices are now sorted by **Due Date** in **Ascending** order by default when the dashboard is loaded.
+- **New Sort Options**: Sort invoices by Client Name or Due Date.
+- **Status Sort Priority**: Dashboard sorting prioritizes status in the order of `Draft`, `Pending`, `Paid`, and `Cancelled`.
+- **Card Updates**: Dashboard invoice cards display **Due Date** instead of creation date with optimized column spacing so dates never wrap.
+- **Interactive Status Filters**: Filter dashboard cards by clicking on specific status categories.
+
+### 4. Usability & Mock flows
+- **Description Autocompletes**: Auto-populated service descriptions with 19 common tax returns (e.g. US Federal Form 1120, 1065, 1040) and accounting advisory options.
+- **Inline Send Mockup**: Simulated Send Invoice flow shows sending progress and a green success block directly inside the Send modal box without page redirection.
+
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
 
 ---
 
-© 2025 Sama Tributa Solutions | Created with ❤️ by Your Company
+© 2026 Sama Tributa Solutions | Created with ❤️ by Your Company
 
 

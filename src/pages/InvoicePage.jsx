@@ -58,7 +58,14 @@ const InvoicePage = ({ onLogout, darkMode, toggleDarkMode }) => {
     currency: 'USD',
     exchangeRate: 82,
     logoUrl: selectedCompany?.logo || defaultLogo,
-    notes: '',
+    notes: 'Thank you for your business.\n\nPlease remit payment within 15 days. Late payment attracts 2% interest.',
+    dueDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    signature: '',
+    amountPaid: 0,
+    amountPaidUSD: 0,
+    amountPaidINR: 0,
+    balanceDueUSD: 0,
+    balanceDueINR: 0,
     items: [
       {
         id: `item-${Math.random().toString(36).substr(2, 9)}`,
@@ -66,15 +73,24 @@ const InvoicePage = ({ onLogout, darkMode, toggleDarkMode }) => {
         description: '',
         amountUSD: 0,
         amountINR: 0,
-        subServices: [], // Use subServices consistently instead of nestedRows
+        subServices: [
+          {
+            id: `sub-${Math.random().toString(36).substr(2, 9)}`,
+            name: '',
+            description: '',
+            amountUSD: 0,
+            amountINR: 0
+          }
+        ], // Use subServices consistently instead of nestedRows
         type: 'main'
       }
     ],
     // Bank details - prefilled with requested values
     accountName: 'Samatributa Solutions LLP',
     bankName: 'Yes Bank Limited',
-    accountNumber: '1111111',
-    ifscCode: '11111',
+    accountNumber: '912010023456789',
+    ifscCode: 'YESB0000123',
+    upiId: 'samatributa@okyesaxis',
     // Assignee information - assign to admin or invoicing associate if creating the invoice
     assigneeId: isAdmin ? currentUserId : (isInvoicingAssociate ? currentUserId : ''),
     assigneeName: isAdmin ? currentUserName : (isInvoicingAssociate ? currentUserName : ''),
@@ -241,15 +257,23 @@ const InvoicePage = ({ onLogout, darkMode, toggleDarkMode }) => {
         // Bank details - prefilled with requested values
         accountName: 'Samatributa Solutions LLP',
         bankName: 'Yes Bank Limited',
-        accountNumber: '1111111',
-        ifscCode: '11111',
+        accountNumber: '912010023456789',
+        ifscCode: 'YESB0000123',
+        upiId: 'samatributa@okyesaxis',
         recipientName: '',
         recipientEmail: '',
         recipientAddress: '',
         recipientPhone: '',
         recipientGSTIN: '',
         recipientPAN: '',
-        notes: '',
+        notes: 'Thank you for your business.\n\nPlease remit payment within 15 days. Late payment attracts 2% interest.',
+        dueDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        signature: '',
+        amountPaid: 0,
+        amountPaidUSD: 0,
+        amountPaidINR: 0,
+        balanceDueUSD: 0,
+        balanceDueINR: 0,
         items: [
           {
             type: 'main',
@@ -257,7 +281,15 @@ const InvoicePage = ({ onLogout, darkMode, toggleDarkMode }) => {
             description: '',
             amountUSD: 0,
             amountINR: 0,
-            subServices: []
+            subServices: [
+              {
+                id: `sub-${Math.random().toString(36).substr(2, 9)}`,
+                name: '',
+                description: '',
+                amountUSD: 0,
+                amountINR: 0
+              }
+            ]
           }
         ],
         subtotalUSD: 0,
@@ -384,28 +416,34 @@ const InvoicePage = ({ onLogout, darkMode, toggleDarkMode }) => {
   return (
     <div className="container">
       {!showPreview && (
-        <header className="header">
-          <button 
-            className="back-btn"
-            onClick={handleBackClick}
-            style={{
-              background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', marginRight: 12, color: '#888', position: 'relative', top: 2
-            }}
-            title="Back to Dashboard"
-          >
-            {/* Back arrow icon instead of 'x' */}
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-          </button>
-          <div className="logo" onClick={() => navigate('/dashboard')} style={{ cursor: 'pointer' }}>
-            <img 
-              src={selectedCompany?.logo || defaultLogo} 
-              alt={selectedCompany?.name || companyName}
-              style={{ maxHeight: '40px' }}
-            />
-            <span className="company-name-header-text">{selectedCompany?.name || companyName}</span>
+        <header className="header" style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', width: '100%', gap: '15px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <button 
+              className="back-btn"
+              onClick={handleBackClick}
+              style={{
+                background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: '#888', display: 'flex', alignItems: 'center'
+              }}
+              title="Back to Dashboard"
+            >
+              {/* Back arrow icon instead of 'x' */}
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            </button>
+            <div className="logo" onClick={() => navigate('/dashboard')} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <img 
+                src={selectedCompany?.logo || defaultLogo} 
+                alt={selectedCompany?.name || companyName}
+                style={{ maxHeight: '40px' }}
+              />
+              <span className="company-name-header-text" style={{ fontSize: '1.2rem', fontWeight: 600 }}>{selectedCompany?.name || companyName}</span>
+            </div>
           </div>
-          <div className="user-actions" style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-            {/* Save Invoice button styled like the bottom one */}
+
+          <h1 style={{ margin: 0, fontSize: '1.75rem', fontWeight: 700, textAlign: 'center', color: darkMode ? '#fff' : '#111827' }}>
+            Invoice Editor
+          </h1>
+
+          <div className="user-actions" style={{ display: 'flex', alignItems: 'center', gap: '20px', justifyContent: 'flex-end' }}>
             {isAuthorized && (
               <button 
                 onClick={saveInvoice} 
@@ -449,6 +487,7 @@ const InvoicePage = ({ onLogout, darkMode, toggleDarkMode }) => {
           setInvoiceData={setInvoiceData}
           handleInputChange={handleInputChange}
           onPreview={handlePreview}
+          onClosePreview={closePreview}
           onReset={resetForm}
           onSave={saveInvoice}
           onDelete={deleteInvoice}
